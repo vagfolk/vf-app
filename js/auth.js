@@ -2,62 +2,61 @@
 // AUTH.JS – Google OAuth + rollstyrning via VF-EKO
 // -------------------------------------------------------
 
-let currentUser = null; // { name, email, role, payStatus, payDue }
+let currentUser = null;
 let accessToken  = null;
 
-// Called automatically by Google's GSI library when page loads
-function initGoogleSignIn() {
-  google.accounts.id.initialize({
-    client_id: CLIENT_ID,
-    callback: handleCredentialResponse,
-    auto_select: false
+// Build the Google OAuth URL and redirect
+function startGoogleLogin() {
+  const params = new URLSearchParams({
+    client_id:     CLIENT_ID,
+    redirect_uri:  window.location.origin + window.location.pathname,
+    response_type: 'token',
+    scope:         SCOPES,
+    prompt:        'select_account'
   });
-  google.accounts.id.renderButton(
-    document.getElementById('googleSignInBtn'),
-    { theme: 'outline', size: 'large', text: 'signin_with', locale: 'sv' }
-  );
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
 }
 
-// Called when user completes Google sign-in
-async function handleCredentialResponse(response) {
+// On page load – check if we're returning from Google with a token in the URL hash
+async function checkOAuthReturn() {
+  const hash   = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  const token  = params.get('access_token');
+  if (!token) return false;
+
+  // Clean the token from the URL
+  history.replaceState(null, '', window.location.pathname);
+
+  accessToken = token;
+
+  // Get user info from Google
   try {
-    // Decode JWT to get basic user info (name, email)
-    const payload = parseJwt(response.credential);
-
-    // Request an access token for API calls (Drive, Sheets, Calendar)
-    const tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: async (tokenResponse) => {
-        if (tokenResponse.error) {
-          showLoginError('Kunde inte hämta åtkomst. Försök igen.');
-          return;
-        }
-        accessToken = tokenResponse.access_token;
-
-        // Look up the user in VF-EKO Sheets
-        const member = await lookupMember(payload.email);
-        if (!member) {
-          showLoginError('Du verkar inte vara registrerad medlem. Kontakta styrelsen.');
-          return;
-        }
-
-        currentUser = {
-          name: payload.name || member.namn || payload.email,
-          email: payload.email,
-          role: member.approll || 'Medlem',
-          payStatus: member.payStatus,
-          payDue: member.payDue
-        };
-
-        onLoginSuccess();
-      }
+    const res  = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { 'Authorization': 'Bearer ' + token }
     });
-    tokenClient.requestAccessToken({ prompt: 'consent' });
+    const info = await res.json();
 
+    // Look up in VF-EKO
+    const member = await lookupMember(info.email);
+    if (!member) {
+      showLoginError('Du verkar inte vara registrerad medlem. Kontakta styrelsen.');
+      accessToken = null;
+      return true;
+    }
+
+    currentUser = {
+      name:      info.name || member.namn || info.email,
+      email:     info.email,
+      role:      member.approll || 'Medlem',
+      payStatus: member.payStatus,
+      payDue:    member.payDue
+    };
+    onLoginSuccess();
+    return true;
   } catch (err) {
     console.error('Auth error:', err);
     showLoginError('Inloggning misslyckades. Försök igen.');
+    return true;
   }
 }
 
@@ -207,12 +206,14 @@ async function apiFetch(url, options = {}) {
   });
 }
 
-// Init Google Sign-In once GSI library is ready
-window.addEventListener('load', () => {
-  const check = setInterval(() => {
-    if (window.google && google.accounts) {
-      clearInterval(check);
-      initGoogleSignIn();
+// On page load – check for OAuth return, otherwise show login button
+window.addEventListener('load', async () => {
+  const wasReturn = await checkOAuthReturn();
+  if (!wasReturn) {
+    // Show login button
+    const btn = document.getElementById('googleSignInBtn');
+    if (btn) {
+      btn.innerHTML = '<button onclick="startGoogleLogin()" style="display:flex;align-items:center;gap:10px;padding:12px 20px;border:1px solid #dadce0;border-radius:6px;background:#fff;cursor:pointer;font-family:inherit;font-size:15px;font-weight:500;color:#3c4043;"><svg width=18 height=18 viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>Logga in med Google</button>';
     }
-  }, 100);
+  }
 });
