@@ -212,12 +212,17 @@ async function apiFetch(url, options = {}) {
   });
 }
 
-// Init when GIS library is ready
+// Dynamically load GIS script then init
 window.addEventListener('load', () => {
-  const check = setInterval(() => {
-    if (window.google && google.accounts && google.accounts.oauth2) {
-      clearInterval(check);
-      initAuth();
-    }
-  }, 100);
+  const script = document.createElement('script');
+  script.src = 'https://accounts.google.com/gsi/client';
+  script.onload = () => {
+    console.log('GIS loaded OK');
+    initAuth();
+  };
+  script.onerror = (e) => {
+    console.error('GIS failed to load:', e);
+    showLoginError('Kunde inte ladda inloggningsbiblioteket. Kontrollera din internetanslutning.');
+  };
+  document.head.appendChild(script);
 });
