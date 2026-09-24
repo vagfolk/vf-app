@@ -6,7 +6,7 @@ let currentUser = null;
 let accessToken  = null;
 let tokenClient  = null;
 
-// Initialize token client (no popup, no redirect)
+// Initialize token client
 function initAuth() {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
@@ -17,6 +17,7 @@ function initAuth() {
         return;
       }
       accessToken = response.access_token;
+      console.log('Token mottaget:', accessToken ? 'JA (' + accessToken.length + ' tecken)' : 'NEJ - null');
       await handleTokenReceived();
     }
   });
@@ -48,14 +49,12 @@ function startGoogleLogin() {
 
 async function handleTokenReceived() {
   try {
-    // Get user info
     const res  = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { 'Authorization': 'Bearer ' + accessToken }
     });
     const info = await res.json();
     console.log('Logged in as:', info.email);
 
-    // Look up in VF-EKO
     const member = await lookupMember(info.email);
     if (!member) {
       showLoginError('Du verkar inte vara registrerad medlem. Kontakta styrelsen.');
@@ -80,13 +79,19 @@ async function handleTokenReceived() {
 
 async function lookupMember(email) {
   try {
-    const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEETS_VFEKO_ID + '/values/' + encodeURIComponent('Medlemmar!A1:Z300');
+    const url = 'https://sheets.googleapis.com/v4/spreadsheets/'
+      + SHEETS_VFEKO_ID
+      + '/values:batchGet?ranges='
+      + encodeURIComponent('Medlemmar!A1:Z300');
+
+    console.log('Sheets URL:', url);
     const res  = await apiFetch(url);
+    console.log('Sheets status:', res.status);
     const data = await res.json();
-    console.log('Sheets response status:', res.status);
     console.log('Sheets data:', data);
-    const rows = data.values || [];
-    if (rows.length < 2) return null;
+
+    const rows = (data.valueRanges && data.valueRanges[0] && data.valueRanges[0].values) || [];
+    if (rows.length < 2) { console.warn('No rows found'); return null; }
 
     let headerIdx = -1;
     let colEmail = -1, colNamn = -1, colApproll = -1;
@@ -102,15 +107,16 @@ async function lookupMember(email) {
         colBetalat   = row.indexOf('BETALAT');
         colForfall   = row.findIndex(h => h.includes('BETALD') && h.includes('DATUM'));
         colRadstatus = row.indexOf('RADSTATUS');
-        console.log('Header found at row', i, '| E-POST col:', colEmail, '| APPROLL col:', colApproll);
+        console.log('Header row:', i, '| E-POST:', colEmail, '| APPROLL:', colApproll);
         break;
       }
     }
-    if (headerIdx === -1) { console.error('Header row not found!'); return null; }
+    if (headerIdx === -1) { console.error('Header not found'); return null; }
 
     for (let i = headerIdx + 1; i < rows.length; i++) {
       const row      = rows[i];
       const rowEmail = (row[colEmail] || '').trim().toLowerCase();
+      console.log('Checking row', i, ':', rowEmail, 'vs', email.toLowerCase());
       if (rowEmail === email.toLowerCase()) {
         const status = (row[colRadstatus] || '').trim().toLowerCase();
         if (status === 'inaktiv' || status === 'borttagen') return null;
@@ -136,7 +142,7 @@ async function lookupMember(email) {
         };
       }
     }
-    console.warn('Email not found in sheet:', email);
+    console.warn('Email not found:', email);
     return null;
   } catch (err) {
     console.error('lookupMember error:', err);
@@ -186,7 +192,7 @@ function showPaymentBanner(status, dueDate) {
 }
 
 function logout() {
-  google.accounts.oauth2.revoke(accessToken, () => {});
+  if (accessToken) google.accounts.oauth2.revoke(accessToken, () => {});
   currentUser = null;
   accessToken  = null;
   stopAnslagstavlaPolling();
