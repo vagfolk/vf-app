@@ -2,9 +2,9 @@
 // AUTH.JS – Google OAuth via GIS Token Client
 // -------------------------------------------------------
 
-let currentUser = null;
-let accessToken  = null;
-let tokenClient  = null;
+window.currentUser = null;
+window.accessToken  = null;
+window.tokenClient  = null;
 
 // Initialize token client
 function initAuth() {
@@ -16,8 +16,8 @@ function initAuth() {
         showLoginError('Inloggning misslyckades: ' + response.error);
         return;
       }
-      accessToken = response.access_token;
-      console.log('Token mottaget:', accessToken ? 'JA (' + accessToken.length + ' tecken)' : 'NEJ - null');
+      window.accessToken = response.access_token;
+      console.log('Token mottaget:', window.accessToken ? 'JA (' + window.accessToken.length + ' tecken)' : 'NEJ - null');
       await handleTokenReceived();
     }
   });
@@ -58,7 +58,7 @@ async function handleTokenReceived() {
     const member = await lookupMember(info.email);
     if (!member) {
       showLoginError('Du verkar inte vara registrerad medlem. Kontakta styrelsen.');
-      accessToken = null;
+      window.accessToken = null;
       return;
     }
 
@@ -192,9 +192,9 @@ function showPaymentBanner(status, dueDate) {
 }
 
 function logout() {
-  if (accessToken) google.accounts.oauth2.revoke(accessToken, () => {});
-  currentUser = null;
-  accessToken  = null;
+  if (window.accessToken) google.accounts.oauth2.revoke(window.accessToken, () => {});
+  window.currentUser = null;
+  window.accessToken  = null;
   stopAnslagstavlaPolling();
   document.body.classList.remove('role-member', 'role-board');
   document.body.classList.add('role-member');
@@ -211,7 +211,7 @@ async function apiFetch(url, options = {}) {
   return fetch(url, {
     ...options,
     headers: {
-      'Authorization': 'Bearer ' + accessToken,
+      'Authorization': 'Bearer ' + window.accessToken,
       'Content-Type': 'application/json',
       ...(options.headers || {})
     }
