@@ -80,7 +80,8 @@ async function handleTokenReceived() {
 
 async function lookupMember(email) {
   try {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_VFEKO_ID}/values/${SHEET_MEMBERS_TAB}!A1:Z300`;
+    const range = encodeURIComponent(`${SHEET_MEMBERS_TAB}!A1:Z300`);
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_VFEKO_ID}/values/${range}`;
     const res  = await apiFetch(url);
     const data = await res.json();
     console.log('Sheets response status:', res.status);
