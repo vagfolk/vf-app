@@ -27,7 +27,7 @@ const ANSLAGSTAVLA_POLL_INTERVAL = 8000; // milliseconds
 
 // API SCOPES
 const SCOPES = [
-  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive',
   'https://www.googleapis.com/auth/spreadsheets.readonly',
   'https://www.googleapis.com/auth/calendar.readonly',
   'openid',
