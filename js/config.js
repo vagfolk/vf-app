@@ -16,7 +16,7 @@ const CALENDAR_BOARD_ID = '3fee693fbd4e02810122287900de1ce92ef977c74785b0ecc436a
 // SHEETS – VF-EKO Spreadsheet ID
 // To find: open VF-EKO in Google Sheets, copy the ID from the URL:
 // https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_IS_HERE/edit
-const SHEETS_VFEKO_ID = '19-Esi0ygIGQzpUBHOwjUiOynPWPEN9vg';
+const SHEETS_VFEKO_ID = '1cXFFjChwMKhT8gNIamFjcsb8MAQPEgElXXWKWhukkmM';
 
 // MEMBERS SHEET NAME (the tab in VF-EKO)
 const SHEET_MEMBERS_TAB = 'Medlemmar';
