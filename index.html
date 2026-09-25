@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vägfölk</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛣️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+
+</head>
+<body class="role-member">
+
+  <!-- LOGIN SCREEN -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-inner">
+      <div class="login-lockup">
+        <span class="wordmark">VÄG<span>FÖLK</span></span>
+        <p>Logga in med ditt Google-konto</p>
+      </div>
+      <div id="googleSignInBtn"></div>
+      <p id="loginError" class="login-error"></p>
+    </div>
+  </div>
+
+  <!-- APP SHELL (hidden until logged in) -->
+  <div id="appShell" class="app-shell hidden">
+
+    <div class="roadline"></div>
+
+    <header class="topbar">
+      <span class="wordmark">VÄG<span>FÖLK</span></span>
+    </header>
+
+    <div class="statusbar" id="statusbar">
+      <span class="user-chip" id="userChip"></span>
+      <span class="status-right">
+        <span><span class="online-dot"></span><span id="onlineCount">–</span></span>
+        <button class="logout-btn" onclick="logout()">Logga ut</button>
+      </span>
+    </div>
+
+    <!-- PAYMENT BANNER -->
+    <div id="paymentBanner" class="payment-banner hidden"></div>
+
+    <!-- SCREENS -->
+    <main id="screens">
+
+      <!-- MENU -->
+      <section class="screen active" id="screen-menu">
+        <div class="meeting-panel" id="nextMeetingPanel">
+          <div>
+            <div class="panel-label">NÄSTA MÖTE</div>
+            <h3 id="nextMeetingName">Laddar…</h3>
+            <p id="nextMeetingPlace"></p>
+          </div>
+          <div class="meeting-when">
+            <div class="meeting-day" id="nextMeetingDay">–</div>
+            <div class="meeting-mon" id="nextMeetingMon"></div>
+          </div>
+        </div>
+        <div class="menu-grid">
+          <button class="menu-btn" onclick="showScreen('calendar')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="5" width="18" height="16" rx="1.5"/><line x1="3" y1="9.5" x2="21" y2="9.5"/><line x1="7.5" y1="3" x2="7.5" y2="7"/><line x1="16.5" y1="3" x2="16.5" y2="7"/></svg>
+            <span>Kalender</span>
+          </button>
+          <button class="menu-btn" onclick="showScreen('todo')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="4" y="4" width="5" height="5" rx="1"/><path d="M5.3 6.5l1 1 1.8-1.9"/><line x1="12" y1="6.5" x2="20" y2="6.5"/><rect x="4" y="14" width="5" height="5" rx="1"/><line x1="12" y1="16.5" x2="20" y2="16.5"/></svg>
+            <span>Att göra</span>
+          </button>
+          <button class="menu-btn" onclick="showScreen('kassa')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><path d="M14.5 9.3c-.4-.8-1.3-1.3-2.4-1.3-1.5 0-2.6.9-2.6 2s1 1.7 2.5 2c1.6.3 2.6.9 2.6 2.1 0 1.1-1.1 2-2.6 2-1.1 0-2-.5-2.4-1.3"/><line x1="12" y1="6.7" x2="12" y2="17.3"/></svg>
+            <span>Kassa</span>
+          </button>
+          <button class="menu-btn" onclick="showScreen('protokoll')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M6 3h9l4 4v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="15.5" x2="16" y2="15.5"/></svg>
+            <span>Protokoll</span>
+          </button>
+          <button class="menu-btn" onclick="showScreen('anslagstavla')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 5.5h16v10H9.5L5 19v-3.5H4v-10z"/></svg>
+            <span>Anslagstavla</span>
+          </button>
+          <button class="menu-btn wide" onclick="showScreen('mote')">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="8.5" cy="9" r="3"/><circle cx="16" cy="10.5" r="2.2"/><path d="M3.5 19c.5-3 2.5-4.7 5-4.7s4.5 1.7 5 4.7"/><path d="M14.3 14.7c2 .2 3.4 1.7 3.8 4.3"/></svg>
+            <span>Mötesläge<small>Live agenda under pågående möte</small></span>
+          </button>
+        </div>
+      </section>
+
+      <!-- CALENDAR -->
+      <section class="screen" id="screen-calendar">
+        <div class="back-row"><button class="back-btn" onclick="showScreen('menu')">← Meny</button></div>
+        <h1 class="screen-title">Kalender</h1>
+        <p class="screen-sub">Kommande möten och aktiviteter</p>
+        <div id="calendarList"><p class="loading">Laddar kalender…</p></div>
+      </section>
+
+      <!-- ATT GÖRA -->
+      <section class="screen" id="screen-todo">
+        <div class="back-row"><button class="back-btn" onclick="showScreen('menu')">← Meny</button></div>
+        <h1 class="screen-title">Att göra</h1>
+        <div class="member-only">
+          <p class="screen-sub">Dina punkter</p>
+          <div id="todoMember"><p class="loading">Laddar…</p></div>
+        </div>
+        <div class="board-only">
+          <p class="screen-sub">Styrelsens punkter</p>
+          <div id="todoBoard"><p class="loading">Laddar…</p></div>
+        </div>
+      </section>
+
+      <!-- KASSA -->
+      <section class="screen" id="screen-kassa">
+        <div class="back-row"><button class="back-btn" onclick="showScreen('menu')">← Meny</button></div>
+        <h1 class="screen-title">Kassa</h1>
+        <div class="member-only">
+          <p class="screen-sub">Din medlemsstatus</p>
+          <div id="memberPayStatus"><p class="loading">Laddar…</p></div>
+        </div>
+        <div class="board-only">
+          <p class="screen-sub">Föreningens kassabok</p>
+          <div id="kassabokBoard"><p class="loading">Laddar…</p></div>
+        </div>
+      </section>
+
+      <!-- PROTOKOLL -->
+      <section class="screen" id="screen-protokoll">
+        <div class="back-row"><button class="back-btn" onclick="showScreen('menu')">← Meny</button></div>
+        <h1 class="screen-title">Protokoll</h1>
+        <p class="screen-sub">Delade dokument från styrelsen</p>
+        <div class="subtabs board-only">
+          <button id="ptab-mp" class="on" onclick="showProtokollTab('mp')">Mötesprotokoll</button>
+          <button id="ptab-dok" onclick="showProtokollTab('dok')">Dokument</button>
+        </div>
+        <div class="subpane on board-only" id="ppane-mp">
+          <div id="protokollList"><p class="loading">Laddar protokoll…</p></div>
+        </div>
+        <div class="subpane" id="ppane-dok">
+          <div id="dokumentList"><p class="loading">Laddar dokument…</p></div>
+        </div>
+      </section>
+
+      <!-- ANSLAGSTAVLA -->
+      <section class="screen" id="screen-anslagstavla">
+        <div class="back-row"><button class="back-btn" onclick="showScreen('menu')">← Meny</button></div>
+        <h1 class="screen-title">Anslagstavla</h1>
+        <p class="screen-sub">Snabba meddelanden på vägen</p>
+        <div class="quick-posts">
+          <button class="quick-btn" onclick="postMessage('Blir sen')">Blir sen</button>
+          <button class="quick-btn" onclick="postMessage('Hittar inte dit')">Hittar inte dit</button>
+          <button class="quick-btn urgent" onclick="postMessage('Behöver hjälp')">Behöver hjälp</button>
+        </div>
+        <div id="boardMessages"></div>
+        <div class="chat-input-row">
+          <input id="boardInput" type="text" placeholder="Skriv eget meddelande…">
+          <button onclick="postCustomMessage()">Posta</button>
+        </div>
+      </section>
+
+      <!-- MÖTESLÄGE -->
+      <section class="screen" id="screen-mote">
+        <div class="back-row"><button class="back-btn" onclick="showScreen('menu')">← Meny</button></div>
+        <h1 class="screen-title">Mötesläge</h1>
+        <p class="screen-sub" id="moteSub">Inget aktivt möte just nu</p>
+        <div id="agendaCurrent" class="agenda-current hidden"></div>
+        <div class="board-only" id="boardControls" style="margin-bottom:22px; display:none;">
+          <h2 class="section-h">Styrelsekontroller</h2>
+          <button class="btn-primary" style="margin-top:0;" onclick="alert('Funktion kommer i nästa version.')">Visa dokument vid denna punkt</button>
+          <button class="btn-secondary" onclick="toggleAttendance()">Hämta närvarolista</button>
+          <div id="attendanceBox" class="hidden" style="margin-top:14px; border:1px solid var(--line); border-radius:8px; padding:14px 16px;">
+            <div style="font-size:11px; color:var(--muted); font-family:'IBM Plex Mono',monospace; margin-bottom:10px;" id="attendanceCount"></div>
+            <div id="attendanceList"></div>
+            <p style="font-size:11.5px; color:var(--muted); margin:10px 0 0;">Läggs automatiskt in under "Närvarande" i protokollet.</p>
+          </div>
+        </div>
+        <div id="agendaList"></div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/config.js?v=2"></script>
+  <script src="js/auth.js?v=2"></script>
+  <script src="js/drive.js?v=2"></script>
+  <script src="js/calendar.js?v=2"></script>
+  <script src="js/app.js?v=2"></script>
+</body>
+</html>
