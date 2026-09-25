@@ -103,12 +103,12 @@ function renderAnslagstavla(text) {
     // Format: ISO_TIMESTAMP|USER|urgent|MESSAGE
     const parts   = line.split('|');
     if (parts.length < 4) return '';
-    const ts      = new Date(parts[0]);
+    const dateParts = parts[0].split(' ');
+    const timeStr = dateParts[1] || parts[0];
     const user    = parts[1];
     const urgent  = parts[2] === '1';
     const msg     = parts.slice(3).join('|');
-    const isMe    = currentUser && user === currentUser.name;
-    const timeStr = ts.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+    const isMe    = window.currentUser && user === window.currentUser.name;
     const urgentTag = urgent ? ' <span class="urgent-tag">Behöver hjälp</span>' : '';
     return `
       <div class="msg${urgent ? ' urgent' : ''}${isMe ? ' me' : ''}">
@@ -124,9 +124,14 @@ async function appendToAnslagstavla(message, urgent) {
     const fileId = await getAnslagstavlaFileId();
     if (!fileId) { alert('Anslagstavlan är inte uppsatt än.'); return; }
 
-    const ts   = new Date().toISOString();
-    const name = currentUser?.name || 'Okänd';
-    const line = `${ts}|${name}|${urgent ? '1' : '0'}|${message}\n`;
+    const now  = new Date();
+    const ts   = now.getFullYear() + '-'
+      + String(now.getMonth()+1).padStart(2,'0') + '-'
+      + String(now.getDate()).padStart(2,'0') + ' '
+      + String(now.getHours()).padStart(2,'0') + ':'
+      + String(now.getMinutes()).padStart(2,'0');
+    const name = (window.currentUser && window.currentUser.name) ? window.currentUser.name : 'Okänd';
+    const line = ts + '|' + name + '|' + (urgent ? '1' : '0') + '|' + message + '\n';
 
     // Append by downloading, appending, re-uploading
     const getRes = await apiFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
