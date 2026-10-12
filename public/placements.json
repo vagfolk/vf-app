@@ -1,0 +1,21 @@
+{
+  "width": 1672,
+  "height": 941,
+  "note": "Placering och bildmått uppmätta genom exakt pixelmatchning mot original_utan_markeringar.png. Källfilen paneler_layout.json har äldre beskärningsmått och har inte ändrats.",
+  "panels": [
+    {"id":"01","x":2,"y":27,"width":624,"height":198},
+    {"id":"02","x":487,"y":-30,"width":709,"height":255},
+    {"id":"03","x":1027,"y":-13,"width":652,"height":255},
+    {"id":"04","x":-38,"y":138,"width":340,"height":737},
+    {"id":"05","x":224,"y":179,"width":369,"height":227},
+    {"id":"06","x":204,"y":358,"width":369,"height":283},
+    {"id":"07","x":520,"y":180,"width":822,"height":624},
+    {"id":"08","x":1323,"y":187,"width":329,"height":182},
+    {"id":"09","x":1312,"y":328,"width":369,"height":312},
+    {"id":"10","x":184,"y":604,"width":376,"height":198},
+    {"id":"11","x":1330,"y":604,"width":335,"height":188},
+    {"id":"12","x":65,"y":776,"width":482,"height":138},
+    {"id":"13","x":482,"y":789,"width":673,"height":114},
+    {"id":"14","x":1109,"y":784,"width":445,"height":116}
+  ]
+}
