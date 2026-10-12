@@ -60,7 +60,7 @@
     if (permissions.has('members_manage')) actions.append(button('Medlemmar och roller','navigate','secretary'));
     if (permissions.has('finance_manage')) actions.append(button('Kassörens ekonomi','navigate','treasurer'));
     if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
-    if (options.user) actions.append(button('Logga ut','signout'));
+    if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng testvyn' : 'Logga ut','signout'));
     root.append(actions, notice());
   };
   const renderCalendar = root => {
