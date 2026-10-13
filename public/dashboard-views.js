@@ -36,7 +36,19 @@
     fragment.append(paragraph(kicker, 'view-kicker'), element('h2', '', title));
     return fragment;
   };
-  const notice = () => paragraph('Teknisk testversion med låtsasdata. Kalender, dokument och övriga föreningsfunktioner är ännu inte anslutna.', 'view-muted');
+  const notice = () => paragraph('Teknisk testversion. Ekonomiuppgifter och kalenderhändelser är testuppgifter. Övriga föreningsfunktioner är ännu inte anslutna.', 'view-muted');
+  const formatEvent = event => {
+    const date = event.allDay && /^\d{4}-\d{2}-\d{2}$/.test(event.start)
+      ? new Date(`${event.start}T12:00:00`) : new Date(event.start);
+    const label = new Intl.DateTimeFormat('sv-SE', {
+      weekday:'short',day:'numeric',month:'long',
+      ...(event.allDay ? {} : {hour:'2-digit',minute:'2-digit'})
+    }).format(date);
+    return `${label} · ${event.title}`;
+  };
+  const nextMeeting = (events, kind) => events.find(event =>
+    event.kind === kind && /möte/i.test(event.title) &&
+    new Date(event.start).getTime() >= Date.now());
   const group = (...children) => {
     const node = element('div', 'view-actions');
     node.append(...children);
@@ -48,7 +60,17 @@
       ? 'Välj en funktion i menyn. Inloggning och EKO är ännu inte anslutna till den här publicerade vyn.'
       : 'Välj en funktion i menyn. Egen avgift och styrelsens ekonomiöversikt använder låtsasdata i den skyddade testservern.'));
     const grid = element('div', 'view-grid');
-    const meeting = card('Nästa möte', 'Mötesuppgifter är ännu inte anslutna.');
+    const events = options.calendar?.events || [];
+    const memberMeeting = nextMeeting(events, 'member');
+    const meeting = card('Nästa medlemsmöte', memberMeeting
+      ? formatEvent(memberMeeting) : options.calendar?.error
+        ? 'Kalendern kunde inte hämtas.' : 'Inget kommande medlemsmöte hittades.');
+    if (options.user?.permissions?.includes('board_view')) {
+      const boardMeeting = nextMeeting(events, 'board');
+      meeting.append(paragraph(boardMeeting
+        ? `Nästa styrelsemöte: ${formatEvent(boardMeeting)}`
+        : 'Inget kommande styrelsemöte hittades.'));
+    }
     meeting.append(button('Öppna kalender', 'navigate', 'kalender'));
     const board = card('Från styrelsen', 'Meddelanden från styrelsen är ännu inte anslutna.');
     board.append(button('Öppna snabbtavlan', 'navigate', 'snabbtavla'));
@@ -63,7 +85,7 @@
     if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng testvyn' : 'Logga ut','signout'));
     root.append(actions, notice());
   };
-  const renderCalendar = root => {
+  const renderCalendar = (root, options) => {
     root.append(heading('Kalender', 'Möten och aktiviteter'));
     const nav = element('div', 'view-calendar-header');
     nav.append(button('‹', 'month', -1), element('strong', '', new Intl.DateTimeFormat('sv-SE', {month:'long',year:'numeric'}).format(state.month)), button('›', 'month', 1));
@@ -77,13 +99,32 @@
     const today = new Date();
     for (let day = 1; day <= days; day++) {
       const dayButton = button(String(day), 'day', day, day === state.day);
+      const key = [state.month.getFullYear(),String(state.month.getMonth()+1).padStart(2,'0'),String(day).padStart(2,'0')].join('-');
+      if ((options.calendar?.events || []).some(event => {
+        const date = event.allDay ? event.start.slice(0,10) : new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(event.start));
+        return date === key;
+      })) dayButton.classList.add('has-events');
       if (day === state.day) dayButton.classList.add('selected');
       if (day === today.getDate() && state.month.getMonth() === today.getMonth() && state.month.getFullYear() === today.getFullYear()) dayButton.classList.add('today');
       calendar.append(dayButton);
     }
     root.append(calendar);
     const chosen = new Date(state.month.getFullYear(), state.month.getMonth(), Math.min(state.day,days));
-    root.append(card(new Intl.DateTimeFormat('sv-SE',{weekday:'long',day:'numeric',month:'long'}).format(chosen), 'Mötes- och aktivitetsuppgifter är ännu inte anslutna.'), notice());
+    const selectedDay = [chosen.getFullYear(), String(chosen.getMonth()+1).padStart(2,'0'), String(chosen.getDate()).padStart(2,'0')].join('-');
+    const dayEvents = (options.calendar?.events || []).filter(event => {
+      if (event.allDay) return event.start.slice(0,10) === selectedDay;
+      const local = new Date(event.start);
+      return [local.getFullYear(),String(local.getMonth()+1).padStart(2,'0'),String(local.getDate()).padStart(2,'0')].join('-') === selectedDay;
+    });
+    if (options.calendar?.error) root.append(card('Kalendern kunde inte hämtas', 'Försök igen senare.', 'alert'));
+    else if (!options.calendar) root.append(card('Hämtar kalender', 'Vänta ett ögonblick.'));
+    else {
+      const list = element('ul','view-list');
+      if (!dayEvents.length) list.append(element('li','','Inga händelser den dagen.'));
+      dayEvents.forEach(event => list.append(element('li','',`${event.kind === 'board' ? 'Styrelse' : 'Medlemmar'} · ${formatEvent(event)}`)));
+      root.append(card(new Intl.DateTimeFormat('sv-SE',{weekday:'long',day:'numeric',month:'long'}).format(chosen), ''), list);
+    }
+    root.append(notice());
   };
   const renderTasks = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
@@ -240,6 +281,12 @@
   }
   window.VFPreviewViews = {
     options:{},
+    meetingText(calendar) {
+      const meeting = nextMeeting(calendar?.events || [], 'member');
+      return meeting ? formatEvent(meeting) : calendar?.error
+        ? 'Kalendern kunde inte hämtas.' : calendar
+          ? 'Inget kommande medlemsmöte hittades.' : 'Hämtar mötesuppgifter…';
+    },
     attach,
     show(id,options = {}) {currentView=id;this.options=options;draw(options);},
     refresh(options = {}) {this.options=options;draw(options);},

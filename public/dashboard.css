@@ -46,6 +46,7 @@
 .view-surface .view-calendar .weekday{color:#f7cf70;font-weight:700}
 .view-surface .view-calendar button.today{border-color:#4cdb88}
 .view-surface .view-calendar button.selected{background:#654319;border-color:#ffc34e}
+.view-surface .view-calendar button.has-events{box-shadow:inset 0 -3px #d2a637}
 .view-surface .view-calendar button:disabled{visibility:hidden}
 .view-surface .view-back{margin-bottom:12px}
 .view-surface .view-list{list-style:none;margin:0;padding:0}

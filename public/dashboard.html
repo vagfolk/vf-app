@@ -595,6 +595,9 @@
           showDashboardDetails();
           showMemberPanel();
           renderMenuContent();
+          const meetingText = document.querySelector('.unconnected-meeting span');
+          meetingText.textContent = window.VFPreviewViews.meetingText(data.calendar);
+          document.querySelector('.unconnected-meeting').setAttribute('aria-hidden','false');
           const compactFee = document.querySelector('.compact-fee');
           compactFee.textContent = sampleMemberStatus === 'paid' ? 'Medlemsavgift betald' : sampleMemberStatus === 'unpaid' ? 'Medlemsavgift inte betald' : 'Medlemsstatus saknas';
           compactFee.dataset.status = sampleMemberStatus;
