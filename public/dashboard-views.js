@@ -60,10 +60,11 @@
     const grid = element('div', 'view-grid');
     const events = options.calendar?.events || [];
     const memberMeeting = nextMeeting(events, 'member');
-    const meeting = card('Nästa medlemsmöte', memberMeeting
-      ? formatEvent(memberMeeting) : options.calendar?.error
+    const isBoard = options.user?.permissions?.includes('board_view');
+    const meeting = card(isBoard ? 'Nästa möte' : 'Nästa medlemsmöte', memberMeeting
+      ? `${isBoard ? 'Medlemsmöte: ' : ''}${formatEvent(memberMeeting)}` : options.calendar?.error
         ? 'Kalendern kunde inte hämtas.' : 'Inget kommande medlemsmöte hittades.');
-    if (options.user?.permissions?.includes('board_view')) {
+    if (isBoard) {
       const boardMeeting = nextMeeting(events, 'board');
       meeting.append(paragraph(boardMeeting
         ? `Nästa styrelsemöte: ${formatEvent(boardMeeting)}`
@@ -271,11 +272,13 @@
   }
   window.VFPreviewViews = {
     options:{},
-    meetingText(calendar) {
-      const meeting = nextMeeting(calendar?.events || [], 'member');
-      return meeting ? formatEvent(meeting) : calendar?.error
-        ? 'Kalendern kunde inte hämtas.' : calendar
-          ? 'Inget kommande medlemsmöte hittades.' : 'Hämtar mötesuppgifter…';
+    meetingText(calendar, isBoard = false) {
+      if (calendar?.error) return 'Kalendern kunde inte hämtas.';
+      if (!calendar) return 'Hämtar mötesuppgifter…';
+      const member = nextMeeting(calendar.events || [], 'member');
+      if (!isBoard) return member ? formatEvent(member) : 'Inget kommande medlemsmöte hittades.';
+      const board = nextMeeting(calendar.events || [], 'board');
+      return `Medlem: ${member ? formatEvent(member) : 'Inget möte inlagt'}\nStyrelse: ${board ? formatEvent(board) : 'Inget möte inlagt'}`;
     },
     attach,
     show(id,options = {}) {currentView=id;this.options=options;draw(options);},

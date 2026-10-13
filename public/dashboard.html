@@ -596,7 +596,9 @@
           showMemberPanel();
           renderMenuContent();
           const meetingText = document.querySelector('.unconnected-meeting span');
-          meetingText.textContent = window.VFPreviewViews.meetingText(data.calendar);
+          const isBoard = data.user?.permissions?.includes('board_view');
+          document.querySelector('.unconnected-meeting strong').textContent = isBoard ? 'Nästa möte' : 'Nästa medlemsmöte';
+          meetingText.textContent = window.VFPreviewViews.meetingText(data.calendar, isBoard);
           document.querySelector('.unconnected-meeting').setAttribute('aria-hidden','false');
           const compactFee = document.querySelector('.compact-fee');
           compactFee.textContent = sampleMemberStatus === 'paid' ? 'Medlemsavgift betald' : sampleMemberStatus === 'unpaid' ? 'Medlemsavgift inte betald' : 'Medlemsstatus saknas';

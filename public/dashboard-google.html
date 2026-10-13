@@ -94,6 +94,7 @@
 .unconnected-card strong{display:block;padding-bottom:6%;border-bottom:1px solid #a9adb02e;font-size:clamp(12px,1.1vw,19px);line-height:1.2;font-weight:600}
 .unconnected-card span{margin-top:9%;font-size:clamp(10px,.85vw,15px);line-height:1.4}
 .unconnected-meeting{left:15.2%;top:42%;width:16.8%;height:22.1%}
+.unconnected-meeting span{white-space:pre-line;overflow:hidden}
 .unconnected-board{left:81.7%;top:42%;width:15.7%;height:21.8%}
 .unconnected-meeting strong{color:#fa4a5d}
 .unconnected-board strong{color:#f3c956}
@@ -259,10 +260,11 @@
     const grid = element('div', 'view-grid');
     const events = options.calendar?.events || [];
     const memberMeeting = nextMeeting(events, 'member');
-    const meeting = card('Nästa medlemsmöte', memberMeeting
-      ? formatEvent(memberMeeting) : options.calendar?.error
+    const isBoard = options.user?.permissions?.includes('board_view');
+    const meeting = card(isBoard ? 'Nästa möte' : 'Nästa medlemsmöte', memberMeeting
+      ? `${isBoard ? 'Medlemsmöte: ' : ''}${formatEvent(memberMeeting)}` : options.calendar?.error
         ? 'Kalendern kunde inte hämtas.' : 'Inget kommande medlemsmöte hittades.');
-    if (options.user?.permissions?.includes('board_view')) {
+    if (isBoard) {
       const boardMeeting = nextMeeting(events, 'board');
       meeting.append(paragraph(boardMeeting
         ? `Nästa styrelsemöte: ${formatEvent(boardMeeting)}`
@@ -470,11 +472,13 @@
   }
   window.VFPreviewViews = {
     options:{},
-    meetingText(calendar) {
-      const meeting = nextMeeting(calendar?.events || [], 'member');
-      return meeting ? formatEvent(meeting) : calendar?.error
-        ? 'Kalendern kunde inte hämtas.' : calendar
-          ? 'Inget kommande medlemsmöte hittades.' : 'Hämtar mötesuppgifter…';
+    meetingText(calendar, isBoard = false) {
+      if (calendar?.error) return 'Kalendern kunde inte hämtas.';
+      if (!calendar) return 'Hämtar mötesuppgifter…';
+      const member = nextMeeting(calendar.events || [], 'member');
+      if (!isBoard) return member ? formatEvent(member) : 'Inget kommande medlemsmöte hittades.';
+      const board = nextMeeting(calendar.events || [], 'board');
+      return `Medlem: ${member ? formatEvent(member) : 'Inget möte inlagt'}\nStyrelse: ${board ? formatEvent(board) : 'Inget möte inlagt'}`;
     },
     attach,
     show(id,options = {}) {currentView=id;this.options=options;draw(options);},
@@ -1158,7 +1162,9 @@
           showMemberPanel();
           renderMenuContent();
           const meetingText = document.querySelector('.unconnected-meeting span');
-          meetingText.textContent = window.VFPreviewViews.meetingText(data.calendar);
+          const isBoard = data.user?.permissions?.includes('board_view');
+          document.querySelector('.unconnected-meeting strong').textContent = isBoard ? 'Nästa möte' : 'Nästa medlemsmöte';
+          meetingText.textContent = window.VFPreviewViews.meetingText(data.calendar, isBoard);
           document.querySelector('.unconnected-meeting').setAttribute('aria-hidden','false');
           const compactFee = document.querySelector('.compact-fee');
           compactFee.textContent = sampleMemberStatus === 'paid' ? 'Medlemsavgift betald' : sampleMemberStatus === 'unpaid' ? 'Medlemsavgift inte betald' : 'Medlemsstatus saknas';
