@@ -162,10 +162,9 @@ function doPost(event) {
         return reply_(false, 'calendar_setup_missing');
       }
       const now = new Date();
-      const until = new Date(now.getTime() + 366 * 86400000);
-      const events = readCalendar_(memberCalendarId, 'member', now, until);
+      const events = readCalendar_(memberCalendarId, 'member', now);
       if (boardAllowed) {
-        events.push(...readCalendar_(boardCalendarId, 'board', now, until));
+        events.push(...readCalendar_(boardCalendarId, 'board', now));
       }
       events.sort((a, b) => a.start.localeCompare(b.start));
       const links = boardAllowed ? {
@@ -222,14 +221,13 @@ function verifyCalendarAccess() {
   }
 }
 
-function readCalendar_(calendarId, kind, from, until) {
+function readCalendar_(calendarId, kind, from) {
   const events = [];
   let pageToken = '';
   for (let page = 0; page < 4; page++) {
     const url = 'https://www.googleapis.com/calendar/v3/calendars/' +
       encodeURIComponent(calendarId) + '/events?singleEvents=true&orderBy=startTime' +
       '&maxResults=250&timeMin=' + encodeURIComponent(from.toISOString()) +
-      '&timeMax=' + encodeURIComponent(until.toISOString()) +
       '&fields=' + encodeURIComponent('items(summary,start,end,status,visibility),nextPageToken') +
       (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
     const response = UrlFetchApp.fetch(url, {

@@ -285,7 +285,10 @@
     root.append(actions, notice());
   };
   const renderCalendar = (root, options) => {
-    root.append(heading('Kalender', 'Möten och aktiviteter'));
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const month = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(now);
+    root.append(heading('Kalender', `Kommande händelser i ${month}`));
     if (options.calendar?.error) root.append(card('Kalendern kunde inte hämtas', 'Försök igen senare.', 'alert'));
     else if (!options.calendar) root.append(card('Hämtar kalender', 'Vänta ett ögonblick.'));
     else {
@@ -305,8 +308,10 @@
         }
         section.append(header);
         const list = element('ul', 'view-calendar-events');
-        const events = options.calendar.events.filter(event => event.kind === kind);
-        if (!events.length) list.append(element('li', 'view-calendar-empty', 'Inga kommande händelser.'));
+        const events = (options.calendar.events || []).filter(event =>
+          event.kind === kind && new Date(event.start) < nextMonth &&
+          new Date(event.end) > now);
+        if (!events.length) list.append(element('li', 'view-calendar-empty', 'Inga fler händelser denna månad.'));
         for (const event of events) {
           const row = element('li', 'view-calendar-event');
           const date = element('time', '', formatEventDate(event));
