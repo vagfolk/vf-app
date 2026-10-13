@@ -229,7 +229,17 @@ function readCalendar_(calendarId, kind, from, until) {
       method: 'get', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
       muteHttpExceptions: true
     });
-    if (response.getResponseCode() !== 200) throw new Error('Calendar read failed');
+    if (response.getResponseCode() !== 200) {
+      let reason = 'unknown';
+      try {
+        const failure = JSON.parse(response.getContentText());
+        reason = String(failure.error && failure.error.errors &&
+          failure.error.errors[0] && failure.error.errors[0].reason || reason)
+          .replace(/[^A-Za-z_]/g, '').slice(0, 50);
+      } catch (_error) { /* Logga aldrig kalenderinnehåll eller token. */ }
+      throw new Error('Calendar read failed HTTP ' + response.getResponseCode() +
+        ' (' + reason + ')');
+    }
     const parsed = JSON.parse(response.getContentText());
     if (!parsed || !Array.isArray(parsed.items)) throw new Error('Invalid Calendar response');
     for (const item of parsed.items) {
