@@ -203,6 +203,9 @@ function validCalendarId_(value) {
 
 // Manuellt prov i Apps Script-redigeraren. Loggar endast antal testhändelser.
 function verifyCalendarAccess() {
+  ScriptApp.requireScopes(ScriptApp.AuthMode.FULL, [
+    'https://www.googleapis.com/auth/calendar.events.readonly'
+  ]);
   const properties = PropertiesService.getScriptProperties();
   const from = new Date();
   const until = new Date(from.getTime() + 366 * 86400000);
