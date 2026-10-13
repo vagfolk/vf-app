@@ -201,6 +201,20 @@ function validCalendarId_(value) {
     /^[A-Za-z0-9._@-]+$/.test(value);
 }
 
+// Manuellt prov i Apps Script-redigeraren. Loggar endast antal testhändelser.
+function verifyCalendarAccess() {
+  const properties = PropertiesService.getScriptProperties();
+  const from = new Date();
+  const until = new Date(from.getTime() + 366 * 86400000);
+  for (const [key, kind] of [
+    [MEMBER_CALENDAR_PROPERTY, 'member'], [BOARD_CALENDAR_PROPERTY, 'board']
+  ]) {
+    const id = properties.getProperty(key);
+    if (!validCalendarId_(id)) throw new Error('Kalender-ID saknas: ' + key);
+    console.log(kind + ': ' + readCalendar_(id, kind, from, until).length + ' testhändelser');
+  }
+}
+
 function readCalendar_(calendarId, kind, from, until) {
   const events = [];
   let pageToken = '';
