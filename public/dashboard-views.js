@@ -1,8 +1,6 @@
 /* Fungerande vyer för gränssnittsprovet. Inga föreningsuppgifter läses eller sparas. */
 (() => {
   const state = {
-    month: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    day: new Date().getDate(),
     documentTab: 'medlem',
     taskTab: 'medlem',
     tasks: [],
@@ -37,15 +35,15 @@
     return fragment;
   };
   const notice = () => paragraph('Teknisk testversion. Ekonomiuppgifter och kalenderhändelser är testuppgifter. Övriga föreningsfunktioner är ännu inte anslutna.', 'view-muted');
-  const formatEvent = event => {
+  const formatEventDate = event => {
     const date = event.allDay && /^\d{4}-\d{2}-\d{2}$/.test(event.start)
       ? new Date(`${event.start}T12:00:00`) : new Date(event.start);
-    const label = new Intl.DateTimeFormat('sv-SE', {
+    return new Intl.DateTimeFormat('sv-SE', {
       weekday:'short',day:'numeric',month:'long',
       ...(event.allDay ? {} : {hour:'2-digit',minute:'2-digit'})
     }).format(date);
-    return `${label} · ${event.title}`;
   };
+  const formatEvent = event => `${formatEventDate(event)} · ${event.title}`;
   const nextMeeting = (events, kind) => events.find(event =>
     event.kind === kind && /möte/i.test(event.title) &&
     new Date(event.start).getTime() >= Date.now());
@@ -87,42 +85,38 @@
   };
   const renderCalendar = (root, options) => {
     root.append(heading('Kalender', 'Möten och aktiviteter'));
-    const nav = element('div', 'view-calendar-header');
-    nav.append(button('‹', 'month', -1), element('strong', '', new Intl.DateTimeFormat('sv-SE', {month:'long',year:'numeric'}).format(state.month)), button('›', 'month', 1));
-    root.append(nav);
-    const calendar = element('div', 'view-calendar');
-    const weekdays = ['M','T','O','T','F','L','S'];
-    weekdays.forEach(day => calendar.append(element('span', 'weekday', day)));
-    const offset = (state.month.getDay() + 6) % 7;
-    const days = new Date(state.month.getFullYear(), state.month.getMonth() + 1, 0).getDate();
-    for (let index = 0; index < offset; index++) calendar.append(element('span'));
-    const today = new Date();
-    for (let day = 1; day <= days; day++) {
-      const dayButton = button(String(day), 'day', day, day === state.day);
-      const key = [state.month.getFullYear(),String(state.month.getMonth()+1).padStart(2,'0'),String(day).padStart(2,'0')].join('-');
-      if ((options.calendar?.events || []).some(event => {
-        const date = event.allDay ? event.start.slice(0,10) : new Intl.DateTimeFormat('en-CA',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(event.start));
-        return date === key;
-      })) dayButton.classList.add('has-events');
-      if (day === state.day) dayButton.classList.add('selected');
-      if (day === today.getDate() && state.month.getMonth() === today.getMonth() && state.month.getFullYear() === today.getFullYear()) dayButton.classList.add('today');
-      calendar.append(dayButton);
-    }
-    root.append(calendar);
-    const chosen = new Date(state.month.getFullYear(), state.month.getMonth(), Math.min(state.day,days));
-    const selectedDay = [chosen.getFullYear(), String(chosen.getMonth()+1).padStart(2,'0'), String(chosen.getDate()).padStart(2,'0')].join('-');
-    const dayEvents = (options.calendar?.events || []).filter(event => {
-      if (event.allDay) return event.start.slice(0,10) === selectedDay;
-      const local = new Date(event.start);
-      return [local.getFullYear(),String(local.getMonth()+1).padStart(2,'0'),String(local.getDate()).padStart(2,'0')].join('-') === selectedDay;
-    });
     if (options.calendar?.error) root.append(card('Kalendern kunde inte hämtas', 'Försök igen senare.', 'alert'));
     else if (!options.calendar) root.append(card('Hämtar kalender', 'Vänta ett ögonblick.'));
     else {
-      const list = element('ul','view-list');
-      if (!dayEvents.length) list.append(element('li','','Inga händelser den dagen.'));
-      dayEvents.forEach(event => list.append(element('li','',`${event.kind === 'board' ? 'Styrelse' : 'Medlemmar'} · ${formatEvent(event)}`)));
-      root.append(card(new Intl.DateTimeFormat('sv-SE',{weekday:'long',day:'numeric',month:'long'}).format(chosen), ''), list);
+      const boardAllowed = options.user?.permissions?.includes('board_view');
+      const columns = element('div', 'view-calendar-columns');
+      for (const kind of boardAllowed ? ['member', 'board'] : ['member']) {
+        const section = element('section', 'view-calendar-section');
+        const header = element('div', 'view-calendar-section-header');
+        header.append(element('h3', '', kind === 'member' ? 'Medlemskalender' : 'Styrelsekalender'));
+        const url = options.calendar.links?.[kind];
+        if (boardAllowed && typeof url === 'string' && /^https:\/\/calendar\.google\.com\/calendar\//.test(url)) {
+          const link = element('a', 'view-calendar-link', 'Öppna i Google');
+          link.href = url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          header.append(link);
+        }
+        section.append(header);
+        const list = element('ul', 'view-calendar-events');
+        const events = options.calendar.events.filter(event => event.kind === kind);
+        if (!events.length) list.append(element('li', 'view-calendar-empty', 'Inga kommande händelser.'));
+        for (const event of events) {
+          const row = element('li', 'view-calendar-event');
+          const date = element('time', '', formatEventDate(event));
+          date.dateTime = event.start;
+          row.append(date, element('span', '', event.title));
+          list.append(row);
+        }
+        section.append(list);
+        columns.append(section);
+      }
+      root.append(columns);
     }
     root.append(notice());
   };
@@ -249,11 +243,7 @@
         document.dispatchEvent(new Event('vf:signout'));
         return;
       }
-      if (action === 'month') {
-        state.month = new Date(state.month.getFullYear(),state.month.getMonth()+Number(value),1);
-        state.day = 1;
-      } else if (action === 'day') state.day = Number(value);
-      else if (action === 'task-tab') state.taskTab = value;
+      if (action === 'task-tab') state.taskTab = value;
       else if (action === 'document-tab') state.documentTab = value;
       else if (action === 'task-toggle') {
         const task = state.tasks.find(item => item.id === Number(value));

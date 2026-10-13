@@ -168,7 +168,11 @@ function doPost(event) {
         events.push(...readCalendar_(boardCalendarId, 'board', now, until));
       }
       events.sort((a, b) => a.start.localeCompare(b.start));
-      return reply_(true, null, { testData: true, events: events });
+      const links = boardAllowed ? {
+        member: 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(memberCalendarId),
+        board: 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(boardCalendarId)
+      } : null;
+      return reply_(true, null, { testData: true, events: events, links: links });
     }
     if (!roles.some(role => ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
       return reply_(false, 'insufficient_role');
