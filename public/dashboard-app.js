@@ -40,7 +40,7 @@ async function loadBoardSummary() {
   window.VFDashboard?.refresh();
 }
 
-document.addEventListener('vf:navigate', event => {
+document.addEventListener('vf:view-selected', event => {
   activeView = event.detail.id;
   if (activeView === 'board') loadBoardSummary();
   else {
@@ -68,6 +68,13 @@ document.addEventListener('vf:signout', async () => {
 });
 
 document.addEventListener('vf:dashboard-ready', async () => {
+  window.VFDashboard.authorizeView = async view => {
+    const result = await readApi(`/api/view-access?view=${encodeURIComponent(view)}`);
+    if (typeof result.allowed !== 'boolean' || !result.profile) throw new Error('Ogiltigt behörighetssvar');
+    appState.user = result.profile;
+    updateDashboard();
+    return result.allowed;
+  };
   try {
     [appState.user, appState.fee] = await Promise.all([readApi('/api/me'), readApi('/api/my-fee')]);
     appState.connection = 'connected';
