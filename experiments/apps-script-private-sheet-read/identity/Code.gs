@@ -2,17 +2,24 @@
 const ASSOCIATION_PROPERTY = 'VF_TEST_ASSOCIATION_ID';
 const KEY_PROPERTY = 'VF_TEST_BRIDGE_KEY';
 const DATA_URL_PROPERTY = 'VF_TEST_DATA_URL';
-const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/7b28da3/public/dashboard-google.html';
-const DASHBOARD_SHA256 = 'OeUCdSmPs2xGR9gxsnHmOIFyyOstykT-gFCElr12zdQ';
+const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/204710f/public/dashboard-google.html';
+const DASHBOARD_SHA256 = 'XYDWfXis-ihnHLK8dboQL-iPfKvdf4tngb0WcVtnW9Q';
 
 function doGet(request) {
   ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
+  const appUrl = ScriptApp.getService().getUrl();
+  if (request && request.parameter && request.parameter.view === 'login') {
+    const chooseAccountUrl = 'https://accounts.google.com/AccountChooser?continue=' +
+      encodeURIComponent(appUrl + '?view=dashboard');
+    return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vägfölk 26 – logga in</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090b10;color:#f3efe6;font:18px system-ui,sans-serif}main{max-width:32rem;padding:2rem}h1{font-size:1.5rem;color:#d2a637}a{display:inline-block;margin-top:1rem;padding:.8rem 1.2rem;border:1px solid #d2a637;border-radius:.6rem;background:#34280d;color:#fff;text-decoration:none}a:hover,a:focus-visible{background:#57421a;outline:2px solid #d2a637;outline-offset:3px}</style></head><body><main><h1>Välkommen till Vägfölk</h1><p>Logga in med det Google-konto som är kopplat till ditt medlemskap.</p><a target="_top" href="' + chooseAccountUrl + '">Välj Google-konto</a></main></body></html>')
+      .setTitle('Vägfölk 26 – logga in');
+  }
   const access = readDashboardData('profile');
   if (!access.allowed) {
     const message = access.reason === 'unknown_user' || access.reason === 'inactive_user'
       ? 'Kontot har inte tillgång till föreningen.'
       : 'Åtkomsten kunde inte kontrolleras. Försök igen senare.';
-    return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vägfölk 26 – ingen åtkomst</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090b10;color:#f3efe6;font:18px system-ui,sans-serif}main{max-width:32rem;padding:2rem}h1{font-size:1.5rem;color:#d2a637}</style></head><body><main><h1>Ingen åtkomst</h1><p>' + message + '</p></main></body></html>')
+    return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vägfölk 26 – ingen åtkomst</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090b10;color:#f3efe6;font:18px system-ui,sans-serif}main{max-width:32rem;padding:2rem}h1{font-size:1.5rem;color:#d2a637}a{display:inline-block;margin-top:1rem;padding:.8rem 1.2rem;border:1px solid #d2a637;border-radius:.6rem;background:#34280d;color:#fff;text-decoration:none}a:hover,a:focus-visible{background:#57421a;outline:2px solid #d2a637;outline-offset:3px}</style></head><body><main><h1>Ingen åtkomst</h1><p>' + message + '</p><a target="_top" href="' + appUrl + '?view=login">Tillbaka till inloggningen</a></main></body></html>')
       .setTitle('Vägfölk 26 – ingen åtkomst');
   }
   const dashboard = request && request.parameter && request.parameter.view === 'dashboard';
@@ -154,16 +161,21 @@ function readDashboardData(action) {
     } };
   }
   if (action === 'calendar') {
+    const links = data.links === undefined ? null : data.links;
     if (!Array.isArray(data.events) || data.events.length > 2000 ||
         data.events.some(function(event) {
           return !event || !['member', 'board'].includes(event.kind) ||
             typeof event.title !== 'string' || event.title.length > 120 ||
             typeof event.start !== 'string' || typeof event.end !== 'string' ||
             typeof event.allDay !== 'boolean';
-        })) {
+        }) || (links !== null && (typeof links !== 'object' ||
+          !['member', 'board'].every(function(kind) {
+            return typeof links[kind] === 'string' &&
+              /^https:\/\/calendar\.google\.com\/calendar\/u\/0\/r\?cid=[^&#\s]+$/.test(links[kind]);
+          })))) {
       return { allowed: false, reason: 'data_unavailable' };
     }
-    return { allowed: true, data: { testData: true, events: data.events } };
+    return { allowed: true, data: { testData: true, events: data.events, links: links } };
   }
   if (typeof data.period !== 'string' || !data.period ||
       ['bank', 'cash', 'result'].some(function(field) {
