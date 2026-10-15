@@ -1,0 +1,1432 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vägfölk 26 · Mina sidor</title>
+  <style>
+    :root{color-scheme:dark;font-family:system-ui,"Segoe UI",sans-serif;background:#080b10;color:#edf1f4}
+    *{box-sizing:border-box}
+    body{margin:0;padding:16px 18px 32px}
+    header,.stage,.panel-list,.note{width:min(100%,160vh,1672px);margin-inline:auto}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+    h1{font-size:clamp(17px,1.6vw,25px);font-weight:650;margin:0}
+    .actions{display:flex;flex-wrap:wrap;gap:7px}
+    button{font:inherit;border:1px solid #697783;background:#1a222d;color:#eef3f5;border-radius:8px;padding:8px 12px;cursor:pointer}
+    button:hover,button:focus-visible{border-color:#e9bd55;background:#2a3541}
+    button[aria-pressed=true]{border-color:#e9bd55;background:#3e2b15;color:#fff1c8}
+    button:focus-visible{outline:2px solid #fff;outline-offset:2px}
+    .stage{position:relative;aspect-ratio:1672/941;background:#010205;overflow:hidden;box-shadow:0 0 0 1px #67727b,0 18px 45px #000a}
+    .stage img{display:block;position:absolute;max-width:none;user-select:none;pointer-events:none}
+    .stage .frame,.stage .original{inset:0;width:100%;height:100%}
+    .stage .frame{z-index:0}.stage .panel{z-index:1}.stage .original{z-index:2}
+    .stage .icon-variant{z-index:2;animation:indicator-pulse 2.8s ease-in-out infinite}
+    .stage .icon-variant:nth-of-type(3n){animation-delay:.5s}
+    @keyframes indicator-pulse{0%,100%{opacity:1}45%{opacity:.27}60%{opacity:.65}}
+    @media(prefers-reduced-motion:reduce){.stage .icon-variant{animation:none}}
+    .stage .original[hidden],.stage .panel[hidden]{display:none}
+    .stage .icon-variant[hidden]{display:none}
+    .stage .menu-start-neutral,.stage .menu-label-art,.stage .menu-active-art,.stage .menu-hits,.stage .mode-art,.stage .mode-hits,.stage .card-art,.stage .card-hits,.stage .member-art,.stage .dashboard-art,.stage .surface-art,.stage .surface-hits,.stage .screen-content{position:absolute;z-index:3}
+    .stage .dashboard-art{inset:0;width:100%;height:100%;pointer-events:none}
+    .stage .surface-art,.stage .surface-hits{inset:0;width:100%;height:100%;pointer-events:none}
+    .surface-hits button{position:absolute;padding:0;border:0;background:transparent;color:transparent;pointer-events:auto}
+    .surface-hits button:hover{background:transparent}
+    .surface-hits button:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+    .surface-hits [data-surface="main"]{left:33.6%;top:22.4%;width:46.2%;height:60.2%;border-radius:8%}
+    .surface-hits [data-surface="left"]{left:14.3%;top:67%;width:18.1%;height:16.2%;border-radius:10%}
+    .surface-hits [data-surface="right"]{left:79.8%;top:65.4%;width:18.9%;height:18.7%;border-radius:10%}
+    .dashboard-art .bt-indicator{animation:indicator-pulse 2.8s ease-in-out infinite;animation-delay:.35s}
+    @media(prefers-reduced-motion:reduce){.dashboard-art .bt-indicator{animation:none}}
+    .stage .menu-start-neutral{overflow:hidden;pointer-events:none}
+    .stage .menu-start-neutral{left:1.4952%;top:21.8916%;width:13.3373%;height:8.8204%}
+    .stage .menu-start-neutral img{width:152.4664%;left:-28.2511%;top:-81.9277%}
+    .stage .menu-label-art{inset:0;width:100%;height:100%;pointer-events:none}
+    .stage .menu-active-art{inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;color:#ffca43}
+    .menu-active-art text{font-family:"Segoe UI",Arial,sans-serif;font-size:21px;font-weight:600;fill:#ffd257;letter-spacing:-.35px}
+    .menu-active-art .icon{fill:none;stroke:#ffd257;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}
+    .stage .menu-hits{inset:0;pointer-events:none}
+    .menu-hits button{position:absolute;left:var(--menu-left);top:var(--menu-top);width:var(--menu-width);height:var(--menu-height);padding:0;border:0;border-radius:10%;background:transparent;color:transparent;pointer-events:auto}
+    .menu-hits button:hover{background:transparent}
+    .menu-hits button:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+    .stage .mode-art{inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+    .stage .mode-hits{inset:0;pointer-events:none}
+    .mode-hits button{position:absolute;top:11.9%;height:6.1%;padding:0;border:0;border-radius:18px;background:transparent;color:transparent;pointer-events:auto}
+    .mode-hits button:hover{background:transparent}
+    .mode-hits button:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+    .mode-hits [data-mode="neutral"]{left:35.8%;width:14.5%}
+    .mode-hits [data-mode="meeting"]{left:50%;width:14.5%}
+    .stage .card-hits{inset:0;pointer-events:none}
+    .card-hits button{position:absolute;padding:0;border:0;border-radius:12%;background:transparent;color:transparent;pointer-events:auto}
+    .card-hits button:hover{background:transparent}
+    .card-hits button:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+    .card-hits [data-card="meeting"]{left:14%;top:40.8%;width:19%;height:25.6%}
+    .card-hits [data-card="board"]{left:80.8%;top:40.6%;width:18%;height:25.8%}
+    .stage .card-art{inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+    .stage[data-card-lit="meeting"] .panel-06,.stage[data-card-lit="board"] .panel-09{filter:brightness(1.025)}
+    .stage .member-art{inset:0;width:100%;height:100%;pointer-events:none}
+    .stage .screen-content{left:34.05%;top:23.7%;width:45.25%;height:58.1%;overflow:auto;padding:clamp(18px,3vw,50px);border:0;background:linear-gradient(135deg,#071018ef,#10151ce5);clip-path:url(#central-screen-clip);pointer-events:auto}
+    .screen-content h2{margin:0 0 .45em;color:#fff;font-size:clamp(16px,2.2vw,34px)}
+    .screen-content p{margin:0;color:#d7e1e8;font-size:clamp(11px,1.25vw,18px);line-height:1.4}
+    .stage .menu-start-neutral[hidden],.stage .menu-label-art[hidden],.stage .menu-active-art[hidden],.stage .menu-hits[hidden],.stage .mode-art[hidden],.stage .mode-hits[hidden],.stage .card-art[hidden],.stage .card-hits[hidden],.stage .member-art[hidden],.stage .dashboard-art[hidden],.stage .surface-art[hidden],.stage .surface-hits[hidden],.stage .screen-content[hidden]{display:none}
+    .status-options{width:min(100%,160vh,1672px);margin:10px auto 0;display:none;gap:8px;align-items:center;flex-wrap:wrap}
+    .status-options[data-visible="true"]{display:flex}
+    .status-options span{color:#b7c4cc;font-size:13px}
+    .preview-inputs{width:min(100%,160vh,1672px);margin:12px auto 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .preview-inputs label{font-size:13px;color:#b7c4cc}
+    .preview-inputs input{max-width:145px;background:#111a22;color:#f3f7f8;border:1px solid #637583;border-radius:7px;padding:7px 8px;font:inherit}
+    .preview-inputs input[type=number]{max-width:66px}
+    .note{color:#b7c4cc;font-size:14px;line-height:1.5;margin-top:12px}
+    .panel-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:7px;margin-top:18px}
+    .panel-list button{text-align:left;font-size:14px;background:#101821}
+    .panel-list button[aria-pressed=true]{background:#3e2b15}
+    .status{width:min(100%,160vh,1672px);margin:10px auto 0;color:#d0dbe1;font-size:13px}
+    @media(max-width:720px){body{padding:10px 8px 24px}.actions button{padding:7px 9px;font-size:13px}.panel-list{grid-template-columns:1fr 1fr}.panel-list button{font-size:12px;padding:7px}}
+  </style>
+  <style>
+/* Skärmanpassning och fristående innehåll. Originalpanelernas bilder ändras inte. */
+.app-mode{padding:0;background:#020408;overflow-x:hidden}
+.app-mode>header,.app-mode>.preview-inputs,.app-mode>.status-options,.app-mode>.status,.app-mode>.note,.app-mode>.panel-list{display:none!important}
+.app-mode .stage{width:min(100%,177.68vh);max-width:none;margin:0 auto;box-shadow:none;visibility:hidden}
+.app-mode .stage[data-ready=true]{visibility:visible}
+.app-notice{max-width:1100px;margin:10px auto 18px;padding:0 16px;color:#adbcc4;font-size:13px;line-height:1.5}
+.unconnected-card{position:absolute;z-index:3;display:flex;flex-direction:column;justify-content:flex-start;padding:1.25% 1.05%;pointer-events:none;color:#e7e9ea;background:linear-gradient(165deg,#111016 0%,#07090d 40%,#030508 100%);border-radius:7%;box-shadow:inset 0 9px 16px -12px #000,inset 0 -12px 20px -15px #000}
+.unconnected-card strong{display:block;padding-bottom:6%;border-bottom:1px solid #a9adb02e;font-size:clamp(12px,1.1vw,19px);line-height:1.2;font-weight:600}
+.unconnected-card span{margin-top:9%;font-size:clamp(10px,.85vw,15px);line-height:1.4}
+.unconnected-meeting{left:15.2%;top:42%;width:16.8%;height:22.1%}
+.unconnected-meeting span{white-space:pre-line;overflow:hidden}
+.unconnected-board{left:81.7%;top:42%;width:15.7%;height:21.8%}
+.unconnected-meeting strong{color:#fa4a5d}
+.unconnected-board strong{color:#f3c956}
+.compact-fee[data-status=paid]{color:#83ecaa}
+.compact-fee[data-status=unpaid]{color:#ff8d94}
+.view-card[data-status=paid] .view-status-dot{background:#37e985;box-shadow:0 0 12px #37e985}
+.view-card[data-status=unpaid] .view-status-dot{background:#ff5266;box-shadow:0 0 12px #ff5266}
+.compact-shell{display:none}
+.view-surface{color:#eef2f2;font-family:"Segoe UI",Arial,sans-serif}
+.view-surface h2{margin:0 0 10px;font-size:clamp(19px,2vw,30px);line-height:1.1;color:#fff}
+.view-surface h3{margin:0 0 8px;font-size:16px;color:#f6d47e}
+.view-surface p{margin:0 0 12px;color:#d4dfe3;font-size:14px;line-height:1.45}
+.view-surface .view-kicker{color:#f9c34a;text-transform:uppercase;font-size:11px;font-weight:700;letter-spacing:.16em;margin-bottom:6px}
+.view-surface .view-muted{color:#9db0b9;font-size:12px}
+.view-surface .view-card{background:linear-gradient(145deg,#1c2a32d9,#071018e8 42%,#15181ce8);border:1px solid #65747a88;border-radius:16px;padding:14px 16px;box-shadow:inset 0 1px 0 #e1f0f43b,0 12px 24px #0008;margin:10px 0}
+.view-surface .view-card.notice{border-color:#d1a345aa;box-shadow:inset 0 1px 0 #f9dc8270,0 0 18px #e4a32325}
+.view-surface .view-card.alert{border-color:#d14b59aa}
+.view-surface .view-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.view-surface .view-grid .view-card{margin:0}
+.view-surface .view-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.view-surface button{min-height:44px;border:1px solid #a8bac2a0;background:linear-gradient(#2a353d,#0d171e);color:#f5f8f8;box-shadow:inset 0 1px #ffffff38,0 3px 9px #0008;border-radius:10px;padding:7px 12px}
+.view-surface button:hover,.view-surface button:focus-visible{border-color:#f0c052;background:linear-gradient(#4c3c23,#18202a)}
+.view-surface button[aria-pressed=true]{border-color:#f3c54c;box-shadow:inset 0 1px #ffe0a6a8,0 0 14px #e8aa344a}
+.view-surface input,.view-surface textarea{width:100%;min-height:40px;border:1px solid #89979d;background:#0b141b;color:#fff;border-radius:8px;padding:9px;font:inherit}
+.view-surface textarea{min-height:68px;resize:vertical}
+.view-surface label{display:block;font-size:13px;color:#d9e4e7;margin:10px 0 5px}
+.view-surface .view-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #a4b3b13d;padding:10px 0}
+.view-surface .view-row:last-child{border-bottom:0}
+.view-surface .view-chat-row{display:grid;grid-template-columns:1fr auto;align-items:start}
+.view-surface .view-chat-row p{grid-column:1/-1;white-space:pre-wrap;overflow-wrap:anywhere}
+.view-surface .view-chat-row time{color:#afc0c6;font-size:12px}
+.view-surface .view-row small{color:#afc0c6}
+.view-surface .view-pill{display:inline-block;border:1px solid #789383;border-radius:999px;color:#a9f2c6;padding:4px 9px;font-size:12px}
+.view-surface .view-placeholder{border:1px dashed #88969a87;border-radius:12px;padding:16px;color:#c0ced2;margin:10px 0}
+.view-surface .view-calendar-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
+.view-surface .view-calendar-section{min-width:0;padding:15px;border:1px solid #65747a88;border-radius:16px;background:linear-gradient(145deg,#1c2a32d9,#071018e8 42%,#15181ce8);box-shadow:inset 0 1px 0 #e1f0f43b,0 12px 24px #0008}
+.view-surface .view-calendar-section-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.view-surface .view-calendar-section-header h3{margin:0}
+.view-surface .view-calendar-link{flex:none;border:1px solid #d2a63788;border-radius:8px;padding:5px 8px;color:#f9d777;font-size:12px;text-decoration:none}
+.view-surface .view-calendar-link:hover,.view-surface .view-calendar-link:focus-visible{background:#57421a;outline:2px solid #d2a637;outline-offset:2px}
+.view-surface .view-calendar-events{list-style:none;margin:0;padding:0}
+.view-surface .view-calendar-event{display:grid;gap:3px;padding:10px 0;border-top:1px solid #7b919047;overflow-wrap:anywhere}
+.view-surface .view-calendar-event time{color:#f6cb72;font-size:12px;text-transform:capitalize}
+.view-surface .view-calendar-event span{font-size:14px;line-height:1.35}
+.view-surface .view-calendar-empty{padding:10px 0;color:#b8c8cd;font-size:13px}
+.view-surface .view-back{margin-bottom:12px}
+.view-surface .view-list{list-style:none;margin:0;padding:0}
+.view-surface .view-list li{padding:9px 0;border-bottom:1px solid #7b919047}
+.view-surface .view-list li:last-child{border:0}
+.view-surface .view-status-line{display:flex;align-items:center;gap:9px}
+.view-surface .view-status-dot{width:11px;height:11px;border-radius:50%;background:#f2b64c;box-shadow:0 0 10px #f2b64c}
+.screen-content{scrollbar-color:#8e6530 #091017;scrollbar-width:thin}
+.screen-content .view-surface{max-width:720px;margin:auto}
+.stage .screen-content{padding:clamp(17px,2.2vw,35px)}
+@media (max-width:1199px){
+  .app-mode .stage,.app-mode .unconnected-card{display:none}
+  .app-mode .compact-shell{width:100%;height:min(100dvh,800px)}
+  body{padding:8px;background:#05070b}
+  header,.stage,.panel-list,.preview-inputs,.status-options,.status,.note{width:100%}
+  header{margin-bottom:7px;padding:2px 4px}
+  header h1{font-size:14px}
+  header .actions{display:none}
+  .stage{display:none}
+  .compact-shell{display:grid;grid-template-rows:auto minmax(0,1fr) auto;width:100%;height:min(800px,calc(100dvh - 70px));min-height:355px;overflow:hidden;background:radial-gradient(ellipse at 50% -30%,#223440 0%,#0b141c 40%,#020509 85%);border:2px solid #687b88;border-radius:clamp(18px,4vw,38px);box-shadow:inset 0 2px 2px #e7f7ff9b,inset 0 -3px 10px #b0152054,0 0 16px #ef2a3d4d,0 13px 30px #000}
+  .compact-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:54px;padding:7px 15px;border-bottom:1px solid #b71e328a;background:linear-gradient(#0b1118,#060a10);box-shadow:inset 0 1px #dae7ef72,0 2px 10px #e6223529}
+  .compact-brand{font-size:clamp(15px,2.3vw,23px);font-weight:800;letter-spacing:.08em;text-shadow:0 1px #fff7,0 3px 4px #000,0 0 9px #dcecff75;white-space:nowrap}
+  .compact-brand em{font-style:italic;color:#f6ca53;text-shadow:0 0 10px #ffbf3c9d}
+  .compact-top-right{display:flex;gap:12px;align-items:center;font-size:12px;color:#d6e3e7}
+  .compact-online{color:#81f3a9;white-space:nowrap}
+  .compact-body{display:grid;grid-template-columns:clamp(150px,24vw,240px) minmax(0,1fr);gap:8px;min-height:0;padding:8px}
+  .compact-nav{display:flex;flex-direction:column;gap:3px;min-height:0;overflow-y:auto;padding:3px 4px 7px 1px;scrollbar-width:thin}
+  .compact-nav button{min-height:45px;text-align:left;border-radius:9px 14px 14px 9px;border:1px solid #6476818c;background:linear-gradient(145deg,#141d24,#070c11 65%,#111a20);color:#eaf0f2;box-shadow:inset 0 1px #e8f5ff20,0 3px 6px #0009;padding:7px 12px;font-size:clamp(13px,1.7vw,16px)}
+  .compact-nav button:hover,.compact-nav button:focus-visible,.compact-nav button[aria-current=page]{border-color:#f1c456;color:#ffe092;background:linear-gradient(145deg,#795118,#302010 34%,#111414 80%,#5d3b0d);box-shadow:inset 0 1px #ffecb2a0,inset 0 -1px #db8f1d8c,0 0 11px #e7a62c85}
+  .compact-nav button:focus-visible{outline:2px solid white;outline-offset:1px}
+  .compact-display{min-width:0;min-height:0;overflow:auto;position:relative;padding:clamp(14px,2.4vw,28px);border:2px solid #82919d;border-radius:24px;background:linear-gradient(150deg,#10202abe,#03080bdd 60%),linear-gradient(90deg,#87101e33,transparent 18%,transparent 82%,#c98c1633);box-shadow:inset 0 2px #dce8ed91,inset 0 0 22px #48badd1e,0 0 13px #e01f3b82;scrollbar-width:thin;scrollbar-color:#a36927 #0b141a}
+  .compact-display[data-start=true]{background:linear-gradient(140deg,#07101883,#0c131bcc),radial-gradient(ellipse at 65% 70%,#8c271939,transparent 40%),#081119}
+  .compact-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:39px;padding:5px 15px;border-top:1px solid #c4233f9c;background:linear-gradient(#081011,#0b1214);font-size:12px;color:#dde9eb}
+  .compact-fee{color:#f6d884}
+  .compact-time{font-variant-numeric:tabular-nums}
+  .preview-inputs,.status-options,.status,.note,.panel-list{margin-top:12px}
+  .panel-list{display:none}
+}
+@media(max-width:700px) and (orientation:portrait){
+  html.phone-device .app-mode .compact-shell{height:auto;min-height:0}
+  html.phone-device .compact-shell{height:auto;min-height:0;display:block;padding:20px;border-radius:24px}
+  html.phone-device .compact-top,html.phone-device .compact-body,html.phone-device .compact-bottom{display:none}
+  html.phone-device .compact-rotate{display:block!important;text-align:center;padding:28px 14px;line-height:1.5;color:#f1f5f4}
+  html.phone-device .compact-rotate strong{display:block;color:#f7cc60;font-size:21px;margin-bottom:8px}
+  .preview-inputs,.status-options,.status,.note,.panel-list{display:none!important}
+}
+@media(max-width:1000px) and (max-height:500px) and (orientation:landscape){
+  body{padding:4px}
+  header{display:none}
+  .compact-shell{height:calc(100dvh - 8px);min-height:250px;border-radius:16px}
+  .compact-top{min-height:38px;padding:3px 10px}
+  .compact-brand{font-size:15px}
+  .compact-body{grid-template-columns:170px minmax(0,1fr);gap:5px;padding:5px}
+  .compact-nav button{min-height:44px;font-size:13px}
+  .compact-display{border-radius:16px;padding:12px}
+  .compact-bottom{min-height:30px;padding:3px 10px}
+  .view-surface h2{font-size:20px}
+  .view-surface .view-card{padding:11px}
+}
+
+</style>
+  <script>
+/* Fungerande vyer för gränssnittsprovet. Inga föreningsuppgifter läses eller sparas. */
+(() => {
+  const state = {
+    documentTab: 'medlem',
+    taskTab: 'medlem',
+    tasks: [],
+    messages: [],
+    information: null,
+  };
+  const targets = new Set();
+  let currentView = 'start';
+
+  const element = (tag, className, text) => {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  };
+  const paragraph = (text, className = '') => element('p', className, text);
+  const button = (text, action, value, pressed) => {
+    const node = element('button', '', text);
+    node.type = 'button';
+    node.dataset.action = action;
+    if (value !== undefined) node.dataset.value = String(value);
+    if (pressed !== undefined) node.setAttribute('aria-pressed', String(pressed));
+    return node;
+  };
+  const card = (title, body, className = '') => {
+    const node = element('section', `view-card ${className}`.trim());
+    node.append(element('h3', '', title), paragraph(body));
+    return node;
+  };
+  const heading = (title, kicker) => {
+    const fragment = document.createDocumentFragment();
+    fragment.append(paragraph(kicker, 'view-kicker'), element('h2', '', title));
+    return fragment;
+  };
+  const notice = () => paragraph('Teknisk testversion. Ekonomiuppgifter och kalenderhändelser är testuppgifter. Övriga föreningsfunktioner är ännu inte anslutna.', 'view-muted');
+  const formatEventDate = event => {
+    const date = event.allDay && /^\d{4}-\d{2}-\d{2}$/.test(event.start)
+      ? new Date(`${event.start}T12:00:00`) : new Date(event.start);
+    return new Intl.DateTimeFormat('sv-SE', {
+      weekday:'short',day:'numeric',month:'long',
+      ...(event.allDay ? {} : {hour:'2-digit',minute:'2-digit'})
+    }).format(date);
+  };
+  const formatEvent = event => `${formatEventDate(event)} · ${event.title}`;
+  const nextMeeting = (events, kind) => events.find(event =>
+    event.kind === kind && /möte/i.test(event.title) &&
+    new Date(event.start).getTime() >= Date.now());
+  const group = (...children) => {
+    const node = element('div', 'view-actions');
+    node.append(...children);
+    return node;
+  };
+  const renderStart = (root, options) => {
+    root.append(heading(options.name ? `Hej, ${options.name.split(/\s+/)[0]}` : 'Välkommen', 'Mina sidor'));
+    root.append(paragraph(options.connection === 'unavailable'
+      ? 'Välj en funktion i menyn. Inloggning och EKO är ännu inte anslutna till den här publicerade vyn.'
+      : 'Välj en funktion i menyn. Egen avgift och styrelsens ekonomiöversikt använder låtsasdata i den skyddade testservern.'));
+    const grid = element('div', 'view-grid');
+    const events = options.calendar?.events || [];
+    const memberMeeting = nextMeeting(events, 'member');
+    const isBoard = options.user?.permissions?.includes('board_view');
+    const meeting = card(isBoard ? 'Nästa möte' : 'Nästa medlemsmöte', memberMeeting
+      ? `${isBoard ? 'Medlemsmöte: ' : ''}${formatEvent(memberMeeting)}` : options.calendar?.error
+        ? 'Kalendern kunde inte hämtas.' : 'Inget kommande medlemsmöte hittades.');
+    if (isBoard) {
+      const boardMeeting = nextMeeting(events, 'board');
+      meeting.append(paragraph(boardMeeting
+        ? `Nästa styrelsemöte: ${formatEvent(boardMeeting)}`
+        : 'Inget kommande styrelsemöte hittades.'));
+    }
+    meeting.append(button('Öppna kalender', 'navigate', 'kalender'));
+    const info = options.information?.message;
+    const board = card('Information', info?.text || 'Inget viktigt meddelande publicerat.');
+    board.append(button('Öppna information', 'navigate', 'information'));
+    grid.append(meeting, board);
+    root.append(grid);
+    const permissions = new Set(options.user?.permissions || []);
+    const actions = element('div','view-actions');
+    if (permissions.has('board_view')) actions.append(button('Styrelseöversikt','navigate','board'));
+    if (permissions.has('members_manage')) actions.append(button('Medlemmar och roller','navigate','secretary'));
+    if (permissions.has('finance_manage')) actions.append(button('Kassörens ekonomi','navigate','treasurer'));
+    if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
+    if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng testvyn' : 'Logga ut','signout'));
+    root.append(actions, notice());
+  };
+  const renderCalendar = (root, options) => {
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const month = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(now);
+    root.append(heading('Kalender', `Kommande händelser i ${month}`));
+    if (options.calendar?.error) root.append(card('Kalendern kunde inte hämtas', 'Försök igen senare.', 'alert'));
+    else if (!options.calendar) root.append(card('Hämtar kalender', 'Vänta ett ögonblick.'));
+    else {
+      const boardAllowed = options.user?.permissions?.includes('board_view');
+      const columns = element('div', 'view-calendar-columns');
+      for (const kind of boardAllowed ? ['member', 'board'] : ['member']) {
+        const section = element('section', 'view-calendar-section');
+        const header = element('div', 'view-calendar-section-header');
+        header.append(element('h3', '', kind === 'member' ? 'Medlemskalender' : 'Styrelsekalender'));
+        const url = options.calendar.links?.[kind];
+        if (boardAllowed && typeof url === 'string' && /^https:\/\/calendar\.google\.com\/calendar\//.test(url)) {
+          const link = element('a', 'view-calendar-link', 'Öppna i Google');
+          link.href = url;
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          header.append(link);
+        }
+        section.append(header);
+        const list = element('ul', 'view-calendar-events');
+        const events = (options.calendar.events || []).filter(event =>
+          event.kind === kind && new Date(event.start) < nextMonth &&
+          new Date(event.end) > now);
+        if (!events.length) list.append(element('li', 'view-calendar-empty', 'Inga fler händelser denna månad.'));
+        for (const event of events) {
+          const row = element('li', 'view-calendar-event');
+          const date = element('time', '', formatEventDate(event));
+          date.dateTime = event.start;
+          row.append(date, element('span', '', event.title));
+          list.append(row);
+        }
+        section.append(list);
+        columns.append(section);
+      }
+      root.append(columns);
+    }
+    root.append(notice());
+  };
+  const renderTasks = (root, options) => {
+    const boardAllowed = options.user?.permissions?.includes('board_view');
+    if (!boardAllowed) state.taskTab = 'medlem';
+    root.append(heading('Att göra', 'Uppgifter'));
+    root.append(group(button('För medlemmar','task-tab','medlem',state.taskTab==='medlem'), ...(boardAllowed ? [button('För styrelsen','task-tab','styrelse',state.taskTab==='styrelse')] : [])));
+    root.append(paragraph('Övningsläge: uppgifter du lägger till visas bara i denna öppna sida. Inget skickas till föreningen eller sparas.','view-muted'));
+    const list = element('ul','view-list');
+    const tasks = state.tasks.filter(task => task.kind === state.taskTab);
+    if (!tasks.length) list.append(element('li','','Inga övningsuppgifter tillagda.'));
+    tasks.forEach(task => {
+      const row = element('li','view-row');
+      const label = element('span','',`${task.done ? '✓ ' : ''}${task.text}`);
+      const toggle = button(task.done ? 'Ångra' : 'Klart','task-toggle',task.id);
+      row.append(label,toggle);
+      list.append(row);
+    });
+    root.append(list);
+    const form = element('form');
+    form.dataset.form = 'task';
+    const label = element('label','','Lägg till en övningsuppgift');
+    label.htmlFor = 'task-entry-' + root.id;
+    const input = element('input');
+    input.id = label.htmlFor;
+    input.name = 'task';
+    input.maxLength = 100;
+    input.required = true;
+    input.placeholder = 'Skriv en kort uppgift';
+    form.append(label,input,group(button('Lägg till','submit-task')));
+    root.append(form);
+  };
+  const renderInformation = (root, options) => {
+    root.append(heading('Information', 'Viktigt meddelande från styrelsen'));
+    if (options.information?.error) root.append(card('Kunde inte läsa information', 'Försök igen senare.', 'alert'));
+    else if (!options.information && options.connection === 'google_test') root.append(card('Hämtar information', 'Vänta ett ögonblick.'));
+    else {
+      const message = options.information?.message || state.information;
+      root.append(card(message ? 'Från styrelsen' : 'Ingen information publicerad', message?.text || 'Här visas viktiga meddelanden från styrelsen.'));
+      if (message?.createdAt) root.append(paragraph(`${message.name || 'Styrelsen'} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(message.createdAt))}`, 'view-muted'));
+    }
+    if (options.user?.permissions?.includes('board_view')) {
+      const form = element('form');
+      form.dataset.form = 'information';
+      const label = element('label', '', 'Publicera viktigt meddelande');
+      label.htmlFor = 'information-entry-' + root.id;
+      const input = element('textarea');
+      input.id = label.htmlFor;
+      input.name = 'information';
+      input.maxLength = 600;
+      input.required = true;
+      input.rows = 4;
+      form.append(label,input,group(button('Publicera','submit-information')));
+      root.append(form);
+    }
+  };
+  const renderChat = (root, options) => {
+    root.append(heading('Chat', 'Korta meddelanden'));
+    if (options.connection !== 'google_test') root.append(paragraph('Förhandsvisning: meddelanden här sparas bara tills sidan stängs.', 'view-muted'));
+    if (options.chat?.error) root.append(card('Kunde inte läsa Chat', 'Försök igen senare.', 'alert'));
+    else if (!options.chat && options.connection === 'google_test') root.append(card('Hämtar Chat', 'Vänta ett ögonblick.'));
+    const list = element('ul','view-list');
+    const messages = options.chat?.messages || state.messages;
+    if (!messages.length) list.append(element('li','','Inga meddelanden ännu.'));
+    messages.forEach(item => {
+      const row = element('li','view-row view-chat-row');
+      row.append(element('strong','',item.name || 'Medlem'),paragraph(item.text || ''));
+      if (item.createdAt) row.append(element('time','',new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(new Date(item.createdAt))));
+      list.append(row);
+    });
+    root.append(list);
+    const form = element('form');
+    form.dataset.form = 'message';
+    const label = element('label','','Nytt kort meddelande');
+    label.htmlFor = 'message-entry-' + root.id;
+    const input = element('input');
+    input.id = label.htmlFor;
+    input.name = 'message';
+    input.maxLength = 120;
+    input.required = true;
+    input.placeholder = 'Skriv högst 120 tecken';
+    form.append(label,input,group(button('Blir sen','quick-message','Blir sen'),button('Hittar inte dit','quick-message','Hittar inte dit'),button('Behöver hjälp','quick-message','Behöver hjälp'),button('Skicka','submit-message')));
+    root.append(form);
+  };
+  const renderDocuments = (root, options) => {
+    const boardAllowed = options.user?.permissions?.includes('board_view');
+    if (!boardAllowed) state.documentTab = 'medlem';
+    root.append(heading('Dokument', 'Delade filer'));
+    root.append(group(button('För medlemmar','document-tab','medlem',state.documentTab==='medlem'),...(boardAllowed ? [button('För styrelsen','document-tab','styrelse',state.documentTab==='styrelse')] : [])));
+    root.append(card(state.documentTab === 'medlem' ? 'Medlemsdokument' : 'Styrelsedokument', state.documentTab === 'medlem' ? 'Godkända dokument kommer att visas här efter anslutning till Drive.' : 'Styrelsens dokument kräver inloggning och serverkontrollerad behörighet innan de kan visas.'));
+    root.append(notice());
+  };
+  const renderFee = root => {
+    root.append(heading('Min avgift','Medlemsstatus'));
+    const fee = window.VFPreviewViews.options.fee;
+    if (!fee) {
+      root.append(card('Status saknas', window.VFPreviewViews.options.connection === 'unavailable'
+        ? 'Inloggning och EKO är ännu inte anslutna till den här publicerade vyn.'
+        : 'Din avgift kunde inte hämtas. Ladda om sidan eller försök senare.', 'alert'));
+      return;
+    }
+    const info = element('div','view-card notice');
+    info.append(element('div','view-status-line'));
+    info.firstChild.append(element('span','view-status-dot'),element('strong','',fee.status === 'paid' ? 'Medlemsavgift betald' : fee.status === 'unpaid' ? 'Medlemsavgift inte betald' : 'Status okänd'));
+    info.dataset.status = fee.status;
+    if (fee.remaining > 0) info.append(paragraph(`Återstår: ${new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK',maximumFractionDigits:0}).format(fee.remaining)}`));
+    if (fee.dueDate) info.append(paragraph(`Förfallodatum: ${new Intl.DateTimeFormat('sv-SE',{year:'numeric',month:'long',day:'numeric'}).format(new Date(`${fee.dueDate}T00:00:00`))}`));
+    if (fee.paymentNotice === 'due_soon') info.append(paragraph('Medlemsavgiften behöver snart betalas.'));
+    if (fee.paymentNotice === 'overdue') info.append(paragraph('Medlemsavgiften har passerat förfallodatum.'));
+    info.append(paragraph('Detta är låtsasdata från den tekniska testservern.','view-muted'));
+    root.append(info,notice());
+  };
+  const renderBoardSummary = (root, options) => {
+    if (!options.user?.permissions?.includes('board_view')) return root.append(heading('Ingen åtkomst','Styrelseöversikt'));
+    root.append(heading('Styrelseöversikt','Ekonomi i korthet'));
+    if (!options.boardSummary) return root.append(card('Läser uppgifter', 'Översikten hämtas från testservern.'));
+    if (options.boardSummary.error) return root.append(card('Kunde inte läsa', 'Försök igen senare.', 'alert'));
+    const summary = options.boardSummary;
+    root.append(card('Period',summary.period));
+    const grid = element('div','view-grid');
+    const format = value => new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK'}).format(value);
+    grid.append(card('Bank',format(summary.bank)),card('Kontanter',format(summary.cash)),card('Resultat',format(summary.result)));
+    root.append(grid,paragraph('Endast låtsasdata från den behörighetskontrollerade testservern.','view-muted'));
+  };
+  const renderPlanned = (root,title,description) => root.append(heading(title,'Under uppbyggnad'),card(title,description),notice());
+  const renderRestricted = (root,options,permission,title,description) => {
+    if (!options.user?.permissions?.includes(permission)) return root.append(heading('Ingen åtkomst',title));
+    return renderPlanned(root,title,description);
+  };
+  const renderContact = root => {
+    root.append(heading('Kontakt','Styrelsen'));
+    root.append(card('Kontaktuppgifter', 'Styrelsens godkända kontaktuppgifter kommer att visas här när de är anslutna.'));
+    root.append(notice());
+  };
+  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i den privata EKO-filen i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Läsning av hela EKO är ännu inte ansluten.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Säker reservåtkomst och återställning är ännu inte byggda.')};
+  function draw(options = {}) {
+    for (const target of targets) {
+      const surface = element('div','view-surface');
+      surface.id = `${target.id}-view`;
+      renderers[currentView]?.(surface,options);
+      target.replaceChildren(surface);
+    }
+  }
+  function attach(target) {
+    targets.add(target);
+    target.addEventListener('click', event => {
+      const control = event.target.closest('[data-action]');
+      if (!control || !target.contains(control)) return;
+      const {action,value} = control.dataset;
+      if (action === 'navigate') {
+        document.dispatchEvent(new CustomEvent('vf:navigate',{detail:{id:value}}));
+        return;
+      }
+      if (action === 'signout') {
+        document.dispatchEvent(new Event('vf:signout'));
+        return;
+      }
+      if (action === 'task-tab') state.taskTab = value;
+      else if (action === 'document-tab') state.documentTab = value;
+      else if (action === 'task-toggle') {
+        const task = state.tasks.find(item => item.id === Number(value));
+        if (task) task.done = !task.done;
+      } else if (action === 'quick-message') {
+        const form = control.closest('form');
+        if (form) { form.querySelector('input').value = value; form.requestSubmit(); }
+        return;
+      } else if (action === 'submit-task' || action === 'submit-message' || action === 'submit-information') {
+        const form = control.closest('form');
+        form?.requestSubmit();
+        return;
+      }
+      draw(window.VFPreviewViews.options);
+    });
+    target.addEventListener('submit', event => {
+      const form = event.target.closest('form[data-form]');
+      if (!form) return;
+      event.preventDefault();
+      const input = form.querySelector('input, textarea');
+      const text = input.value.trim();
+      if (!text) return;
+      if (form.dataset.form === 'task') state.tasks.push({id:Date.now()+Math.random(),text:text.slice(0,100),kind:state.taskTab,done:false});
+      else if (form.dataset.form === 'message') {
+        if (window.VFAppData?.connection === 'google_test') document.dispatchEvent(new CustomEvent('vf:chat-post',{detail:{text:text.slice(0,120)}}));
+        else state.messages.push({name:'Du',text:text.slice(0,120),createdAt:new Date().toISOString()});
+      } else if (form.dataset.form === 'information') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
+        if (window.VFAppData.connection === 'google_test') document.dispatchEvent(new CustomEvent('vf:information-publish',{detail:{text:text.slice(0,600)}}));
+        else state.information = {name:'Styrelsen',text:text.slice(0,600),createdAt:new Date().toISOString()};
+      }
+      draw(window.VFPreviewViews.options);
+    });
+  }
+  window.VFPreviewViews = {
+    options:{},
+    meetingText(calendar, isBoard = false) {
+      if (calendar?.error) return 'Kalendern kunde inte hämtas.';
+      if (!calendar) return 'Hämtar mötesuppgifter…';
+      const member = nextMeeting(calendar.events || [], 'member');
+      if (!isBoard) return member ? formatEvent(member) : 'Inget kommande medlemsmöte hittades.';
+      const board = nextMeeting(calendar.events || [], 'board');
+      return `Medlem: ${member ? formatEvent(member) : 'Inget möte inlagt'}\nStyrelse: ${board ? formatEvent(board) : 'Inget möte inlagt'}`;
+    },
+    attach,
+    show(id,options = {}) {currentView=id;this.options=options;draw(options);},
+    refresh(options = {}) {this.options=options;draw(options);},
+  };
+})();
+
+</script>
+  <script>
+// Endast låtsasdata. Den här filen bäddas in i Dashboard.html vid provbygget.
+(() => {
+  const state = { user: null, fee: null, boardSummary: null, calendar: null,
+    information: null, chat: null, connection: 'checking' };
+  let boardRequest = 0;
+  let calendarRequest = 0;
+  let informationRequest = 0;
+  let chatRequest = 0;
+  let activeView = 'start';
+
+  function show() { window.VFDashboard?.setData(state); }
+  function notice(message) {
+    const node = document.querySelector('.app-notice');
+    if (node) node.textContent = message;
+  }
+  function closePrivateView() {
+    ++boardRequest;
+    ++calendarRequest;
+    ++informationRequest;
+    ++chatRequest;
+    state.user = null;
+    state.fee = null;
+    state.boardSummary = null;
+    state.calendar = null;
+    state.information = null;
+    state.chat = null;
+    state.connection = 'error';
+    show();
+    notice('Åtkomsten kunde inte kontrolleras. Försök logga in på nytt.');
+  }
+  function call(name, value) {
+    return new Promise((resolve, reject) => {
+      if (!window.google?.script?.run) return reject(new Error('Google-anslutning saknas'));
+      const runner = google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject);
+      if (value === undefined) runner[name]();
+      else runner[name](value);
+    });
+  }
+  async function read(action) {
+    const result = await call('readDashboardData', action);
+    if (!result || typeof result.allowed !== 'boolean' ||
+        (result.allowed && (!result.data || typeof result.data !== 'object'))) {
+      throw new Error('Ogiltigt svar');
+    }
+    if (!result.allowed) {
+      const error = new Error('Åtkomst nekad');
+      error.reason = result.reason;
+      throw error;
+    }
+    return result.data;
+  }
+  async function start() {
+    try {
+      const account = await call('getTestAccount');
+      if (!account || typeof account.email !== 'string' || !account.email) {
+        throw new Error('Google-konto kunde inte fastställas');
+      }
+      const profile = await read('profile');
+      const fee = await read('own_fee');
+      if (!Array.isArray(profile.permissions) || !profile.permissions.includes('own_fee') ||
+          typeof fee.memberId !== 'string' || !fee.memberId) {
+        throw new Error('Ogiltig medlemsprofil');
+      }
+      state.user = profile;
+      state.fee = fee;
+      state.connection = 'google_test';
+      show();
+      notice('Inloggat Google-konto: ' + account.email +
+        '. Testversion. Kalenderhändelser läses från föreningens två testkalendrar.');
+      loadCalendar();
+      loadInformation();
+    } catch (error) {
+      state.user = null;
+      state.fee = null;
+      state.boardSummary = null;
+      state.calendar = null;
+      state.information = null;
+      state.chat = null;
+      state.connection = 'error';
+      show();
+      notice(error && error.reason === 'unknown_user' || error && error.reason === 'inactive_user'
+        ? 'Kontot har inte tillgång till föreningen.'
+        : 'Den skyddade testvyn kunde inte öppnas. Inga EKO-uppgifter visas.');
+    }
+  }
+  async function loadCalendar() {
+    const request = ++calendarRequest;
+    state.calendar = null;
+    window.VFDashboard?.refresh();
+    try {
+      const profile = await read('profile');
+      if (request !== calendarRequest) return;
+      state.user = profile;
+      if (!profile.permissions?.includes('board_view')) state.boardSummary = null;
+      show();
+      const calendar = await read('calendar');
+      if (request !== calendarRequest) return;
+      state.calendar = calendar;
+    } catch (error) {
+      if (request !== calendarRequest) return;
+      closePrivateView();
+      return;
+    }
+    show();
+  }
+  async function loadBoard() {
+    const request = ++boardRequest;
+    state.boardSummary = null;
+    window.VFDashboard?.refresh();
+    try {
+      const profile = await read('profile');
+      if (request !== boardRequest) return;
+      state.user = profile;
+      if (!profile.permissions?.includes('board_view')) {
+        show();
+        document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
+        return;
+      }
+      show();
+      const summary = await read('board_summary');
+      if (request !== boardRequest) return;
+      state.boardSummary = summary;
+    } catch {
+      if (request !== boardRequest) return;
+      closePrivateView();
+      document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
+      return;
+    }
+    window.VFDashboard?.refresh();
+  }
+
+  async function loadInformation() {
+    const request = ++informationRequest;
+    state.information = null;
+    show();
+    try {
+      const information = await read('information');
+      if (request !== informationRequest) return;
+      state.information = information;
+    } catch (error) {
+      if (request !== informationRequest) return;
+      closePrivateView();
+      return;
+    }
+    show();
+  }
+
+  async function loadChat() {
+    const request = ++chatRequest;
+    state.chat = null;
+    show();
+    try {
+      const chat = await read('chat');
+      if (request !== chatRequest) return;
+      state.chat = chat;
+    } catch (error) {
+      if (request !== chatRequest) return;
+      closePrivateView();
+      return;
+    }
+    show();
+  }
+
+  async function writeMessage(method, text, refresh) {
+    if (state.connection !== 'google_test') return;
+    try {
+      const result = await call(method, text);
+      if (!result || result.allowed !== true) throw new Error('Meddelandet sparades inte');
+      await refresh();
+      notice('Meddelandet sparades i den privata testfilen.');
+    } catch {
+      notice('Meddelandet kunde inte sparas. Försök igen; kontrollera först att det inte redan syns.');
+    }
+  }
+
+  document.addEventListener('vf:view-selected', event => {
+    activeView = event.detail?.id || 'start';
+    if (activeView === 'board') loadBoard();
+    if (activeView === 'kalender' || activeView === 'start') loadCalendar();
+    if (activeView === 'information') loadInformation();
+    if (activeView === 'chat') loadChat();
+    if (activeView !== 'board') {
+      ++boardRequest;
+      state.boardSummary = null;
+    }
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && activeView === 'board') loadBoard();
+    if (!document.hidden && (activeView === 'kalender' || activeView === 'start')) loadCalendar();
+    if (!document.hidden && activeView === 'information') loadInformation();
+    if (!document.hidden && activeView === 'chat') loadChat();
+  });
+  document.addEventListener('vf:information-publish', event => {
+    writeMessage('publishInformation', event.detail?.text, loadInformation);
+  });
+  document.addEventListener('vf:chat-post', event => {
+    writeMessage('postChatMessage', event.detail?.text, loadChat);
+  });
+  setInterval(() => { if (!document.hidden && activeView === 'chat') loadChat(); }, 15000);
+  document.addEventListener('vf:signout', () => {
+    ++boardRequest;
+    ++calendarRequest;
+    state.user = null;
+    state.fee = null;
+    state.boardSummary = null;
+    state.calendar = null;
+    state.information = null;
+    state.chat = null;
+    state.connection = 'error';
+    show();
+    document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
+    notice('Testvyn är stängd. Google-kontot är fortfarande inloggat i webbläsaren.');
+  });
+  document.addEventListener('vf:dashboard-ready', () => {
+    window.VFDashboard.authorizeView = async view => {
+      const result = await call('authorizeDashboardView', view);
+      if (!result || typeof result.allowed !== 'boolean') throw new Error('Ogiltigt behörighetssvar');
+      state.user = result.profile || null;
+      if (!state.user) {
+        state.fee = null;
+        state.boardSummary = null;
+        state.calendar = null;
+        state.information = null;
+        state.chat = null;
+      }
+      show();
+      return result.allowed;
+    };
+    start();
+  });
+})();
+
+</script>
+  <script defer>
+    const source = new URL('https://vagfolk.github.io/vf-app/public/dashboard-assets/');
+    const activeButtonSource = new URL('https://vagfolk.github.io/vf-app/public/dashboard-assets/assets/menu-experiments/aktiv-knapp-utan-text.png');
+    let stage, status, list, original, menuHits, menuStartNeutral, menuLabelArt, menuActiveArt, modeArt, modeHits, cardArt, cardHits, memberArt, dashboardArt, surfaceArt, surfaceHits, screenContent, compactContent, compactNav;
+    let panels = [];
+    let iconVariants = [];
+    const iconCrops = [
+      {panelId:'01', x:425, y:91, width:29, height:45, filter:'blue'},
+      {panelId:'12', x:364, y:39, width:43, height:64, filter:'red'},
+      {panelId:'14', x:105, y:41, width:43, height:49, filter:'red'},
+    ];
+    const menu = [
+      {id:'start', label:'Start', top:213, height:75, left:33, width:208},
+      {id:'kalender', label:'Kalender', top:289, height:77, left:27, width:212, outline:'M 47 290 Q 37 290 34 300 C 29 318 27 343 27 354 Q 27 365 39 365 L 221 365 Q 232 365 233 355 L 237 302 Q 238 290 227 290 Z', shine:'M 47 291 L 227 291 Q 236 291 236 301'},
+      {id:'medlemsarbete', label:'Att göra', top:366, height:77, left:22, width:215, fontSize:20, outline:'M 39 368 Q 29 368 27 378 C 24 394 22 420 22 430 Q 22 441 33 442 L 218 442 Q 229 442 230 432 L 233 379 Q 233 368 222 368 Z', shine:'M 39 369 L 222 369 Q 231 369 232 379'},
+      {id:'chat', label:'Chat', top:444, height:76, left:20, width:215, outline:'M 33 445 Q 23 445 22 455 C 20 470 20 493 20 505 Q 20 516 31 517 L 215 517 Q 226 517 227 507 L 230 456 Q 230 445 219 445 Z', shine:'M 33 446 L 219 446 Q 228 446 229 456'},
+      {id:'dokument', label:'Dokument', top:520, height:73, left:20, width:214, outline:'M 31 520 Q 21 520 21 530 C 20 550 21 574 22 580 Q 23 591 33 592 L 211 592 Q 222 592 223 582 L 226 531 Q 226 520 215 520 Z', shine:'M 31 521 L 215 521 Q 224 521 225 531'},
+      {id:'avgift', label:'Min avgift', top:594, height:73, left:24, width:207, outline:'M 34 595 Q 24 595 24 605 C 25 621 28 644 30 654 Q 32 666 42 667 L 207 667 Q 218 667 219 656 L 222 606 Q 222 595 211 595 Z', shine:'M 34 596 L 211 596 Q 220 596 221 606'},
+      {id:'kontakt', label:'Kontakt', top:668, height:74, left:30, width:201, outline:'M 43 669 Q 32 669 33 681 C 36 700 41 721 45 730 Q 49 741 60 742 L 196 742 Q 204 742 205 731 L 210 681 Q 211 669 201 669 Z', shine:'M 43 670 L 201 670 Q 209 670 209 681'},
+    ];
+    const restrictedViews = {board:'board_view', secretary:'members_manage', treasurer:'finance_manage', admin:'recovery_manage'};
+    let navigationRequest = 0;
+    const icons = {
+      kalender:'<rect x="3" y="7" width="30" height="26" rx="2"/><path d="M10 3v8M26 3v8M3 14h30M10 20h.01M18 20h.01M26 20h.01M10 27h.01M18 27h.01M26 27h.01"/>',
+      medlemsarbete:'<path d="M17 28H3v-3a7 7 0 0 1 14 0v3Zm-7-12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm8-9a5 5 0 0 1 2 9m-1 5a7 7 0 0 1 8 7h-8m5-20a5 5 0 0 1 3 8"/>',
+      chat:'<path d="M5 5h26v20H13l-8 7V5Z"/><path d="M11 12h14M11 18h11"/>',
+      dokument:'<path d="M9 6H5v27h20v-4M12 3h13l6 6v20H12V3Zm13 0v7h6"/>',
+      avgift:'<path d="m18 2 4 3 5-.2 1.6 4.8L33 13l-2 5 2 5-4.4 3.4L27 31l-5-.2-4 3-4-3-5 .2-1.6-4.6L3 23l2-5-2-5 4.4-3.4L9 4.8l5 .2 4-3Z"/><path d="m11 18 5 5 9-10"/>',
+      kontakt:'<circle cx="18" cy="10" r="6"/><path d="M6 34v-5a12 12 0 0 1 24 0v5H6Zm24-16a6 6 0 0 1 4 6v10h-3"/>',
+    };
+    let selectedMenu = 'start';
+    let hoveredMenu = null;
+    let selectedMode = 'neutral';
+    let selectedCard = null;
+    let hoveredCard = null;
+    let sampleMemberStatus = 'unknown';
+    let previewName = '';
+    let previewOnlineCount = null;
+    let signalLevel = 1;
+    let forecastTemperature = null;
+    let forecastPermissionDenied = false;
+    let roadIndicatorMode = 'alternate';
+    let roadIndicatorPhase = 'green';
+    let selectedSurface = null;
+    let hoveredSurface = null;
+    const surfacePaths = {
+      main:'M 595 211 H 1297 Q 1318 211 1329 232 L 1337 252 V 741 Q 1337 761 1319 776 L 1298 790 H 591 Q 568 790 555 772 L 544 751 V 252 Q 544 229 565 216 Z',
+      left:'M 253 632 Q 241 633 241 649 L 238 761 Q 237 781 252 781 H 531 Q 542 781 542 769 V 648 Q 542 632 526 632 Z',
+      right:'M 1350 620 H 1635 Q 1651 620 1651 636 C 1651 675 1642 717 1622 754 Q 1605 786 1580 791 H 1345 Q 1335 791 1335 781 V 636 Q 1335 620 1350 620 Z',
+    };
+
+    function showSurfaceSelection() {
+      const active = !surfaceHits.hidden ? hoveredSurface || selectedSurface : null;
+      surfaceArt.toggleAttribute('hidden', !active);
+      if (active) surfaceArt.innerHTML = `<defs><filter id="surface-glow" x="-4%" y="-5%" width="108%" height="110%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+        <path d="${surfacePaths[active]}" fill="none" stroke="#dcebf0" stroke-width="7" stroke-opacity=".48" filter="url(#surface-glow)"/>
+        <path d="${surfacePaths[active]}" fill="none" stroke="#dde7ed" stroke-width="1.1" stroke-opacity=".68"/>`;
+      for (const button of surfaceHits.querySelectorAll('button')) button.setAttribute('aria-pressed', String(button.dataset.surface === selectedSurface));
+    }
+
+    function showDashboardDetails() {
+      const bars = [0,1,2,3].map(index => `<rect class="signal-bar" data-index="${index}" x="${418 + index * 7}" y="${145 - index * 5}" width="4" height="${7 + index * 5}" rx="1" fill="${index < signalLevel ? '#f2f7f5' : '#52606a'}" opacity="${index < signalLevel ? 1 : .55}"/>`).join('');
+      const topLeftImage = new URL('01_paneler_transparenta/01_ovre_vanster_signal.png', source).href;
+      const topRightImage = new URL('01_paneler_transparenta/03_ovre_hoger_temperatur.png', source).href;
+      dashboardArt.innerHTML = `<defs>
+        <linearGradient id="detail-cover" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#080d13"/><stop offset=".55" stop-color="#060b10"/><stop offset="1" stop-color="#0b1015"/></linearGradient>
+        <linearGradient id="detail-fore" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f8fcfd"/><stop offset="1" stop-color="#b9c7ce"/></linearGradient>
+        <linearGradient id="detail-glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#121c22"/><stop offset=".32" stop-color="#070c10"/><stop offset="1" stop-color="#12191d"/></linearGradient>
+        <pattern id="detail-texture" width="7" height="7" patternUnits="userSpaceOnUse"><path d="M 0 7 L 7 0" stroke="#8299a3" stroke-opacity=".045" stroke-width=".7"/></pattern>
+        <filter id="detail-led-glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.8"/></filter>
+        <clipPath id="patch-top-status"><path d="M 234 110 H 492 V 161 H 234 Z"/></clipPath>
+        <clipPath id="patch-top-weather"><path d="M 1218 121 H 1345 V 171 H 1218 Z"/></clipPath>
+        <clipPath id="greeting-clip"><path d="M 274 260 H 534 V 313 H 274 Z"/></clipPath>
+      </defs>
+      <image href="${topLeftImage}" x="-76" y="27" width="1073" height="198" preserveAspectRatio="none" clip-path="url(#patch-top-status)"/>
+      <image href="${topRightImage}" x="845" y="-13" width="652" height="255" clip-path="url(#patch-top-weather)"/>
+      <path d="M 177 819 H 219 V 871 H 177 Z" fill="url(#detail-cover)"/>
+      <path d="M 177 819 H 219 V 871 H 177 Z" fill="url(#detail-texture)"/>
+      <path d="M 253 249 H 539 V 321 H 253 Z" fill="url(#detail-cover)"/>
+      <path d="M 1355 253 H 1615 V 352 H 1355 Z" fill="url(#detail-cover)"/>
+      <path d="M 1355 253 H 1615 V 352 H 1355 Z" fill="url(#detail-texture)"/>
+      <path d="M 1387 816 H 1455 Q 1461 816 1461 823 V 877 Q 1461 884 1454 884 H 1387 Q 1380 884 1380 877 V 823 Q 1380 816 1387 816 Z" fill="url(#detail-glass)" stroke="#4d5960" stroke-width=".8"/>
+      <path d="M 1388 818 H 1453" fill="none" stroke="#bdccd0" stroke-opacity=".4" stroke-width="1"/>
+      <path d="M 1457 819 H 1508 V 878 H 1457 Z" fill="url(#detail-cover)"/>
+      <path d="M 1457 819 H 1508 V 878 H 1457 Z" fill="url(#detail-texture)"/>
+      <g id="road-indicator" color="#73f6a0" aria-hidden="true">
+        <g class="road-glow" filter="url(#detail-led-glow)" opacity=".7" stroke="currentColor" stroke-width="5" fill="none" stroke-linecap="round"><path d="M 1466 857 L 1475 832 M 1496 857 L 1486 832 M 1481 853 V 849 M 1481 842 V 838 M 1481 833 V 831"/></g>
+        <path d="M 1466 857 L 1475 832 M 1496 857 L 1486 832 M 1481 853 V 849 M 1481 842 V 838 M 1481 833 V 831" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      </g>
+      <text x="260" y="145" fill="url(#detail-fore)" font-family="Segoe UI,Arial,sans-serif" font-size="19">Status –</text>
+      <text id="online-value" x="332" y="145" fill="#5ef594" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600"></text>
+      <text id="online-label" x="349" y="145" fill="#5ef594" font-family="Segoe UI,Arial,sans-serif" font-size="17">Online</text>
+      <g aria-hidden="true">${bars}</g>
+      <g class="bt-indicator"><path d="M 465 121 V 151 L 474 143 L 458 128 M 458 143 L 474 129 L 465 121" fill="none" stroke="#3294ff" stroke-width="7" opacity=".7" filter="url(#detail-led-glow)"/>
+      <path d="M 465 121 V 151 L 474 143 L 458 128 M 458 143 L 474 129 L 465 121" fill="none" stroke="#82c8ff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <text id="greeting-value" x="276" y="302" fill="#f3f7f7" font-family="Segoe UI,Arial,sans-serif" font-size="40" font-weight="600" clip-path="url(#greeting-clip)"></text>
+      <text id="local-weekday" x="1374" y="283" fill="#f0f4f4" font-family="Segoe UI,Arial,sans-serif" font-size="20"></text>
+      <text id="local-date" x="1374" y="329" fill="#f2f5f5" font-family="Segoe UI,Arial,sans-serif" font-size="37" font-weight="500"></text>
+      <text id="forecast-value" x="1401" y="852" fill="#f1f7f7" font-family="Segoe UI,Arial,sans-serif" font-size="27" font-weight="500"></text>
+      <text x="1402" y="874" fill="#b4c7cc" font-family="Segoe UI,Arial,sans-serif" font-size="10" letter-spacing=".4">PROGNOS</text>`;
+      const firstName = previewName.split(/\s+/)[0];
+      const greeting = firstName ? `Hej, ${firstName}` : 'Hej!';
+      const greetingElement = dashboardArt.querySelector('#greeting-value');
+      greetingElement.textContent = greeting;
+      const measure = document.createElement('canvas').getContext('2d');
+      let greetingSize = 40;
+      measure.font = `600 ${greetingSize}px Segoe UI, Arial, sans-serif`;
+      while (measure.measureText(greetingElement.textContent).width > 255 && greetingSize > 26) {
+        greetingSize -= 1;
+        greetingElement.setAttribute('font-size', String(greetingSize));
+        measure.font = `600 ${greetingSize}px Segoe UI, Arial, sans-serif`;
+      }
+      while (measure.measureText(greetingElement.textContent).width > 255 && greetingElement.textContent.length > 5) {
+        greetingElement.textContent = `${greetingElement.textContent.slice(0,-2)}…`;
+      }
+      const count = dashboardArt.querySelector('#online-value');
+      count.textContent = previewOnlineCount === null ? '–' : String(previewOnlineCount);
+      dashboardArt.querySelector('#online-label').setAttribute('x', String(previewOnlineCount === null ? 350 : previewOnlineCount > 99 ? 370 : previewOnlineCount > 9 ? 360 : 350));
+      dashboardArt.querySelector('#forecast-value').textContent = forecastTemperature === null ? '' : `${Math.round(forecastTemperature)}°`;
+      showLocalDate();
+      updateRoadIndicator();
+    }
+
+    function showLocalDate() {
+      const weekday = dashboardArt.querySelector('#local-weekday');
+      const date = dashboardArt.querySelector('#local-date');
+      if (!weekday || !date) return;
+      const now = new Date();
+      const dayName = new Intl.DateTimeFormat('sv-SE', {weekday:'long'}).format(now);
+      weekday.textContent = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+      date.textContent = new Intl.DateTimeFormat('sv-SE', {day:'numeric', month:'long'}).format(now);
+    }
+
+    function updateRoadIndicator() {
+      const indicator = dashboardArt.querySelector('#road-indicator');
+      if (!indicator) return;
+      const state = roadIndicatorMode === 'alternate' ? roadIndicatorPhase : roadIndicatorMode;
+      indicator.setAttribute('color', state === 'green' ? '#73f6a0' : state === 'blue' ? '#75c7ff' : '#e8eff1');
+      indicator.querySelector('.road-glow').setAttribute('opacity', state === 'neutral' ? '.12' : '.7');
+      for (const button of document.querySelectorAll('[data-road-mode]')) button.setAttribute('aria-pressed', String(button.dataset.roadMode === roadIndicatorMode));
+    }
+
+    function cycleRoadIndicator() {
+      if (roadIndicatorMode !== 'alternate') return;
+      roadIndicatorPhase = roadIndicatorPhase === 'green' ? 'blue' : 'green';
+      updateRoadIndicator();
+    }
+
+    function showSignalBars() {
+      signalLevel = signalLevel % 4 + 1;
+      for (const bar of dashboardArt.querySelectorAll('.signal-bar')) {
+        const active = Number(bar.dataset.index) < signalLevel;
+        bar.setAttribute('fill', active ? '#f2f7f5' : '#52606a');
+        bar.setAttribute('opacity', active ? '1' : '.55');
+      }
+    }
+
+    async function loadLocalForecast() {
+      const feedback = document.querySelector('#forecast-feedback');
+      forecastTemperature = null;
+      showDashboardDetails();
+      feedback.textContent = 'Hämtar plats och prognos…';
+      if (!navigator.geolocation) { feedback.textContent = 'Platsåtkomst stöds inte här.'; return; }
+      try {
+        const position = await new Promise((resolve,reject) => navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:false,timeout:10000,maximumAge:600000}));
+        const lon = position.coords.longitude.toFixed(2);
+        const lat = position.coords.latitude.toFixed(2);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        let response;
+        try { response = await fetch('https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/' + lon + '/lat/' + lat + '/data.json?timeseries=4&parameters=air_temperature',{signal:controller.signal}); }
+        finally { clearTimeout(timer); }
+        if (!response.ok) throw new Error('SMHI kunde inte lämna en prognos');
+        const data = await response.json();
+        const now = Date.now();
+        const forecast = data.timeSeries?.find(item => Date.parse(item.time) >= now - 3600000 && Number.isFinite(item.data?.air_temperature) && item.data.air_temperature > -100 && item.data.air_temperature < 100);
+        if (!forecast) throw new Error('Ingen aktuell prognostemperatur finns');
+        forecastTemperature = forecast.data.air_temperature;
+        forecastPermissionDenied = false;
+        showDashboardDetails();
+        feedback.textContent = `SMHI:s prognos för din ungefärliga plats, giltig ${new Intl.DateTimeFormat('sv-SE',{hour:'2-digit',minute:'2-digit'}).format(new Date(forecast.time))}.`;
+      } catch(error) {
+        forecastPermissionDenied = error.code === 1;
+        feedback.textContent = forecastPermissionDenied ? 'Platsåtkomst nekades. Ingen temperatur visas.' : 'Temperatur kunde inte hämtas. Kontrollera anslutningen och prova igen.';
+      }
+    }
+
+    function showMemberPanel() {
+      const paid = sampleMemberStatus === 'paid';
+      const unknown = sampleMemberStatus === 'unknown';
+      const color = unknown ? '#93a5ac' : paid ? '#20eb68' : '#ff3048';
+      const edge = unknown ? 'member-neutral-edge' : paid ? 'member-green-edge' : 'member-red-edge';
+      const face = unknown ? 'member-neutral-face' : paid ? 'member-green-face' : 'member-red-face';
+      const time = new Intl.DateTimeFormat('sv-SE', {hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
+      memberArt.innerHTML = `<defs>
+        <linearGradient id="member-back" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#080e11"/><stop offset=".55" stop-color="#070b0e"/><stop offset="1" stop-color="#0a0c0e"/></linearGradient>
+        <linearGradient id="member-green-face" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#075526"/><stop offset=".4" stop-color="#091e13"/><stop offset="1" stop-color="#0b6931"/></linearGradient>
+        <linearGradient id="member-red-face" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#822037"/><stop offset=".4" stop-color="#260d13"/><stop offset="1" stop-color="#8c1830"/></linearGradient>
+        <linearGradient id="member-green-edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#dcffe2"/><stop offset=".33" stop-color="#21ed6b"/><stop offset=".75" stop-color="#0a8c3f"/><stop offset="1" stop-color="#d4ffdc"/></linearGradient>
+        <linearGradient id="member-red-edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe1de"/><stop offset=".33" stop-color="#ff3048"/><stop offset=".75" stop-color="#aa1631"/><stop offset="1" stop-color="#ffd8d4"/></linearGradient>
+        <linearGradient id="member-neutral-face" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#28363d"/><stop offset=".4" stop-color="#121a1e"/><stop offset="1" stop-color="#35464d"/></linearGradient>
+        <linearGradient id="member-neutral-edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e2eaed"/><stop offset=".5" stop-color="#748790"/><stop offset="1" stop-color="#cad8df"/></linearGradient>
+        <filter id="member-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3.8"/></filter>
+      </defs>
+      <path d="M 565 821 H 657 V 883 H 565 Z M 713 819 H 1031 V 884 H 713 Z" fill="url(#member-back)"/>
+      <text x="573" y="869" fill="#f3f7f6" font-family="Segoe UI,Arial,sans-serif" font-variant-numeric="tabular-nums" font-size="32" font-weight="500">${time}</text>
+      <circle cx="748" cy="850" r="22" fill="none" stroke="${color}" stroke-width="9" opacity=".7" filter="url(#member-glow)"/>
+      <circle cx="748" cy="850" r="22" fill="url(#${face})" stroke="url(#${edge})" stroke-width="2.5"/>
+      <path d="${unknown ? 'M 742 850 H 754' : paid ? 'M 737 850 L 745 858 L 759 842' : 'M 748 838 V 853 M 748 861 V 862'}" fill="none" stroke="#f4fff6" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 731 837 A 22 22 0 0 1 766 839" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1.7" stroke-linecap="round"/>
+      <text x="788" y="860" fill="#f3f7f6" font-family="Segoe UI,Arial,sans-serif" font-size="25" font-weight="400">Medlemsstatus</text>`;
+      memberArt.setAttribute('aria-label', unknown ? 'Medlemsstatus läses in' : paid ? 'Medlemsavgift betald' : 'Medlemsavgift inte betald');
+      for (const button of document.querySelectorAll('[data-member-status]')) button.setAttribute('aria-pressed', String(button.dataset.memberStatus === sampleMemberStatus));
+    }
+
+    function showCardSelection() {
+      const visible = !cardHits.hidden;
+      const lit = visible ? hoveredCard || selectedCard : null;
+      stage.dataset.cardLit = lit || '';
+      cardArt.toggleAttribute('hidden', !lit);
+      if (lit) {
+        const meeting = lit === 'meeting';
+        const outline = meeting
+          ? 'M 267 386 C 251 386 245 399 243 415 L 236 578 C 235 602 246 616 265 617 H 514 C 533 617 543 607 544 589 L 547 418 C 547 397 536 386 518 386 Z'
+          : 'M 1384 382 C 1366 382 1353 396 1353 416 V 585 C 1353 605 1366 618 1385 618 H 1614 C 1634 618 1647 605 1647 586 V 414 C 1647 394 1634 382 1614 382 Z';
+        const shine = meeting ? 'M 267 387 C 252 387 247 400 245 414' : 'M 1384 383 C 1367 383 1355 397 1355 415';
+        const color = meeting ? '#ff2d4b' : '#ffd05b';
+        cardArt.innerHTML = `<defs><filter id="card-tight-glow" x="-4%" y="-5%" width="108%" height="110%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+          <path d="${outline}" fill="none" stroke="${color}" stroke-width="6" opacity=".54" filter="url(#card-tight-glow)"/>
+          <path d="${outline}" fill="none" stroke="${color}" stroke-width="1.15" opacity=".58"/>
+          <path d="${shine}" fill="none" stroke="${meeting ? '#ffadb4' : '#fff1b9'}" stroke-width="1" opacity=".54" stroke-linecap="round"/>`;
+      }
+      for (const button of cardHits.querySelectorAll('button')) button.setAttribute('aria-pressed', String(button.dataset.card === selectedCard));
+      if (!visible || !selectedCard) return;
+      const heading = selectedCard === 'meeting' ? 'Nästa medlemsmöte' : 'Information';
+      screenContent.replaceChildren();
+      const title = document.createElement('h2');
+      title.textContent = heading;
+      const note = document.createElement('p');
+      note.textContent = 'Kortets innehåll är ännu inte anslutet till föreningens uppgifter.';
+      screenContent.append(title, note);
+    }
+
+    function showModeSelection() {
+      const visible = !modeHits.hidden;
+      modeArt.toggleAttribute('hidden', !visible);
+      if (!visible) return;
+      const neutralSelected = selectedMode === 'neutral';
+      const neutralOutline = 'M 652 113 L 821 113 Q 831 113 833 123 L 839 164 L 664 164 Q 654 164 651 154 L 644 124 Q 642 113 652 113 Z';
+      const meetingOutline = 'M 846 113 L 1021 113 Q 1032 113 1029 126 L 1022 155 Q 1020 165 1010 165 L 854 165 Q 846 165 844 156 L 838 125 Q 836 113 846 113 Z';
+      const buttonFace = (outline, shine, reflection, active) => `<path d="${outline}" fill="none" stroke="#03080c" stroke-width="13"/>
+        ${active ? `<path d="${outline}" fill="none" stroke="${active === 'green' ? '#19ff61' : '#ff193b'}" stroke-width="9" opacity=".95" filter="url(#mode-glow)"/>` : ''}
+        <path d="${outline}" fill="url(#${active === 'green' ? 'mode-green' : active === 'red' ? 'mode-red' : 'mode-dark'})" stroke="#12171a" stroke-width="3.5"/>
+        <path d="${reflection}" fill="url(#mode-reflection)" opacity="${active ? '.42' : '.28'}"/>
+        <path d="${outline}" fill="none" stroke="url(#${active === 'green' ? 'mode-green-edge' : active === 'red' ? 'mode-red-edge' : 'mode-dark-edge'})" stroke-width="1.7"/>
+        <path d="${shine}" fill="none" stroke="${active === 'green' ? '#ddffe2' : active === 'red' ? '#ffe1d9' : '#dce8eb'}" stroke-opacity="${active ? '.93' : '.38'}" stroke-width="2.7" stroke-linecap="round"/>`;
+      modeArt.innerHTML = `<defs>
+        <linearGradient id="mode-green" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#006b30"/><stop offset=".24" stop-color="#092719"/><stop offset=".7" stop-color="#082217"/><stop offset="1" stop-color="#00793a"/></linearGradient>
+        <linearGradient id="mode-red" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#a90023"/><stop offset=".24" stop-color="#320c17"/><stop offset=".7" stop-color="#280910"/><stop offset="1" stop-color="#b3002c"/></linearGradient>
+        <linearGradient id="mode-dark" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#243036"/><stop offset=".24" stop-color="#11191e"/><stop offset=".7" stop-color="#0c1216"/><stop offset="1" stop-color="#1d272d"/></linearGradient>
+        <linearGradient id="mode-green-edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e8ffe8"/><stop offset=".2" stop-color="#16ff62"/><stop offset=".7" stop-color="#009036"/><stop offset="1" stop-color="#baffc8"/></linearGradient>
+        <linearGradient id="mode-red-edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe9e3"/><stop offset=".2" stop-color="#ff1536"/><stop offset=".7" stop-color="#a1001c"/><stop offset="1" stop-color="#ffd7d1"/></linearGradient>
+        <linearGradient id="mode-dark-edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#edf5f8"/><stop offset=".25" stop-color="#9cabb2"/><stop offset=".7" stop-color="#3e4c53"/><stop offset="1" stop-color="#bfcdd2"/></linearGradient>
+        <linearGradient id="mode-reflection" x1="0" y1="0" x2=".1" y2="1"><stop stop-color="#fff" stop-opacity=".32"/><stop offset=".72" stop-color="#fff" stop-opacity=".08"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+        <filter id="mode-glow" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="5"/></filter>
+      </defs>
+      ${buttonFace(neutralOutline, 'M 653 115 L 820 115 Q 828 115 831 123', 'M 652 115 L 821 115 Q 831 115 833 125 L 835 138 Q 742 131 647 138 L 644 125 Q 642 115 652 115 Z', neutralSelected ? 'green' : '')}
+      ${buttonFace(meetingOutline, 'M 847 115 L 1020 115 Q 1028 115 1028 124', 'M 846 115 L 1021 115 Q 1031 115 1029 126 L 1026 139 Q 934 131 840 139 L 838 125 Q 836 115 846 115 Z', neutralSelected ? '' : 'red')}
+      <text x="740" y="148" text-anchor="middle" fill="#f5f7f6" font-family="Segoe UI,Arial,sans-serif" font-size="21">Neutral</text>
+      <text x="933" y="148" text-anchor="middle" fill="#f5f7f6" font-family="Segoe UI,Arial,sans-serif" font-size="21">Mötesläge</text>
+      <path d="M 616 125 L 604 139 L 616 152" fill="none" stroke="#04090c" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 616 125 L 604 139 L 616 152" fill="none" stroke="${neutralSelected ? '#ffd348' : '#e9edef'}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 1057 125 L 1069 139 L 1057 152" fill="none" stroke="#04090c" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 1057 125 L 1069 139 L 1057 152" fill="none" stroke="${neutralSelected ? '#e9edef' : '#ffd348'}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+      for (const button of modeHits.querySelectorAll('button')) button.setAttribute('aria-pressed', String(button.dataset.mode === selectedMode));
+    }
+
+    function showMenuSelection() {
+      const displayed = menu.find(item => item.id === (hoveredMenu || selectedMenu));
+      const interactive = !menuHits.hidden;
+      const overlayVisible = interactive && displayed && displayed.id !== 'start';
+      menuStartNeutral.hidden = !overlayVisible;
+      menuActiveArt.toggleAttribute('hidden', !overlayVisible);
+      if (overlayVisible) {
+        const icon = icons[displayed.id];
+        menuActiveArt.innerHTML = `<defs>
+          <linearGradient id="gold-glass" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="#503007"/><stop offset=".24" stop-color="#17150f"/><stop offset=".7" stop-color="#1d170d"/><stop offset="1" stop-color="#57370a"/></linearGradient>
+          <linearGradient id="gold-edge" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0a1"/><stop offset=".25" stop-color="#f4c248"/><stop offset=".7" stop-color="#8c5210"/><stop offset="1" stop-color="#ffe378"/></linearGradient>
+          <linearGradient id="gold-sheen" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff3bc" stop-opacity=".5"/><stop offset="1" stop-color="#ffd05e" stop-opacity="0"/></linearGradient>
+          <filter id="gold-glow" x="-15%" y="-35%" width="130%" height="170%"><feGaussianBlur stdDeviation="4"/></filter>
+        </defs>
+        <path d="${displayed.outline}" fill="none" stroke="#e69a19" stroke-width="7" opacity=".72" filter="url(#gold-glow)"/>
+        <path d="${displayed.outline}" fill="url(#gold-glass)" stroke="#281a08" stroke-width="4"/>
+        <path d="${displayed.outline}" fill="none" stroke="url(#gold-edge)" stroke-width="1.7"/>
+        <path d="${displayed.shine}" fill="none" stroke="url(#gold-sheen)" stroke-width="2.6" stroke-linecap="round"/>
+        <g class="icon" transform="translate(${displayed.left + 30} ${displayed.top + 17})">${icon}</g><text x="${displayed.left + 84}" y="${displayed.top + 49}" ${displayed.fontSize ? `style="font-size:${displayed.fontSize}px"` : ''}>${displayed.label}</text>`;
+      }
+      for (const button of menuHits.querySelectorAll('button')) {
+        if (button.dataset.menu === selectedMenu) button.setAttribute('aria-current', 'page');
+        else button.removeAttribute('aria-current');
+      }
+    }
+
+    function renderMenuContent() {
+      window.VFPreviewViews.show(selectedMenu,{name:previewName, ...window.VFAppData});
+      compactContent.dataset.start = String(selectedMenu === 'start');
+    }
+
+    async function selectMenu(id) {
+      if (!menu.some(entry => entry.id === id) && id !== 'information' && !Object.hasOwn(restrictedViews,id)) return;
+      const request = ++navigationRequest;
+      const required = restrictedViews[id];
+      if (required && !window.VFAppData?.user?.permissions?.includes(required)) {
+        status.textContent = 'Du har inte åtkomst till den delen.';
+        return;
+      }
+      if (required) {
+        status.textContent = 'Kontrollerar behörighet…';
+        try {
+          if (!await window.VFDashboard?.authorizeView?.(id)) {
+            if (request === navigationRequest) status.textContent = 'Du har inte åtkomst till den delen.';
+            return;
+          }
+        } catch {
+          if (request === navigationRequest) status.textContent = 'Behörigheten kunde inte kontrolleras.';
+          return;
+        }
+        if (request !== navigationRequest) return;
+      }
+      selectedMenu = id;
+      const item = menu.find(entry => entry.id === id);
+      screenContent.hidden = false;
+      renderMenuContent();
+      showMenuSelection();
+      for (const button of compactNav.querySelectorAll('button')) {
+        if (button.dataset.menu === id) button.setAttribute('aria-current','page');
+        else button.removeAttribute('aria-current');
+      }
+      status.textContent = `${item?.label || 'Översikt'} öppnad i mittdisplayen.`;
+      document.dispatchEvent(new CustomEvent('vf:view-selected', {detail:{id}}));
+    }
+
+    function buildMenu() {
+      for (const item of menu) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.menu = item.id;
+        button.setAttribute('aria-label', item.label);
+        button.title = item.label;
+        button.style.setProperty('--menu-left', `${item.left / 1672 * 100}%`);
+        button.style.setProperty('--menu-top', `${item.top / 941 * 100}%`);
+        button.style.setProperty('--menu-width', `${item.width / 1672 * 100}%`);
+        button.style.setProperty('--menu-height', `${item.height / 941 * 100}%`);
+        button.addEventListener('click', () => selectMenu(item.id));
+        button.addEventListener('pointerenter', () => { hoveredMenu = item.id; showMenuSelection(); });
+        button.addEventListener('pointerleave', () => { hoveredMenu = null; showMenuSelection(); });
+        button.addEventListener('focus', () => { hoveredMenu = item.id; showMenuSelection(); });
+        button.addEventListener('blur', () => { hoveredMenu = null; showMenuSelection(); });
+        menuHits.append(button);
+        const compactButton = document.createElement('button');
+        compactButton.type = 'button';
+        compactButton.dataset.menu = item.id;
+        compactButton.textContent = item.label;
+        compactButton.addEventListener('click', () => selectMenu(item.id));
+        compactNav.append(compactButton);
+      }
+      showMenuSelection();
+      compactNav.querySelector('[data-menu="start"]').setAttribute('aria-current','page');
+    }
+
+    function setView(view, onlyId = null) {
+      original.hidden = view !== 'original';
+      for (const {image, info} of panels) image.hidden = view === 'original' || view === 'frame' || (view === 'single' && info.id !== onlyId);
+      for (const {image, panelId} of iconVariants) image.hidden = view === 'original' || view === 'frame' || (view === 'single' && panelId !== onlyId);
+      const interactive = view === 'interactive' || view === 'all';
+      menuHits.hidden = !interactive;
+      menuLabelArt.hidden = view === 'original' || view === 'frame' || view === 'single' && onlyId !== '04';
+      modeHits.hidden = view !== 'mode' && view !== 'interactive';
+      cardHits.hidden = view !== 'cards' && view !== 'interactive';
+      surfaceHits.hidden = view !== 'surfaces';
+      memberArt.toggleAttribute('hidden', view === 'original' || view === 'frame' || view === 'single' && onlyId !== '13');
+      dashboardArt.toggleAttribute('hidden', view === 'original' || view === 'frame' || view === 'single');
+      document.querySelector('#status-options').dataset.visible = String(view === 'member');
+      showMenuSelection();
+      showModeSelection();
+      if (interactive) renderMenuContent();
+      showCardSelection();
+      showSurfaceSelection();
+      screenContent.hidden = !(interactive && selectedMenu !== 'start' || view === 'cards' && selectedCard);
+      for (const button of document.querySelectorAll('[data-view]')) {
+        const active = button.dataset.view === view && (view !== 'single' || button.dataset.id === onlyId);
+        button.setAttribute('aria-pressed', String(active));
+      }
+      const label = interactive ? `${menu.find(item => item.id === selectedMenu)?.label || 'Översikt'} vald.` : view === 'mode' ? 'Visningsläge valt.' : view === 'cards' ? 'Informationskort valt.' : view === 'surfaces' ? 'Skärmyta vald.' : view === 'member' ? 'Medlemsstatus visas.' : view === 'original' ? 'Originalbild' : view === 'frame' ? 'Endast ytterram' : view === 'single' ? `Ytterram och panel ${onlyId}` : 'Ytterram och samtliga 14 paneler';
+      status.textContent = label;
+    }
+
+    async function initialize() {
+      try {
+        const [response, placementResponse] = await Promise.all([
+          fetch(new URL('paneler_layout.json', source)),
+          fetch('https://vagfolk.github.io/vf-app/public/placements.json'),
+        ]);
+        if (!response.ok || !placementResponse.ok) throw new Error('Placeringarna kunde inte läsas');
+        const [layout, corrected] = await Promise.all([response.json(), placementResponse.json()]);
+        if (layout.width !== 1672 || layout.height !== 941 || layout.panels.length !== 14 || corrected.panels.length !== 14) throw new Error('Bildmått eller antal paneler stämmer inte');
+        const positions = new Map(corrected.panels.map(position => [position.id, position]));
+
+        const frame = document.createElement('img');
+        frame.className = 'frame';
+        frame.alt = '';
+        frame.src = new URL(layout.frame.file, source).href;
+        stage.prepend(frame);
+        original.src = new URL(layout.source_image, source).href;
+
+        panels = layout.panels.map(info => {
+          const position = positions.get(info.id);
+          if (!position) throw new Error(`Placering saknas för panel ${info.id}`);
+          const image = document.createElement('img');
+          image.className = 'panel';
+          image.classList.add(`panel-${info.id}`);
+          image.alt = '';
+          image.src = new URL(info.file, source).href;
+          image.style.left = `${position.x / layout.width * 100}%`;
+          image.style.top = `${position.y / layout.height * 100}%`;
+          image.style.width = `${position.width / layout.width * 100}%`;
+          image.style.height = `${position.height / layout.height * 100}%`;
+          stage.append(image);
+
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.dataset.view = 'single';
+          button.dataset.id = info.id;
+          button.textContent = `${info.id}. ${info.name}`;
+          button.addEventListener('click', () => setView('single', info.id));
+          list.append(button);
+          return {image, info, position};
+        });
+
+        iconVariants = iconCrops.map(crop => {
+          const panel = panels.find(entry => entry.info.id === crop.panelId);
+          if (!panel) throw new Error(`Ikonens panel ${crop.panelId} saknas`);
+          const image = document.createElement('img');
+          image.className = 'icon-variant';
+          image.alt = '';
+          image.src = panel.image.src;
+          image.style.left = panel.image.style.left;
+          image.style.top = panel.image.style.top;
+          image.style.width = panel.image.style.width;
+          image.style.height = panel.image.style.height;
+          image.style.clipPath = `inset(${crop.y / panel.position.height * 100}% ${(panel.position.width - crop.x - crop.width) / panel.position.width * 100}% ${(panel.position.height - crop.y - crop.height) / panel.position.height * 100}% ${crop.x / panel.position.width * 100}%)`;
+          image.style.filter = `url(#icon-${crop.filter})`;
+          stage.append(image);
+          return {image, panelId:crop.panelId};
+        });
+
+        const menuImages = [menuStartNeutral.querySelector('img')];
+        await Promise.all([frame, original, ...panels.map(panel => panel.image), ...iconVariants.map(variant => variant.image), ...menuImages].map(image => new Promise((resolve,reject) => {
+          if (image.complete) return image.naturalWidth ? resolve() : reject(new Error(`Bilden saknas: ${image.src}`));
+          image.addEventListener('load', resolve, {once:true});
+          image.addEventListener('error', () => reject(new Error(`Bilden saknas: ${image.src}`)), {once:true});
+        })));
+        const mismatch = panels.find(({image,position}) => image.naturalWidth !== position.width || image.naturalHeight !== position.height);
+        if (frame.naturalWidth !== layout.width || frame.naturalHeight !== layout.height || mismatch || menuImages.some(image => image.naturalWidth !== 852 || image.naturalHeight !== 1846)) throw new Error('En bild har andra mått än layoutfilen');
+        setView('interactive');
+        stage.dataset.ready = 'true';
+      } catch(error) {
+        status.textContent = `Kunde inte visa alla bilddelar: ${error.message}`;
+        document.querySelector('.app-notice').textContent = 'Instrumentpanelen kunde inte laddas. Ladda om sidan eller försök senare.';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      stage = document.querySelector('#stage');
+      status = document.querySelector('#status');
+      list = document.querySelector('#panel-list');
+      original = document.querySelector('#original');
+      menuHits = document.querySelector('#menu-hits');
+      menuStartNeutral = document.querySelector('#menu-start-neutral');
+      menuLabelArt = document.querySelector('#menu-label-art');
+      menuActiveArt = document.querySelector('#menu-active-art');
+      modeArt = document.querySelector('#mode-art');
+      modeHits = document.querySelector('#mode-hits');
+      cardArt = document.querySelector('#card-art');
+      cardHits = document.querySelector('#card-hits');
+      memberArt = document.querySelector('#member-art');
+      dashboardArt = document.querySelector('#dashboard-art');
+      surfaceArt = document.querySelector('#surface-art');
+      surfaceHits = document.querySelector('#surface-hits');
+      menuStartNeutral.querySelector('img').src = activeButtonSource.href;
+      screenContent = document.querySelector('#screen-content');
+      compactContent = document.querySelector('#compact-content');
+      compactNav = document.querySelector('#compact-nav');
+      window.VFPreviewViews.attach(screenContent);
+      window.VFPreviewViews.attach(compactContent);
+      document.addEventListener('vf:navigate', event => selectMenu(event.detail.id));
+      buildMenu();
+      window.VFDashboard = {
+        setData(data) {
+          window.VFAppData = data;
+          if (restrictedViews[selectedMenu] && !data.user?.permissions?.includes(restrictedViews[selectedMenu])) {
+            ++navigationRequest;
+            selectedMenu = 'start';
+            showMenuSelection();
+          }
+          previewName = String(data.fee?.name || '').trim().slice(0, 36);
+          sampleMemberStatus = data.fee?.status === 'paid' ? 'paid' : data.fee?.status === 'unpaid' ? 'unpaid' : 'unknown';
+          showDashboardDetails();
+          showMemberPanel();
+          renderMenuContent();
+          const meetingText = document.querySelector('.unconnected-meeting span');
+          const isBoard = data.user?.permissions?.includes('board_view');
+          document.querySelector('.unconnected-meeting strong').textContent = isBoard ? 'Nästa möte' : 'Nästa medlemsmöte';
+          meetingText.textContent = window.VFPreviewViews.meetingText(data.calendar, isBoard);
+          document.querySelector('.unconnected-meeting').setAttribute('aria-hidden','false');
+          const informationText = document.querySelector('.unconnected-board span');
+          const latestInformation = data.information?.message?.text;
+          informationText.textContent = latestInformation
+            ? latestInformation.slice(0, 90) + (latestInformation.length > 90 ? '…' : '')
+            : (data.information?.error ? 'Information kunde inte hämtas' : 'Inget meddelande publicerat');
+          document.querySelector('.unconnected-board').setAttribute('aria-hidden','false');
+          const compactFee = document.querySelector('.compact-fee');
+          compactFee.textContent = sampleMemberStatus === 'paid' ? 'Medlemsavgift betald' : sampleMemberStatus === 'unpaid' ? 'Medlemsavgift inte betald' : 'Medlemsstatus saknas';
+          compactFee.dataset.status = sampleMemberStatus;
+        },
+        refresh() { renderMenuContent(); },
+      };
+      document.dispatchEvent(new Event('vf:dashboard-ready'));
+      for (const button of modeHits.querySelectorAll('button')) button.addEventListener('click', () => {
+        selectedMode = button.dataset.mode;
+        showModeSelection();
+        status.textContent = `Del 02: ${selectedMode === 'neutral' ? 'Neutral' : 'Mötesläge'} valt. Endast utseendet växlar; mötesfunktionen byggs senare.`;
+      });
+      for (const button of cardHits.querySelectorAll('button')) {
+        button.addEventListener('click', () => {
+          selectMenu(button.dataset.card === 'meeting' ? 'kalender' : 'information');
+        });
+        button.addEventListener('pointerenter', () => { hoveredCard = button.dataset.card; showCardSelection(); });
+        button.addEventListener('pointerleave', () => { hoveredCard = null; showCardSelection(); });
+        button.addEventListener('focus', () => { hoveredCard = button.dataset.card; showCardSelection(); });
+        button.addEventListener('blur', () => { hoveredCard = null; showCardSelection(); });
+      }
+      document.querySelector('[data-view="all"]').addEventListener('click', () => setView('all'));
+      document.querySelector('[data-view="frame"]').addEventListener('click', () => setView('frame'));
+      document.querySelector('[data-view="original"]').addEventListener('click', () => setView('original'));
+      document.querySelector('[data-view="interactive"]').addEventListener('click', () => setView('interactive'));
+      document.querySelector('[data-view="mode"]').addEventListener('click', () => setView('mode'));
+      document.querySelector('[data-view="cards"]').addEventListener('click', () => setView('cards'));
+      document.querySelector('[data-view="member"]').addEventListener('click', () => setView('member'));
+      document.querySelector('[data-view="surfaces"]').addEventListener('click', () => setView('surfaces'));
+      for (const button of surfaceHits.querySelectorAll('button')) {
+        button.addEventListener('click', () => {
+          selectedSurface = button.dataset.surface;
+          showSurfaceSelection();
+          status.textContent = `Skärmytor: ${button.getAttribute('aria-label')} vald. Formen är en separat modul.`;
+        });
+        button.addEventListener('pointerenter', () => { hoveredSurface = button.dataset.surface; showSurfaceSelection(); });
+        button.addEventListener('pointerleave', () => { hoveredSurface = null; showSurfaceSelection(); });
+        button.addEventListener('focus', () => { hoveredSurface = button.dataset.surface; showSurfaceSelection(); });
+        button.addEventListener('blur', () => { hoveredSurface = null; showSurfaceSelection(); });
+      }
+      document.querySelector('#preview-name').addEventListener('input', event => { previewName = event.target.value.trim().slice(0,36); showDashboardDetails(); window.VFPreviewViews.refresh({name:previewName}); });
+      document.querySelector('#preview-online').addEventListener('input', event => {
+        const value = event.target.value;
+        previewOnlineCount = value === '' ? null : Math.min(999,Math.max(0,Number(value)));
+        showDashboardDetails();
+        document.querySelector('#compact-online').textContent = previewOnlineCount === null ? '– online' : `${previewOnlineCount} online`;
+      });
+      document.querySelector('#load-forecast').addEventListener('click', loadLocalForecast);
+      for (const button of document.querySelectorAll('[data-road-mode]')) button.addEventListener('click', () => {
+        roadIndicatorMode = button.dataset.roadMode;
+        updateRoadIndicator();
+      });
+      for (const button of document.querySelectorAll('[data-member-status]')) button.addEventListener('click', () => {
+        sampleMemberStatus = button.dataset.memberStatus;
+        showMemberPanel();
+        status.textContent = `Del 13: klockan visar lokal tid. Medlemsstatus ${sampleMemberStatus === 'paid' ? 'grön' : 'röd'} är endast ett visuellt exempel.`;
+      });
+      showMemberPanel();
+      showDashboardDetails();
+      renderMenuContent();
+      const updateCompactClock = () => { document.querySelector('#compact-time').textContent = new Intl.DateTimeFormat('sv-SE',{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date()); };
+      updateCompactClock();
+      setInterval(updateCompactClock, 1000);
+      setInterval(showMemberPanel, 1000);
+      setInterval(showSignalBars, 1600);
+      setInterval(showLocalDate, 60 * 1000);
+      setInterval(cycleRoadIndicator, 2200);
+      setInterval(() => { if (!document.hidden && !forecastPermissionDenied) loadLocalForecast(); }, 30 * 60 * 1000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) { showMemberPanel(); showLocalDate(); } });
+      initialize();
+      loadLocalForecast();
+    });
+  </script>
+</head>
+<body class="app-mode">
+  <header>
+    <h1>Vägfölk 26 – bilddelar</h1>
+    <div class="actions" role="group" aria-label="Välj visning">
+      <button type="button" data-view="all" aria-pressed="true">Alla delar</button>
+      <button type="button" data-view="frame" aria-pressed="false">Endast ytterram</button>
+      <button type="button" data-view="original" aria-pressed="false">Originalbild</button>
+      <button type="button" data-view="interactive" aria-pressed="false">Prova del 04</button>
+      <button type="button" data-view="mode" aria-pressed="false">Prova del 02</button>
+      <button type="button" data-view="cards" aria-pressed="false">Prova del 06 och 09</button>
+      <button type="button" data-view="member" aria-pressed="false">Prova del 13</button>
+      <button type="button" data-view="surfaces" aria-pressed="false">Prova skärmytor</button>
+    </div>
+  </header>
+  <div class="compact-shell" aria-label="Vägfölk 26 på mindre skärm">
+    <div class="compact-rotate" hidden><strong>Vrid telefonen till liggande läge</strong>Alla funktioner finns kvar när skärmen är bredare.</div>
+    <div class="compact-top"><span class="compact-brand">VÄGFÖLK <em>26</em></span><div class="compact-top-right"><span id="compact-online" class="compact-online">– online</span><time id="compact-time" class="compact-time"></time></div></div>
+    <div class="compact-body"><nav class="compact-nav" id="compact-nav" aria-label="Huvudmeny"></nav><main class="compact-display" id="compact-content" aria-live="polite" data-start="true"></main></div>
+    <div class="compact-bottom"><span>Vägfölk 26</span><span class="compact-fee">Medlemsstatus visas efter säker anslutning</span></div>
+  </div>
+  <div class="stage" id="stage" role="group" aria-label="Vägfölk 26 instrumentpanel uppbyggd av separata bilddelar">
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+      <filter id="icon-red" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values=".90 .55 .15 0 0  .10 .04 .02 0 0  .12 .03 .02 0 0  0 0 0 1 0"/></filter>
+      <filter id="icon-blue" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values=".05 .05 .05 0 0  .20 .28 .10 0 0  .45 .55 .32 0 0  0 0 0 1 0"/></filter>
+      <clipPath id="central-screen-clip" clipPathUnits="objectBoundingBox"><path d="M .053 0 H .942 Q .974 0 .987 .032 L 1 .071 V .928 Q 1 .965 .967 1 H .032 Q 0 1 0 .956 V .077 Q 0 .036 .053 0 Z"/></clipPath>
+    </defs></svg>
+    <img class="original" id="original" alt="" hidden>
+    <div class="menu-start-neutral" id="menu-start-neutral" hidden aria-hidden="true"><img alt=""></div>
+    <svg class="menu-label-art" id="menu-label-art" viewBox="0 0 1672 941" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="task-label-cover" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b1015"/><stop offset=".55" stop-color="#080d12"/><stop offset="1" stop-color="#10151a"/></linearGradient></defs>
+      <path d="M 90 388 H 225 V 428 H 90 Z" fill="url(#task-label-cover)"/>
+      <text x="106" y="416" fill="#edf2f3" font-family="Segoe UI,Arial,sans-serif" font-size="20">Att göra</text>
+      <path d="M 84 463 H 223 V 502 H 84 Z" fill="url(#task-label-cover)"/>
+      <text x="105" y="490" fill="#edf2f3" font-family="Segoe UI,Arial,sans-serif" font-size="21">Chat</text>
+    </svg>
+    <svg class="menu-active-art" id="menu-active-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
+    <nav class="menu-hits" id="menu-hits" aria-label="Vänster huvudmeny" hidden></nav>
+    <svg class="mode-art" id="mode-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
+    <div class="mode-hits" id="mode-hits" role="group" aria-label="Välj visningsläge" hidden><button type="button" data-mode="neutral" aria-label="Neutral"></button><button type="button" data-mode="meeting" aria-label="Mötesläge"></button></div>
+    <svg class="card-art" id="card-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
+    <div class="card-hits" id="card-hits" role="group" aria-label="Informationskort" hidden><button type="button" data-card="meeting" aria-label="Nästa medlemsmöte"></button><button type="button" data-card="board" aria-label="Information"></button></div>
+    <svg class="member-art" id="member-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
+    <svg class="dashboard-art" id="dashboard-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
+    <div class="unconnected-card unconnected-meeting" aria-hidden="true"><strong>Nästa medlemsmöte</strong><span>Inga mötesuppgifter anslutna</span></div>
+    <div class="unconnected-card unconnected-board" aria-hidden="true"><strong>Information</strong><span>Inget meddelande anslutet</span></div>
+    <svg class="surface-art" id="surface-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
+    <div class="surface-hits" id="surface-hits" role="group" aria-label="Välj skärmyta" hidden><button type="button" data-surface="main" aria-label="Huvudskärmen"></button><button type="button" data-surface="left" aria-label="Vänster tomma panel"></button><button type="button" data-surface="right" aria-label="Höger tomma panel"></button></div>
+    <section class="screen-content" id="screen-content" aria-live="polite" hidden></section>
+  </div>
+  <div class="preview-inputs" aria-label="Förhandsvisa personliga uppgifter">
+    <label for="preview-name">Förhandsvisa namn</label><input id="preview-name" type="text" autocomplete="off" maxlength="36" placeholder="Namn från inloggning">
+    <label for="preview-online">Antal online</label><input id="preview-online" type="number" min="0" max="999" step="1" placeholder="–">
+    <button type="button" id="load-forecast">Hämta prognos igen</button><span id="forecast-feedback" role="status">Försöker hämta prognos för din plats.</span>
+  </div>
+  <div class="status-options" data-visible="true" role="group" aria-label="Förhandsvisa vägsymbol"><span>Vägsymbol:</span><button type="button" data-road-mode="alternate" aria-pressed="true">Växla grön/blå</button><button type="button" data-road-mode="neutral" aria-pressed="false">Neutral</button><button type="button" data-road-mode="green" aria-pressed="false">Grön</button><button type="button" data-road-mode="blue" aria-pressed="false">Blå</button></div>
+  <div class="status-options" id="status-options" data-visible="false"><span>Endast visuell test av avgiftsstatus:</span><button type="button" data-member-status="paid" aria-pressed="true">Betald</button><button type="button" data-member-status="unpaid" aria-pressed="false">Obetald</button></div>
+  <p class="status" id="status" role="status">Läser bilddelarna…</p>
+  <p class="app-notice">Teknisk testversion med låtsasdata. Kalender, Att göra, Chat, Information, dokument och kontakt har ännu ingen föreningsdata. Antal online och fordonsikonerna är inte verkliga mätningar.</p>
+  <div class="panel-list" id="panel-list" aria-label="Visa en panel i taget"></div>
+</body>
+</html>

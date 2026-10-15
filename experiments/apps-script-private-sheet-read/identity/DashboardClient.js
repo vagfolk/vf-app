@@ -1,14 +1,32 @@
 // Endast låtsasdata. Den här filen bäddas in i Dashboard.html vid provbygget.
 (() => {
-  const state = { user: null, fee: null, boardSummary: null, calendar: null, connection: 'checking' };
+  const state = { user: null, fee: null, boardSummary: null, calendar: null,
+    information: null, chat: null, connection: 'checking' };
   let boardRequest = 0;
   let calendarRequest = 0;
+  let informationRequest = 0;
+  let chatRequest = 0;
   let activeView = 'start';
 
   function show() { window.VFDashboard?.setData(state); }
   function notice(message) {
     const node = document.querySelector('.app-notice');
     if (node) node.textContent = message;
+  }
+  function closePrivateView() {
+    ++boardRequest;
+    ++calendarRequest;
+    ++informationRequest;
+    ++chatRequest;
+    state.user = null;
+    state.fee = null;
+    state.boardSummary = null;
+    state.calendar = null;
+    state.information = null;
+    state.chat = null;
+    state.connection = 'error';
+    show();
+    notice('Åtkomsten kunde inte kontrolleras. Försök logga in på nytt.');
   }
   function call(name, value) {
     return new Promise((resolve, reject) => {
@@ -52,11 +70,14 @@
       notice('Inloggat Google-konto: ' + account.email +
         '. Testversion. Kalenderhändelser läses från föreningens två testkalendrar.');
       loadCalendar();
+      loadInformation();
     } catch (error) {
       state.user = null;
       state.fee = null;
       state.boardSummary = null;
       state.calendar = null;
+      state.information = null;
+      state.chat = null;
       state.connection = 'error';
       show();
       notice(error && error.reason === 'unknown_user' || error && error.reason === 'inactive_user'
@@ -79,12 +100,8 @@
       state.calendar = calendar;
     } catch (error) {
       if (request !== calendarRequest) return;
-      if (error?.reason === 'unknown_user' || error?.reason === 'inactive_user') {
-        state.user = null;
-        state.fee = null;
-        state.boardSummary = null;
-      }
-      state.calendar = { error: true, events: [] };
+      closePrivateView();
+      return;
     }
     show();
   }
@@ -107,22 +124,64 @@
       state.boardSummary = summary;
     } catch {
       if (request !== boardRequest) return;
-      state.user = null;
-      state.fee = null;
-      state.boardSummary = null;
-      show();
-      notice('Åtkomsten kunde inte kontrolleras på nytt. Inga styrelseuppgifter visas.');
+      closePrivateView();
       document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
       return;
     }
     window.VFDashboard?.refresh();
   }
 
+  async function loadInformation() {
+    const request = ++informationRequest;
+    state.information = null;
+    show();
+    try {
+      const information = await read('information');
+      if (request !== informationRequest) return;
+      state.information = information;
+    } catch (error) {
+      if (request !== informationRequest) return;
+      closePrivateView();
+      return;
+    }
+    show();
+  }
+
+  async function loadChat() {
+    const request = ++chatRequest;
+    state.chat = null;
+    show();
+    try {
+      const chat = await read('chat');
+      if (request !== chatRequest) return;
+      state.chat = chat;
+    } catch (error) {
+      if (request !== chatRequest) return;
+      closePrivateView();
+      return;
+    }
+    show();
+  }
+
+  async function writeMessage(method, text, refresh) {
+    if (state.connection !== 'google_test') return;
+    try {
+      const result = await call(method, text);
+      if (!result || result.allowed !== true) throw new Error('Meddelandet sparades inte');
+      await refresh();
+      notice('Meddelandet sparades i den privata testfilen.');
+    } catch {
+      notice('Meddelandet kunde inte sparas. Försök igen; kontrollera först att det inte redan syns.');
+    }
+  }
+
   document.addEventListener('vf:view-selected', event => {
     activeView = event.detail?.id || 'start';
     if (activeView === 'board') loadBoard();
     if (activeView === 'kalender' || activeView === 'start') loadCalendar();
-    else {
+    if (activeView === 'information') loadInformation();
+    if (activeView === 'chat') loadChat();
+    if (activeView !== 'board') {
       ++boardRequest;
       state.boardSummary = null;
     }
@@ -130,7 +189,16 @@
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && activeView === 'board') loadBoard();
     if (!document.hidden && (activeView === 'kalender' || activeView === 'start')) loadCalendar();
+    if (!document.hidden && activeView === 'information') loadInformation();
+    if (!document.hidden && activeView === 'chat') loadChat();
   });
+  document.addEventListener('vf:information-publish', event => {
+    writeMessage('publishInformation', event.detail?.text, loadInformation);
+  });
+  document.addEventListener('vf:chat-post', event => {
+    writeMessage('postChatMessage', event.detail?.text, loadChat);
+  });
+  setInterval(() => { if (!document.hidden && activeView === 'chat') loadChat(); }, 15000);
   document.addEventListener('vf:signout', () => {
     ++boardRequest;
     ++calendarRequest;
@@ -138,6 +206,8 @@
     state.fee = null;
     state.boardSummary = null;
     state.calendar = null;
+    state.information = null;
+    state.chat = null;
     state.connection = 'error';
     show();
     document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
@@ -152,6 +222,8 @@
         state.fee = null;
         state.boardSummary = null;
         state.calendar = null;
+        state.information = null;
+        state.chat = null;
       }
       show();
       return result.allowed;

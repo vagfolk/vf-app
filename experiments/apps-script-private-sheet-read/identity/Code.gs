@@ -55,9 +55,15 @@ function getTestAccount() {
 function readTestData_(request) {
   const action = request && typeof request === 'object' && !Array.isArray(request)
     ? request.action : null;
-  if (action !== 'profile' && action !== 'own_fee' && action !== 'board_summary' &&
-      action !== 'calendar') {
+  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'information', 'chat',
+      'publish_information', 'post_chat'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
+  }
+  const writeAction = action === 'publish_information' || action === 'post_chat';
+  const content = request && request.content;
+  if (writeAction && (typeof content !== 'string' ||
+      !content.trim() || content.length > (action === 'post_chat' ? 120 : 600))) {
+    return { allowed: false, reason: 'invalid_content' };
   }
   const subject = currentGoogleSubject_();
   if (!subject) return { allowed: false, reason: 'identity_missing' };
@@ -72,10 +78,12 @@ function readTestData_(request) {
   }
   const keyBytes = Utilities.base64DecodeWebSafe(keyText);
   if (keyBytes.length !== 32) return { allowed: false, reason: 'setup_invalid' };
-  const bodyText = JSON.stringify({
+  const body = {
     v: 1, associationId: associationId, action: action, subject: subject,
     ts: Date.now(), nonce: Utilities.getUuid()
-  });
+  };
+  if (writeAction) body.content = content;
+  const bodyText = JSON.stringify(body);
   const mac = Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(
     Utilities.newBlob(bodyText, 'text/plain').getBytes(), keyBytes)).replace(/=+$/, '');
   try {
@@ -113,7 +121,7 @@ function readTestData_(request) {
 // Endast begränsade vydata lämnas till instrumentpanelen. Dataskriptet gör
 // medlems- och rollkontrollen på nytt vid varje anrop.
 function readDashboardData(action) {
-  if (!['profile', 'own_fee', 'board_summary', 'calendar'].includes(action)) {
+  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'information', 'chat'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
   const result = readTestData_({ action: action });
@@ -177,6 +185,24 @@ function readDashboardData(action) {
     }
     return { allowed: true, data: { testData: true, events: data.events, links: links } };
   }
+  if (action === 'information') {
+    const message = data.message;
+    if (message !== null && (!message || typeof message !== 'object' ||
+        typeof message.id !== 'string' || typeof message.name !== 'string' ||
+        typeof message.text !== 'string' || typeof message.createdAt !== 'string')) {
+      return { allowed: false, reason: 'data_unavailable' };
+    }
+    return { allowed: true, data: { message: message } };
+  }
+  if (action === 'chat') {
+    if (!Array.isArray(data.messages) || data.messages.length > 50 ||
+        data.messages.some(function(message) {
+          return !message || typeof message.id !== 'string' ||
+            typeof message.name !== 'string' || typeof message.text !== 'string' ||
+            typeof message.createdAt !== 'string';
+        })) return { allowed: false, reason: 'data_unavailable' };
+    return { allowed: true, data: { messages: data.messages } };
+  }
   if (typeof data.period !== 'string' || !data.period ||
       ['bank', 'cash', 'result'].some(function(field) {
         return typeof data[field] !== 'number' || !Number.isFinite(data[field]) ||
@@ -188,6 +214,18 @@ function readDashboardData(action) {
     testData: true, period: data.period,
     bank: data.bank, cash: data.cash, result: data.result
   } };
+}
+
+function publishInformation(text) {
+  const result = readTestData_({ action: 'publish_information', content: text });
+  return result.allowed && result.data && result.data.saved === true
+    ? { allowed: true } : { allowed: false, reason: result.reason || 'data_unavailable' };
+}
+
+function postChatMessage(text) {
+  const result = readTestData_({ action: 'post_chat', content: text });
+  return result.allowed && result.data && result.data.saved === true
+    ? { allowed: true } : { allowed: false, reason: result.reason || 'data_unavailable' };
 }
 
 // Kontrollera aktuell EKO-roll på nytt innan en rollstyrd vy öppnas.

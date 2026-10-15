@@ -5,6 +5,8 @@ const KEY_PROPERTY = 'VF_TEST_BRIDGE_KEY';
 const SHEET_PROPERTY = 'VF_TEST_SPREADSHEET_ID';
 const MEMBER_CALENDAR_PROPERTY = 'VF_MEMBER_CALENDAR_ID';
 const BOARD_CALENDAR_PROPERTY = 'VF_BOARD_CALENDAR_ID';
+const MESSAGES_SHEET_PROPERTY = 'VF_TEST_MESSAGES_SHEET_ID';
+const MESSAGES_FOLDER_PROPERTY = 'VF_TEST_MESSAGES_FOLDER_ID';
 const MAX_AGE_MS = 120000;
 
 function doGet() {
@@ -76,7 +78,7 @@ function doPost(event) {
     if (typeof raw !== 'string' || raw.length > 4096) return reply_(false, 'invalid_request');
     const envelope = JSON.parse(raw);
     if (!envelope || typeof envelope.body !== 'string' || typeof envelope.mac !== 'string' ||
-        envelope.body.length > 2048 || !/^[A-Za-z0-9_-]{43}$/.test(envelope.mac)) {
+        envelope.body.length > 4096 || !/^[A-Za-z0-9_-]{43}$/.test(envelope.mac)) {
       return reply_(false, 'invalid_request');
     }
     const properties = PropertiesService.getScriptProperties();
@@ -93,13 +95,23 @@ function doPost(event) {
       Utilities.newBlob(envelope.body, 'text/plain').getBytes(), keyBytes)).replace(/=+$/, '');
     if (!sameBytes_(expected, envelope.mac)) return reply_(false, 'invalid_signature');
     const body = JSON.parse(envelope.body);
-    if (!body || typeof body !== 'object' || Array.isArray(body) ||
-        Object.keys(body).sort().join(',') !== 'action,associationId,nonce,subject,ts,v' ||
-        body.v !== 1 || body.associationId !== associationId ||
-        !['profile', 'own_fee', 'board_summary', 'calendar'].includes(body.action) ||
-        typeof body.subject !== 'string' || !body.subject || body.subject.length > 255 ||
-        typeof body.nonce !== 'string' ||
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.nonce)) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return reply_(false, 'wrong_association_or_action');
+    }
+    const hasContent = Object.prototype.hasOwnProperty.call(body, 'content');
+    const writeAction = ['publish_information', 'post_chat'].includes(body.action);
+    const expectedKeys = hasContent
+      ? 'action,associationId,content,nonce,subject,ts,v'
+      : 'action,associationId,nonce,subject,ts,v';
+    if (Object.keys(body).sort().join(',') !== expectedKeys) return reply_(false, 'wrong_association_or_action');
+    if (body.v !== 1 || body.associationId !== associationId) return reply_(false, 'wrong_association_or_action');
+    if (!['profile', 'own_fee', 'board_summary', 'calendar', 'information', 'chat',
+          'publish_information', 'post_chat'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
+    if (typeof body.subject !== 'string' || !body.subject || body.subject.length > 255) return reply_(false, 'wrong_association_or_action');
+    if (typeof body.nonce !== 'string' ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.nonce)) return reply_(false, 'wrong_association_or_action');
+    if (writeAction !== hasContent ||
+        (hasContent && (typeof body.content !== 'string' || body.content.length > 600))) {
       return reply_(false, 'wrong_association_or_action');
     }
     if (!Number.isSafeInteger(body.ts) || Math.abs(Date.now() - body.ts) > MAX_AGE_MS) {
@@ -134,6 +146,26 @@ function doPost(event) {
         typeof row[16] !== 'string' || !row[16] ||
         typeof row[1] !== 'string' || !row[1]) {
       return reply_(false, 'test_sheet_invalid');
+    }
+    if (['information', 'chat', 'publish_information', 'post_chat'].includes(body.action)) {
+      const messagesId = properties.getProperty(MESSAGES_SHEET_PROPERTY);
+      if (!/^[A-Za-z0-9_-]{20,128}$/.test(messagesId || '')) {
+        return reply_(false, 'messages_setup_missing');
+      }
+      if (body.action === 'information') return reply_(true, null, readInformation_(messagesId));
+      if (body.action === 'chat') return reply_(true, null, readChat_(messagesId));
+      if (body.action === 'publish_information' &&
+          !roles.some(role => ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
+        return reply_(false, 'insufficient_role');
+      }
+      const maxLength = body.action === 'post_chat' ? 120 : 600;
+      const content = body.content.trim();
+      if (!content || content.length > maxLength || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(content)) {
+        return reply_(false, 'invalid_content');
+      }
+      appendMessage_(messagesId, body.action === 'post_chat' ? 'Chat' : 'Information',
+        content, row[16], row[1]);
+      return reply_(true, null, { saved: true });
     }
     if (body.action === 'profile') {
       return reply_(true, null, {
@@ -278,6 +310,95 @@ function readRange_(spreadsheetId, range) {
   const parsed = JSON.parse(response.getContentText());
   if (!parsed || !Array.isArray(parsed.values)) throw new Error('Invalid Sheets response');
   return parsed.values;
+}
+
+// Skapar en avskild, privat meddelandefil en gång i testägarens Drive.
+// Körs manuellt i dataskriptets redigerare; aldrig från en besökares webbsida.
+function createMessagesTestStore() {
+  const properties = PropertiesService.getScriptProperties();
+  if (properties.getProperty(MESSAGES_SHEET_PROPERTY)) throw new Error('Meddelandefil finns redan');
+  if (!properties.getProperty(ASSOCIATION_PROPERTY) ||
+      !properties.getProperty(SHEET_PROPERTY)) throw new Error('Testföreningen saknas');
+  const token = ScriptApp.getOAuthToken();
+  let folderId = properties.getProperty(MESSAGES_FOLDER_PROPERTY);
+  if (!folderId) {
+    const folder = driveRequest_('https://www.googleapis.com/drive/v3/files?fields=id', 'post',
+      { name: 'VF-APP meddelanden – ENDAST TESTDATA',
+        mimeType: 'application/vnd.google-apps.folder' }, token);
+    folderId = folder.id;
+    if (!/^[A-Za-z0-9_-]{20,128}$/.test(folderId || '')) throw new Error('Mapp-ID saknas');
+    properties.setProperty(MESSAGES_FOLDER_PROPERTY, folderId);
+  }
+  const created = sheetsRequest_('https://sheets.googleapis.com/v4/spreadsheets', 'post', {
+    properties: { title: 'VF-APP Information och Chat – ENDAST TESTDATA' },
+    sheets: [{ properties: { title: 'Information' } },
+      { properties: { title: 'Chat' } }]
+  }, token);
+  const id = created && created.spreadsheetId;
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(id || '')) throw new Error('Fil-ID saknas');
+  const meta = driveRequest_('https://www.googleapis.com/drive/v3/files/' +
+    encodeURIComponent(id) + '?fields=parents', 'get', null, token);
+  const parents = (meta.parents || []).join(',');
+  driveRequest_('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+    '?addParents=' + encodeURIComponent(folderId) +
+    (parents ? '&removeParents=' + encodeURIComponent(parents) : '') + '&fields=id,parents',
+    'patch', null, token);
+  sheetsRequest_('https://sheets.googleapis.com/v4/spreadsheets/' +
+    encodeURIComponent(id) + '/values:batchUpdate', 'post', {
+      valueInputOption: 'RAW', data: [
+        { range: "'Information'!A1:E1", values: [['ID','Medlems-ID','Namn','Text','Tid']] },
+        { range: "'Chat'!A1:E1", values: [['ID','Medlems-ID','Namn','Text','Tid']] }
+      ]
+    }, token);
+  properties.setProperty(MESSAGES_SHEET_PROPERTY, id);
+  console.log('Separat meddelandefil skapad i testmappen.');
+}
+
+function driveRequest_(url, method, payload, token) {
+  const options = { method: method,
+    headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true };
+  if (payload) { options.contentType = 'application/json'; options.payload = JSON.stringify(payload); }
+  const response = UrlFetchApp.fetch(url, options);
+  if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) {
+    throw new Error('Drive-begäran misslyckades: HTTP ' + response.getResponseCode());
+  }
+  return JSON.parse(response.getContentText());
+}
+
+function readMessages_(id, sheet) {
+  const rows = readRange_(id, "'" + sheet + "'!A1:E1001");
+  if (!rows[0] || rows[0].join('|') !== 'ID|Medlems-ID|Namn|Text|Tid') {
+    throw new Error('Meddelandefilens format är fel');
+  }
+  return rows.slice(1).filter(row => row[0] && row[3] && row[4]);
+}
+
+function visibleMessage_(row) {
+  return { id: String(row[0]), name: String(row[2]).slice(0,80),
+    text: String(row[3]), createdAt: String(row[4]) };
+}
+
+function readInformation_(id) {
+  const rows = readMessages_(id, 'Information');
+  return { message: rows.length ? visibleMessage_(rows[rows.length - 1]) : null };
+}
+
+function readChat_(id) {
+  return { messages: readMessages_(id, 'Chat').slice(-50).map(visibleMessage_) };
+}
+
+function appendMessage_(id, sheet, content, memberId, name) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) throw new Error('Meddelandefilen är upptagen');
+  try {
+    if (readMessages_(id, sheet).length >= 1000) throw new Error('Testgräns för meddelanden nådd');
+    const range = "'" + sheet + "'!A:E";
+    sheetsRequest_('https://sheets.googleapis.com/v4/spreadsheets/' +
+      encodeURIComponent(id) + '/values/' + encodeURIComponent(range) +
+      ':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS', 'post', {
+        values: [[Utilities.getUuid(), memberId, name, content, new Date().toISOString()]]
+      }, ScriptApp.getOAuthToken());
+  } finally { lock.releaseLock(); }
 }
 
 function safeAmount_(value) {

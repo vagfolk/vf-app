@@ -5,6 +5,7 @@
     taskTab: 'medlem',
     tasks: [],
     messages: [],
+    information: null,
   };
   const targets = new Set();
   let currentView = 'start';
@@ -71,8 +72,9 @@
         : 'Inget kommande styrelsemöte hittades.'));
     }
     meeting.append(button('Öppna kalender', 'navigate', 'kalender'));
-    const board = card('Från styrelsen', 'Meddelanden från styrelsen är ännu inte anslutna.');
-    board.append(button('Öppna snabbtavlan', 'navigate', 'snabbtavla'));
+    const info = options.information?.message;
+    const board = card('Information', info?.text || 'Inget viktigt meddelande publicerat.');
+    board.append(button('Öppna information', 'navigate', 'information'));
     grid.append(meeting, board);
     root.append(grid);
     const permissions = new Set(options.user?.permissions || []);
@@ -156,12 +158,44 @@
     form.append(label,input,group(button('Lägg till','submit-task')));
     root.append(form);
   };
-  const renderBoard = root => {
-    root.append(heading('Snabbtavla', 'Korta meddelanden'));
-    root.append(paragraph('Övningsläge: meddelanden syns bara på denna öppna sida. Ingen annan medlem får dem.','view-muted'));
+  const renderInformation = (root, options) => {
+    root.append(heading('Information', 'Viktigt meddelande från styrelsen'));
+    if (options.information?.error) root.append(card('Kunde inte läsa information', 'Försök igen senare.', 'alert'));
+    else if (!options.information && options.connection === 'google_test') root.append(card('Hämtar information', 'Vänta ett ögonblick.'));
+    else {
+      const message = options.information?.message || state.information;
+      root.append(card(message ? 'Från styrelsen' : 'Ingen information publicerad', message?.text || 'Här visas viktiga meddelanden från styrelsen.'));
+      if (message?.createdAt) root.append(paragraph(`${message.name || 'Styrelsen'} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(message.createdAt))}`, 'view-muted'));
+    }
+    if (options.user?.permissions?.includes('board_view')) {
+      const form = element('form');
+      form.dataset.form = 'information';
+      const label = element('label', '', 'Publicera viktigt meddelande');
+      label.htmlFor = 'information-entry-' + root.id;
+      const input = element('textarea');
+      input.id = label.htmlFor;
+      input.name = 'information';
+      input.maxLength = 600;
+      input.required = true;
+      input.rows = 4;
+      form.append(label,input,group(button('Publicera','submit-information')));
+      root.append(form);
+    }
+  };
+  const renderChat = (root, options) => {
+    root.append(heading('Chat', 'Korta meddelanden'));
+    if (options.connection !== 'google_test') root.append(paragraph('Förhandsvisning: meddelanden här sparas bara tills sidan stängs.', 'view-muted'));
+    if (options.chat?.error) root.append(card('Kunde inte läsa Chat', 'Försök igen senare.', 'alert'));
+    else if (!options.chat && options.connection === 'google_test') root.append(card('Hämtar Chat', 'Vänta ett ögonblick.'));
     const list = element('ul','view-list');
-    if (!state.messages.length) list.append(element('li','','Inga övningsmeddelanden.'));
-    state.messages.forEach(item => list.append(element('li','',item)));
+    const messages = options.chat?.messages || state.messages;
+    if (!messages.length) list.append(element('li','','Inga meddelanden ännu.'));
+    messages.forEach(item => {
+      const row = element('li','view-row view-chat-row');
+      row.append(element('strong','',item.name || 'Medlem'),paragraph(item.text || ''));
+      if (item.createdAt) row.append(element('time','',new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(new Date(item.createdAt))));
+      list.append(row);
+    });
     root.append(list);
     const form = element('form');
     form.dataset.form = 'message';
@@ -173,7 +207,7 @@
     input.maxLength = 120;
     input.required = true;
     input.placeholder = 'Skriv högst 120 tecken';
-    form.append(label,input,group(button('Blir sen','quick-message','Blir sen'),button('Hittar inte dit','quick-message','Hittar inte dit'),button('Behöver hjälp','quick-message','Behöver hjälp'),button('Visa här','submit-message')));
+    form.append(label,input,group(button('Blir sen','quick-message','Blir sen'),button('Hittar inte dit','quick-message','Hittar inte dit'),button('Behöver hjälp','quick-message','Behöver hjälp'),button('Skicka','submit-message')));
     root.append(form);
   };
   const renderDocuments = (root, options) => {
@@ -226,7 +260,7 @@
     root.append(card('Kontaktuppgifter', 'Styrelsens godkända kontaktuppgifter kommer att visas här när de är anslutna.'));
     root.append(notice());
   };
-  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,snabbtavla:renderBoard,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i den privata EKO-filen i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Läsning av hela EKO är ännu inte ansluten.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Säker reservåtkomst och återställning är ännu inte byggda.')};
+  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i den privata EKO-filen i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Läsning av hela EKO är ännu inte ansluten.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Säker reservåtkomst och återställning är ännu inte byggda.')};
   function draw(options = {}) {
     for (const target of targets) {
       const surface = element('div','view-surface');
@@ -255,8 +289,10 @@
         const task = state.tasks.find(item => item.id === Number(value));
         if (task) task.done = !task.done;
       } else if (action === 'quick-message') {
-        state.messages.push(value);
-      } else if (action === 'submit-task' || action === 'submit-message') {
+        const form = control.closest('form');
+        if (form) { form.querySelector('input').value = value; form.requestSubmit(); }
+        return;
+      } else if (action === 'submit-task' || action === 'submit-message' || action === 'submit-information') {
         const form = control.closest('form');
         form?.requestSubmit();
         return;
@@ -267,11 +303,18 @@
       const form = event.target.closest('form[data-form]');
       if (!form) return;
       event.preventDefault();
-      const input = form.querySelector('input');
+      const input = form.querySelector('input, textarea');
       const text = input.value.trim();
       if (!text) return;
       if (form.dataset.form === 'task') state.tasks.push({id:Date.now()+Math.random(),text:text.slice(0,100),kind:state.taskTab,done:false});
-      else state.messages.push(text.slice(0,120));
+      else if (form.dataset.form === 'message') {
+        if (window.VFAppData?.connection === 'google_test') document.dispatchEvent(new CustomEvent('vf:chat-post',{detail:{text:text.slice(0,120)}}));
+        else state.messages.push({name:'Du',text:text.slice(0,120),createdAt:new Date().toISOString()});
+      } else if (form.dataset.form === 'information') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
+        if (window.VFAppData.connection === 'google_test') document.dispatchEvent(new CustomEvent('vf:information-publish',{detail:{text:text.slice(0,600)}}));
+        else state.information = {name:'Styrelsen',text:text.slice(0,600),createdAt:new Date().toISOString()};
+      }
       draw(window.VFPreviewViews.options);
     });
   }

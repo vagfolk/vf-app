@@ -88,6 +88,9 @@ function fixture({ members, finance, failSheet = false,
   const seenNonces = new Set();
   const sheetReads = [];
   const calendarReads = [];
+  const informationRows = [['ID','Medlems-ID','Namn','Text','Tid']];
+  const chatRows = [['ID','Medlems-ID','Namn','Text','Tid']];
+  dataProperties.set('VF_TEST_MESSAGES_SHEET_ID', 'messages-test-file-aaaaaaaaaaaaaa');
   let forwarded = 0;
   let redirectFetches = 0;
   let requiredScopeChecks = 0;
@@ -122,6 +125,14 @@ function fixture({ members, finance, failSheet = false,
       sheetReads.push(url);
       if (failSheet) return reply({ error: 'unavailable' }, 403);
       const range = decodeURIComponent(new URL(url).pathname.split('/values/')[1]);
+      if (range.startsWith("'Information'") || range.startsWith("'Chat'")) {
+        const target = range.startsWith("'Information'") ? informationRows : chatRows;
+        if (options.method === 'post') {
+          target.push(...JSON.parse(options.payload).values);
+          return reply({ updates: { updatedRows: 1 } });
+        }
+        return reply({ values: target });
+      }
       return reply({ values: range.startsWith("'Medlemmar'") ? rows : cash });
     } },
     Date, JSON, Math, Number, Object, Array
@@ -140,6 +151,7 @@ function fixture({ members, finance, failSheet = false,
       })
     },
     ScriptApp: { AuthMode: { FULL: 'FULL' },
+      getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/TEST/exec' }),
       AuthorizationStatus: { REQUIRED: 'REQUIRED' },
       requireAllScopes: mode => {
         assert.equal(mode, 'FULL');
@@ -177,6 +189,7 @@ function fixture({ members, finance, failSheet = false,
   runInNewContext(readFileSync(new URL('identity/Code.gs', root), 'utf8'), identity);
   return {
     data, identity, dataProperties, identityProperties, sheetReads, calendarReads,
+    informationRows, chatRows,
     setSubject: value => { subject = value; },
     forwarded: () => forwarded, redirectFetches: () => redirectFetches,
     requiredScopeChecks: () => requiredScopeChecks
@@ -413,4 +426,31 @@ test('bestående 404 och oväntad omdirigering nekar åtkomst', () => {
   assert.equal(wrongHost.identity.readTestData_({ action: 'own_fee' }).reason,
     'data_unavailable');
   assert.equal(wrongHost.redirectFetches(), 0);
+});
+
+test('Information och Chat hålls åtskilda och endast styrelsen får publicera Information', () => {
+  const app = fixture();
+  assert.equal(app.identity.publishInformation('Viktigt besked').reason, 'insufficient_role');
+  assert.equal(app.informationRows.length, 1);
+  assert.equal(app.identity.postChatMessage('Blir sen').allowed, true);
+  assert.equal(app.chatRows.length, 2);
+  assert.equal(app.chatRows[1][1], 'M-001');
+  assert.equal(result(app.identity.readDashboardData('chat')).data.messages[0].text, 'Blir sen');
+  assert.equal(result(app.identity.readDashboardData('information')).data.message, null);
+  app.setSubject('google-board');
+  assert.equal(app.identity.publishInformation('Viktigt besked').allowed, true);
+  assert.equal(result(app.identity.readDashboardData('information')).data.message.text, 'Viktigt besked');
+  assert.equal(result(app.identity.readDashboardData('chat')).data.messages.length, 1);
+});
+
+test('okänt konto och ogiltigt innehåll får inte skriva meddelanden', () => {
+  const app = fixture();
+  app.setSubject('google-unknown');
+  assert.equal(app.identity.postChatMessage('Hej').reason, 'unknown_user');
+  assert.equal(app.identity.publishInformation('Test').reason, 'unknown_user');
+  app.setSubject('google-board');
+  assert.equal(app.identity.postChatMessage('x'.repeat(121)).reason, 'invalid_content');
+  assert.equal(app.identity.publishInformation(' ').reason, 'invalid_content');
+  assert.equal(app.informationRows.length, 1);
+  assert.equal(app.chatRows.length, 1);
 });

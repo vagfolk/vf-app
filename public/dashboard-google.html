@@ -123,6 +123,9 @@
 .view-surface label{display:block;font-size:13px;color:#d9e4e7;margin:10px 0 5px}
 .view-surface .view-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #a4b3b13d;padding:10px 0}
 .view-surface .view-row:last-child{border-bottom:0}
+.view-surface .view-chat-row{display:grid;grid-template-columns:1fr auto;align-items:start}
+.view-surface .view-chat-row p{grid-column:1/-1;white-space:pre-wrap;overflow-wrap:anywhere}
+.view-surface .view-chat-row time{color:#afc0c6;font-size:12px}
 .view-surface .view-row small{color:#afc0c6}
 .view-surface .view-pill{display:inline-block;border:1px solid #789383;border-radius:999px;color:#a9f2c6;padding:4px 9px;font-size:12px}
 .view-surface .view-placeholder{border:1px dashed #88969a87;border-radius:12px;padding:16px;color:#c0ced2;margin:10px 0}
@@ -205,6 +208,7 @@
     taskTab: 'medlem',
     tasks: [],
     messages: [],
+    information: null,
   };
   const targets = new Set();
   let currentView = 'start';
@@ -271,8 +275,9 @@
         : 'Inget kommande styrelsemöte hittades.'));
     }
     meeting.append(button('Öppna kalender', 'navigate', 'kalender'));
-    const board = card('Från styrelsen', 'Meddelanden från styrelsen är ännu inte anslutna.');
-    board.append(button('Öppna snabbtavlan', 'navigate', 'snabbtavla'));
+    const info = options.information?.message;
+    const board = card('Information', info?.text || 'Inget viktigt meddelande publicerat.');
+    board.append(button('Öppna information', 'navigate', 'information'));
     grid.append(meeting, board);
     root.append(grid);
     const permissions = new Set(options.user?.permissions || []);
@@ -356,12 +361,44 @@
     form.append(label,input,group(button('Lägg till','submit-task')));
     root.append(form);
   };
-  const renderBoard = root => {
-    root.append(heading('Snabbtavla', 'Korta meddelanden'));
-    root.append(paragraph('Övningsläge: meddelanden syns bara på denna öppna sida. Ingen annan medlem får dem.','view-muted'));
+  const renderInformation = (root, options) => {
+    root.append(heading('Information', 'Viktigt meddelande från styrelsen'));
+    if (options.information?.error) root.append(card('Kunde inte läsa information', 'Försök igen senare.', 'alert'));
+    else if (!options.information && options.connection === 'google_test') root.append(card('Hämtar information', 'Vänta ett ögonblick.'));
+    else {
+      const message = options.information?.message || state.information;
+      root.append(card(message ? 'Från styrelsen' : 'Ingen information publicerad', message?.text || 'Här visas viktiga meddelanden från styrelsen.'));
+      if (message?.createdAt) root.append(paragraph(`${message.name || 'Styrelsen'} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(message.createdAt))}`, 'view-muted'));
+    }
+    if (options.user?.permissions?.includes('board_view')) {
+      const form = element('form');
+      form.dataset.form = 'information';
+      const label = element('label', '', 'Publicera viktigt meddelande');
+      label.htmlFor = 'information-entry-' + root.id;
+      const input = element('textarea');
+      input.id = label.htmlFor;
+      input.name = 'information';
+      input.maxLength = 600;
+      input.required = true;
+      input.rows = 4;
+      form.append(label,input,group(button('Publicera','submit-information')));
+      root.append(form);
+    }
+  };
+  const renderChat = (root, options) => {
+    root.append(heading('Chat', 'Korta meddelanden'));
+    if (options.connection !== 'google_test') root.append(paragraph('Förhandsvisning: meddelanden här sparas bara tills sidan stängs.', 'view-muted'));
+    if (options.chat?.error) root.append(card('Kunde inte läsa Chat', 'Försök igen senare.', 'alert'));
+    else if (!options.chat && options.connection === 'google_test') root.append(card('Hämtar Chat', 'Vänta ett ögonblick.'));
     const list = element('ul','view-list');
-    if (!state.messages.length) list.append(element('li','','Inga övningsmeddelanden.'));
-    state.messages.forEach(item => list.append(element('li','',item)));
+    const messages = options.chat?.messages || state.messages;
+    if (!messages.length) list.append(element('li','','Inga meddelanden ännu.'));
+    messages.forEach(item => {
+      const row = element('li','view-row view-chat-row');
+      row.append(element('strong','',item.name || 'Medlem'),paragraph(item.text || ''));
+      if (item.createdAt) row.append(element('time','',new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(new Date(item.createdAt))));
+      list.append(row);
+    });
     root.append(list);
     const form = element('form');
     form.dataset.form = 'message';
@@ -373,7 +410,7 @@
     input.maxLength = 120;
     input.required = true;
     input.placeholder = 'Skriv högst 120 tecken';
-    form.append(label,input,group(button('Blir sen','quick-message','Blir sen'),button('Hittar inte dit','quick-message','Hittar inte dit'),button('Behöver hjälp','quick-message','Behöver hjälp'),button('Visa här','submit-message')));
+    form.append(label,input,group(button('Blir sen','quick-message','Blir sen'),button('Hittar inte dit','quick-message','Hittar inte dit'),button('Behöver hjälp','quick-message','Behöver hjälp'),button('Skicka','submit-message')));
     root.append(form);
   };
   const renderDocuments = (root, options) => {
@@ -426,7 +463,7 @@
     root.append(card('Kontaktuppgifter', 'Styrelsens godkända kontaktuppgifter kommer att visas här när de är anslutna.'));
     root.append(notice());
   };
-  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,snabbtavla:renderBoard,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i den privata EKO-filen i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Läsning av hela EKO är ännu inte ansluten.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Säker reservåtkomst och återställning är ännu inte byggda.')};
+  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i den privata EKO-filen i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Läsning av hela EKO är ännu inte ansluten.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Säker reservåtkomst och återställning är ännu inte byggda.')};
   function draw(options = {}) {
     for (const target of targets) {
       const surface = element('div','view-surface');
@@ -455,8 +492,10 @@
         const task = state.tasks.find(item => item.id === Number(value));
         if (task) task.done = !task.done;
       } else if (action === 'quick-message') {
-        state.messages.push(value);
-      } else if (action === 'submit-task' || action === 'submit-message') {
+        const form = control.closest('form');
+        if (form) { form.querySelector('input').value = value; form.requestSubmit(); }
+        return;
+      } else if (action === 'submit-task' || action === 'submit-message' || action === 'submit-information') {
         const form = control.closest('form');
         form?.requestSubmit();
         return;
@@ -467,11 +506,18 @@
       const form = event.target.closest('form[data-form]');
       if (!form) return;
       event.preventDefault();
-      const input = form.querySelector('input');
+      const input = form.querySelector('input, textarea');
       const text = input.value.trim();
       if (!text) return;
       if (form.dataset.form === 'task') state.tasks.push({id:Date.now()+Math.random(),text:text.slice(0,100),kind:state.taskTab,done:false});
-      else state.messages.push(text.slice(0,120));
+      else if (form.dataset.form === 'message') {
+        if (window.VFAppData?.connection === 'google_test') document.dispatchEvent(new CustomEvent('vf:chat-post',{detail:{text:text.slice(0,120)}}));
+        else state.messages.push({name:'Du',text:text.slice(0,120),createdAt:new Date().toISOString()});
+      } else if (form.dataset.form === 'information') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
+        if (window.VFAppData.connection === 'google_test') document.dispatchEvent(new CustomEvent('vf:information-publish',{detail:{text:text.slice(0,600)}}));
+        else state.information = {name:'Styrelsen',text:text.slice(0,600),createdAt:new Date().toISOString()};
+      }
       draw(window.VFPreviewViews.options);
     });
   }
@@ -495,15 +541,33 @@
   <script>
 // Endast låtsasdata. Den här filen bäddas in i Dashboard.html vid provbygget.
 (() => {
-  const state = { user: null, fee: null, boardSummary: null, calendar: null, connection: 'checking' };
+  const state = { user: null, fee: null, boardSummary: null, calendar: null,
+    information: null, chat: null, connection: 'checking' };
   let boardRequest = 0;
   let calendarRequest = 0;
+  let informationRequest = 0;
+  let chatRequest = 0;
   let activeView = 'start';
 
   function show() { window.VFDashboard?.setData(state); }
   function notice(message) {
     const node = document.querySelector('.app-notice');
     if (node) node.textContent = message;
+  }
+  function closePrivateView() {
+    ++boardRequest;
+    ++calendarRequest;
+    ++informationRequest;
+    ++chatRequest;
+    state.user = null;
+    state.fee = null;
+    state.boardSummary = null;
+    state.calendar = null;
+    state.information = null;
+    state.chat = null;
+    state.connection = 'error';
+    show();
+    notice('Åtkomsten kunde inte kontrolleras. Försök logga in på nytt.');
   }
   function call(name, value) {
     return new Promise((resolve, reject) => {
@@ -547,11 +611,14 @@
       notice('Inloggat Google-konto: ' + account.email +
         '. Testversion. Kalenderhändelser läses från föreningens två testkalendrar.');
       loadCalendar();
+      loadInformation();
     } catch (error) {
       state.user = null;
       state.fee = null;
       state.boardSummary = null;
       state.calendar = null;
+      state.information = null;
+      state.chat = null;
       state.connection = 'error';
       show();
       notice(error && error.reason === 'unknown_user' || error && error.reason === 'inactive_user'
@@ -574,12 +641,8 @@
       state.calendar = calendar;
     } catch (error) {
       if (request !== calendarRequest) return;
-      if (error?.reason === 'unknown_user' || error?.reason === 'inactive_user') {
-        state.user = null;
-        state.fee = null;
-        state.boardSummary = null;
-      }
-      state.calendar = { error: true, events: [] };
+      closePrivateView();
+      return;
     }
     show();
   }
@@ -602,22 +665,64 @@
       state.boardSummary = summary;
     } catch {
       if (request !== boardRequest) return;
-      state.user = null;
-      state.fee = null;
-      state.boardSummary = null;
-      show();
-      notice('Åtkomsten kunde inte kontrolleras på nytt. Inga styrelseuppgifter visas.');
+      closePrivateView();
       document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
       return;
     }
     window.VFDashboard?.refresh();
   }
 
+  async function loadInformation() {
+    const request = ++informationRequest;
+    state.information = null;
+    show();
+    try {
+      const information = await read('information');
+      if (request !== informationRequest) return;
+      state.information = information;
+    } catch (error) {
+      if (request !== informationRequest) return;
+      closePrivateView();
+      return;
+    }
+    show();
+  }
+
+  async function loadChat() {
+    const request = ++chatRequest;
+    state.chat = null;
+    show();
+    try {
+      const chat = await read('chat');
+      if (request !== chatRequest) return;
+      state.chat = chat;
+    } catch (error) {
+      if (request !== chatRequest) return;
+      closePrivateView();
+      return;
+    }
+    show();
+  }
+
+  async function writeMessage(method, text, refresh) {
+    if (state.connection !== 'google_test') return;
+    try {
+      const result = await call(method, text);
+      if (!result || result.allowed !== true) throw new Error('Meddelandet sparades inte');
+      await refresh();
+      notice('Meddelandet sparades i den privata testfilen.');
+    } catch {
+      notice('Meddelandet kunde inte sparas. Försök igen; kontrollera först att det inte redan syns.');
+    }
+  }
+
   document.addEventListener('vf:view-selected', event => {
     activeView = event.detail?.id || 'start';
     if (activeView === 'board') loadBoard();
     if (activeView === 'kalender' || activeView === 'start') loadCalendar();
-    else {
+    if (activeView === 'information') loadInformation();
+    if (activeView === 'chat') loadChat();
+    if (activeView !== 'board') {
       ++boardRequest;
       state.boardSummary = null;
     }
@@ -625,7 +730,16 @@
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && activeView === 'board') loadBoard();
     if (!document.hidden && (activeView === 'kalender' || activeView === 'start')) loadCalendar();
+    if (!document.hidden && activeView === 'information') loadInformation();
+    if (!document.hidden && activeView === 'chat') loadChat();
   });
+  document.addEventListener('vf:information-publish', event => {
+    writeMessage('publishInformation', event.detail?.text, loadInformation);
+  });
+  document.addEventListener('vf:chat-post', event => {
+    writeMessage('postChatMessage', event.detail?.text, loadChat);
+  });
+  setInterval(() => { if (!document.hidden && activeView === 'chat') loadChat(); }, 15000);
   document.addEventListener('vf:signout', () => {
     ++boardRequest;
     ++calendarRequest;
@@ -633,6 +747,8 @@
     state.fee = null;
     state.boardSummary = null;
     state.calendar = null;
+    state.information = null;
+    state.chat = null;
     state.connection = 'error';
     show();
     document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
@@ -647,6 +763,8 @@
         state.fee = null;
         state.boardSummary = null;
         state.calendar = null;
+        state.information = null;
+        state.chat = null;
       }
       show();
       return result.allowed;
@@ -671,7 +789,7 @@
       {id:'start', label:'Start', top:213, height:75, left:33, width:208},
       {id:'kalender', label:'Kalender', top:289, height:77, left:27, width:212, outline:'M 47 290 Q 37 290 34 300 C 29 318 27 343 27 354 Q 27 365 39 365 L 221 365 Q 232 365 233 355 L 237 302 Q 238 290 227 290 Z', shine:'M 47 291 L 227 291 Q 236 291 236 301'},
       {id:'medlemsarbete', label:'Att göra', top:366, height:77, left:22, width:215, fontSize:20, outline:'M 39 368 Q 29 368 27 378 C 24 394 22 420 22 430 Q 22 441 33 442 L 218 442 Q 229 442 230 432 L 233 379 Q 233 368 222 368 Z', shine:'M 39 369 L 222 369 Q 231 369 232 379'},
-      {id:'snabbtavla', label:'Snabbtavla', top:444, height:76, left:20, width:215, outline:'M 33 445 Q 23 445 22 455 C 20 470 20 493 20 505 Q 20 516 31 517 L 215 517 Q 226 517 227 507 L 230 456 Q 230 445 219 445 Z', shine:'M 33 446 L 219 446 Q 228 446 229 456'},
+      {id:'chat', label:'Chat', top:444, height:76, left:20, width:215, outline:'M 33 445 Q 23 445 22 455 C 20 470 20 493 20 505 Q 20 516 31 517 L 215 517 Q 226 517 227 507 L 230 456 Q 230 445 219 445 Z', shine:'M 33 446 L 219 446 Q 228 446 229 456'},
       {id:'dokument', label:'Dokument', top:520, height:73, left:20, width:214, outline:'M 31 520 Q 21 520 21 530 C 20 550 21 574 22 580 Q 23 591 33 592 L 211 592 Q 222 592 223 582 L 226 531 Q 226 520 215 520 Z', shine:'M 31 521 L 215 521 Q 224 521 225 531'},
       {id:'avgift', label:'Min avgift', top:594, height:73, left:24, width:207, outline:'M 34 595 Q 24 595 24 605 C 25 621 28 644 30 654 Q 32 666 42 667 L 207 667 Q 218 667 219 656 L 222 606 Q 222 595 211 595 Z', shine:'M 34 596 L 211 596 Q 220 596 221 606'},
       {id:'kontakt', label:'Kontakt', top:668, height:74, left:30, width:201, outline:'M 43 669 Q 32 669 33 681 C 36 700 41 721 45 730 Q 49 741 60 742 L 196 742 Q 204 742 205 731 L 210 681 Q 211 669 201 669 Z', shine:'M 43 670 L 201 670 Q 209 670 209 681'},
@@ -681,7 +799,7 @@
     const icons = {
       kalender:'<rect x="3" y="7" width="30" height="26" rx="2"/><path d="M10 3v8M26 3v8M3 14h30M10 20h.01M18 20h.01M26 20h.01M10 27h.01M18 27h.01M26 27h.01"/>',
       medlemsarbete:'<path d="M17 28H3v-3a7 7 0 0 1 14 0v3Zm-7-12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm8-9a5 5 0 0 1 2 9m-1 5a7 7 0 0 1 8 7h-8m5-20a5 5 0 0 1 3 8"/>',
-      snabbtavla:'<path d="M5 5h26v20H13l-8 7V5Z"/><path d="M11 12h14M11 18h11"/>',
+      chat:'<path d="M5 5h26v20H13l-8 7V5Z"/><path d="M11 12h14M11 18h11"/>',
       dokument:'<path d="M9 6H5v27h20v-4M12 3h13l6 6v20H12V3Zm13 0v7h6"/>',
       avgift:'<path d="m18 2 4 3 5-.2 1.6 4.8L33 13l-2 5 2 5-4.4 3.4L27 31l-5-.2-4 3-4-3-5 .2-1.6-4.6L3 23l2-5-2-5 4.4-3.4L9 4.8l5 .2 4-3Z"/><path d="m11 18 5 5 9-10"/>',
       kontakt:'<circle cx="18" cy="10" r="6"/><path d="M6 34v-5a12 12 0 0 1 24 0v5H6Zm24-16a6 6 0 0 1 4 6v10h-3"/>',
@@ -890,7 +1008,7 @@
       }
       for (const button of cardHits.querySelectorAll('button')) button.setAttribute('aria-pressed', String(button.dataset.card === selectedCard));
       if (!visible || !selectedCard) return;
-      const heading = selectedCard === 'meeting' ? 'Nästa medlemsmöte' : 'Från styrelsen';
+      const heading = selectedCard === 'meeting' ? 'Nästa medlemsmöte' : 'Information';
       screenContent.replaceChildren();
       const title = document.createElement('h2');
       title.textContent = heading;
@@ -965,7 +1083,7 @@
     }
 
     async function selectMenu(id) {
-      if (!menu.some(entry => entry.id === id) && !Object.hasOwn(restrictedViews,id)) return;
+      if (!menu.some(entry => entry.id === id) && id !== 'information' && !Object.hasOwn(restrictedViews,id)) return;
       const request = ++navigationRequest;
       const required = restrictedViews[id];
       if (required && !window.VFAppData?.user?.permissions?.includes(required)) {
@@ -1171,6 +1289,12 @@
           document.querySelector('.unconnected-meeting strong').textContent = isBoard ? 'Nästa möte' : 'Nästa medlemsmöte';
           meetingText.textContent = window.VFPreviewViews.meetingText(data.calendar, isBoard);
           document.querySelector('.unconnected-meeting').setAttribute('aria-hidden','false');
+          const informationText = document.querySelector('.unconnected-board span');
+          const latestInformation = data.information?.message?.text;
+          informationText.textContent = latestInformation
+            ? latestInformation.slice(0, 90) + (latestInformation.length > 90 ? '…' : '')
+            : (data.information?.error ? 'Information kunde inte hämtas' : 'Inget meddelande publicerat');
+          document.querySelector('.unconnected-board').setAttribute('aria-hidden','false');
           const compactFee = document.querySelector('.compact-fee');
           compactFee.textContent = sampleMemberStatus === 'paid' ? 'Medlemsavgift betald' : sampleMemberStatus === 'unpaid' ? 'Medlemsavgift inte betald' : 'Medlemsstatus saknas';
           compactFee.dataset.status = sampleMemberStatus;
@@ -1185,7 +1309,7 @@
       });
       for (const button of cardHits.querySelectorAll('button')) {
         button.addEventListener('click', () => {
-          selectMenu(button.dataset.card === 'meeting' ? 'kalender' : 'snabbtavla');
+          selectMenu(button.dataset.card === 'meeting' ? 'kalender' : 'information');
         });
         button.addEventListener('pointerenter', () => { hoveredCard = button.dataset.card; showCardSelection(); });
         button.addEventListener('pointerleave', () => { hoveredCard = null; showCardSelection(); });
@@ -1277,17 +1401,19 @@
       <defs><linearGradient id="task-label-cover" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b1015"/><stop offset=".55" stop-color="#080d12"/><stop offset="1" stop-color="#10151a"/></linearGradient></defs>
       <path d="M 90 388 H 225 V 428 H 90 Z" fill="url(#task-label-cover)"/>
       <text x="106" y="416" fill="#edf2f3" font-family="Segoe UI,Arial,sans-serif" font-size="20">Att göra</text>
+      <path d="M 84 463 H 223 V 502 H 84 Z" fill="url(#task-label-cover)"/>
+      <text x="105" y="490" fill="#edf2f3" font-family="Segoe UI,Arial,sans-serif" font-size="21">Chat</text>
     </svg>
     <svg class="menu-active-art" id="menu-active-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
     <nav class="menu-hits" id="menu-hits" aria-label="Vänster huvudmeny" hidden></nav>
     <svg class="mode-art" id="mode-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
     <div class="mode-hits" id="mode-hits" role="group" aria-label="Välj visningsläge" hidden><button type="button" data-mode="neutral" aria-label="Neutral"></button><button type="button" data-mode="meeting" aria-label="Mötesläge"></button></div>
     <svg class="card-art" id="card-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
-    <div class="card-hits" id="card-hits" role="group" aria-label="Informationskort" hidden><button type="button" data-card="meeting" aria-label="Nästa medlemsmöte"></button><button type="button" data-card="board" aria-label="Från styrelsen"></button></div>
+    <div class="card-hits" id="card-hits" role="group" aria-label="Informationskort" hidden><button type="button" data-card="meeting" aria-label="Nästa medlemsmöte"></button><button type="button" data-card="board" aria-label="Information"></button></div>
     <svg class="member-art" id="member-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
     <svg class="dashboard-art" id="dashboard-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
     <div class="unconnected-card unconnected-meeting" aria-hidden="true"><strong>Nästa medlemsmöte</strong><span>Inga mötesuppgifter anslutna</span></div>
-    <div class="unconnected-card unconnected-board" aria-hidden="true"><strong>Från styrelsen</strong><span>Inget meddelande anslutet</span></div>
+    <div class="unconnected-card unconnected-board" aria-hidden="true"><strong>Information</strong><span>Inget meddelande anslutet</span></div>
     <svg class="surface-art" id="surface-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
     <div class="surface-hits" id="surface-hits" role="group" aria-label="Välj skärmyta" hidden><button type="button" data-surface="main" aria-label="Huvudskärmen"></button><button type="button" data-surface="left" aria-label="Vänster tomma panel"></button><button type="button" data-surface="right" aria-label="Höger tomma panel"></button></div>
     <section class="screen-content" id="screen-content" aria-live="polite" hidden></section>
@@ -1300,7 +1426,7 @@
   <div class="status-options" data-visible="true" role="group" aria-label="Förhandsvisa vägsymbol"><span>Vägsymbol:</span><button type="button" data-road-mode="alternate" aria-pressed="true">Växla grön/blå</button><button type="button" data-road-mode="neutral" aria-pressed="false">Neutral</button><button type="button" data-road-mode="green" aria-pressed="false">Grön</button><button type="button" data-road-mode="blue" aria-pressed="false">Blå</button></div>
   <div class="status-options" id="status-options" data-visible="false"><span>Endast visuell test av avgiftsstatus:</span><button type="button" data-member-status="paid" aria-pressed="true">Betald</button><button type="button" data-member-status="unpaid" aria-pressed="false">Obetald</button></div>
   <p class="status" id="status" role="status">Läser bilddelarna…</p>
-  <p class="app-notice">Teknisk testversion med låtsasdata. Kalender, Att göra, Snabbtavla, dokument och kontakt har ännu ingen föreningsdata. Antal online och fordonsikonerna är inte verkliga mätningar.</p>
+  <p class="app-notice">Teknisk testversion med låtsasdata. Kalender, Att göra, Chat, Information, dokument och kontakt har ännu ingen föreningsdata. Antal online och fordonsikonerna är inte verkliga mätningar.</p>
   <div class="panel-list" id="panel-list" aria-label="Visa en panel i taget"></div>
 </body>
 </html>

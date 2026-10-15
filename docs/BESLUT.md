@@ -1,0 +1,242 @@
+# Vägfölk – gällande beslut och arbetsregler
+
+Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta är beslut och mål, inte en lista över färdiga funktioner.** Läs [README](../README.md) för faktisk byggstatus. Om ett äldre förslag, en kodkommentar eller en överlämning säger något annat gäller det senaste uttryckliga beslutet från användaren. Lyft en verklig konflikt innan riktningen ändras.
+
+## Fastlagd riktning
+
+1. **Inget Cloudflare.** Projektet ska fortsätta med GitHub och Google. Gamla dokument om Cloudflare är historiska förslag, inte arbetsorder. Om Google-lösningen visar sig otillräckligt säker ska arbetet med verkliga uppgifter stanna och alternativen diskuteras med användaren. Välj inte en ny leverantör på egen hand.
+2. **EKO betyder EKO i Google Sheets när appen diskuteras.** Excel-originalet `VF-EKO_3.13` är förlaga och jämförelsematerial. Appen ska inte synkronisera Excel mot Sheets eller bygga på två parallella medlems- eller ekonomiregister. Den aktuella Sheets-testkopian är inte automatiskt godkänd för drift.
+3. **En samlad EKO-fil.** Medlemsuppgifter, roller och ekonomi hör ihop i EKO i Google Sheets. Behöriga personer sköter vanliga manuella ändringar direkt i den privata filen på datorn; kassören arbetar med ekonomi och sekreteraren med medlems- och rollfrågor enligt sina behörigheter. Appen ska inte ge någon roll ett allmänt formulär för att redigera EKO. Den särskilt beslutade automatiska överföringen från godkänd försäljningskassa till EKO är ett undantag.
+4. **Försäljningskassan är skild från kassörens ekonomiöversikt.** Behöriga styrelsemedlemmar ska kunna öppna och sköta en kassa utan att kassören är på plats. Ett försäljningstillfälle ska få ett automatiskt, beständigt ID; detaljer som antal sålda varor sparas i en separat, spårbar Drive-logg som kan skrivas ut. Efter avslut och godkännande ska de ekonomiska summorna synkas till EKO utan dubbelbokföring. Om en annan person godkänner än den som öppnade kassan ska namn och position anges. Hur den personens identitet säkert kontrolleras via inloggningen återstår att utforma; enbart inskrivet namn är inte en säker verifiering.
+5. **Offlineförsäljning är ett krav.** Ett pågående försäljningstillfälle ska kunna lagras lokalt när kontakten saknas och synkas senare. Väntande, godkänt och faktiskt bokfört måste visas som olika tillstånd. Testad lokal lagring innebär ännu inte att detta är klart eller säkert för riktiga uppgifter.
+6. **Behörighet och sekretess går före bekvämlighet.** Vanlig medlem får bara se sin egen avgift och möjligen egen historik. Styrelsen får begränsad ekonomiöversikt, kassören ska kunna läsa hela EKO via appen och sekreterare/kassör har även styrelsebehörigheter. Flera praktiska roller kan tilldelas samma person. Sekreteraren ska kunna hantera approller; en säker reservväg för administration och återställning behövs. Exakt återställningsmetod är ännu inte beslutad. Ingen medlem ska få tillgång till den privata EKO-filen bara för att appen visar en begränsad uppgift.
+7. **Varje förening och installation är tekniskt isolerad.** En ny förening kan använda ett annat Google-konto, en annan Drive, andra mappnamn och helt andra fil-ID:n än Vägfölk. Inga sådana adresser, namn eller ID:n får vara hårdkodade för drift. Installationen ska skapa en egen huvudmapp och nödvändiga filer i den aktuella föreningens Drive och spara deras tekniska ID:n i just den installationens skyddade konfiguration. Varje begäran ska knytas till och kontrolleras mot ett unikt förenings-ID; appen får inte hitta eller välja driftfiler enbart genom filnamn. En användares Google-identitet ger inte i sig tillgång till någon förening: användaren måste dessutom vara registrerad med rätt status och behörighet i den aktuella föreningens EKO. En förenings konfiguration, användare och data får aldrig kunna blandas med en annan förenings genom avsikt, misstag eller namnlikhet. Vid en ny installation måste medlemmar läggas till och roller bestämmas i den gemensamma EKO-filen innan appen kan ge rätt åtkomst. Nya medlemmar/roller ska kunna läggas till utan att användaren fyller i tekniska ID:n manuellt. Första installationen ska vara så enkel som möjligt för en person utan programmeringskunskap.
+8. **Appens tekniska drift och administration ska vara kostnadsfri utan faktureringskonto.** Regeln gäller appens hosting, datalagring, API:er, tekniska tillägg och administration, inte bara Google Sheets. VF-APP får endast använda sådana tekniska funktioner utan kopplat faktureringskonto, kortuppgifter, automatiska kostnader eller en betalnivå som appen själv kan aktivera. Appen ska begränsa eller tillfälligt stoppa en funktion när en gratisgräns nås; den får aldrig automatiskt beställa högre kvot eller orsaka en debitering. Om en teknisk leverantör senare kräver betalning för appens drift ska den berörda funktionen stoppas och en annan lösning diskuteras med användaren. Föreningens nödvändiga bankavtal, företags- eller föreningskonto, Swishtjänst och ordinarie Swish- eller transaktionsavgifter är däremot kostnader i föreningens verksamhet och omfattas inte av kravet på kostnadsfri appdrift. Dessa kostnader ska hanteras och bokföras korrekt i EKO. En ny betald teknisk integration utöver föreningens beslutade bank- och Swishavtal kräver fortfarande ett uttryckligt beslut. Gratisgränser och engångssteg måste beskrivas ärligt; kalla inte en oprövad installation automatisk eller garanterat gratis för all framtid.
+9. **Riktiga uppgifter får inte användas i ett oprövat flöde.** Medlemsregister, kontakter och ekonomi ska ligga privat och lämnas ut enligt behörighet som kontrolleras på serversidan. Testa inloggning, föreningsgränser, Drive-rättigheter, avbrott och samtidiga försäljningar med låtsasdata först. Hemligheter får inte läggas i GitHub eller offentliga filer.
+10. **Ingen fullständig chattserver ska byggas.** Knappen ska heta **Chat**.
+    Funktionen är en enkel gemensam plats för inloggade användare, avsedd för korta meddelanden och
+    snabbval som **Blir sen**, **Hittar inte dit** och **Behöver hjälp**. Den
+    ska använda ett separat privat dokument i föreningens Drive, inte vara
+    kopplad till en extern chattserver, och inte användas för långa diskussioner. Någon
+    särskild styrelsechatt ska inte byggas; styrelsen kan kommunicera utanför
+    appen.
+11. **Vägfölks installation byggs färdig först.** Den första etappen är en fullt körbar och säker VF-app för Vägfölks faktiska arbetssätt. Automatisk installation, administration och paketering för andra föreningar ska inte byggas innan VF-versionen fungerar och har kunnat utvärderas. VF får tills vidare vara den enda konfigurerade föreningen, men förenings-ID samt Drive-, mapp- och fil-ID:n ska ligga i skyddad konfiguration och inte hårdkodas i den offentliga appkoden. Säkerhetskontrollerna ska fortfarande verifiera både användare, VF:s förenings-ID och användarens aktuella behörighet. Efter att VF-versionen är fullt fungerande tas ett nytt beslut om eventuell fortsättning för andra föreningar och vilka installationssteg som då krävs.
+
+## Beslutade krav för information, möten och uppgifter
+
+- **Kalender:** medlemmar ska se medlemskalendern. Styrelse, sekreterare,
+  kassör och administratör ska se både medlemskalendern och styrelsekalendern.
+  Appens kalendervy visar återstående händelser under aktuell månad direkt
+  från Google Kalender, utan datumknappar. De två kalendrarna visas var för
+  sig för styrelsebehöriga. Behörighetsgränsen finns i datakällan och
+  kontrolleras på serversidan. Medlemmar kan bara läsa sin kalender. Styrelsen
+  kan läsa båda i appen och får två små länkar till respektive Google Kalender
+  för redigering där. Faktisk redigeringsrätt i Google måste tilldelas
+  styrelsekontona separat; en länk ger inte behörighet i sig.
+- **Nästa möte:** en medlem ska se nästa medlemsmöte. Styrelsebehöriga ska se
+  både nästa medlemsmöte och nästa styrelsemöte under rubriken ”Nästa möte”.
+  Dessa söks bland framtida händelser oavsett vilken månad kalendervyn visar.
+- **Information:** den högra informationsskärmen ska heta ”Information”.
+  Ett klick öppnar ett eget viktigt meddelande från styrelsen, inte Chat.
+  Endast styrelsebehöriga får publicera sådana meddelanden. Alla aktiva
+  användare ska kunna läsa dem. Informationsmeddelanden ska inte automatiskt
+  läggas i Chat.
+- **Chat:** alla inloggade får läsa och lämna korta meddelanden samt
+  använda beslutade snabbval. Varje post ska knytas till den inloggade
+  användarens beständiga medlems-ID, visningsnamn och tid. Användaren ska inte
+  kunna ange någon annans identitet.
+- **Notiser byggs efter grundfunktionerna:** Chat-knappen ska blinka när den
+  inloggade har olästa meddelanden. Telefonen ska kunna få en notis både när
+  någon skriver i Chat och när styrelsen publicerar Information. Detta kräver
+  ett eget senare steg för lässtatus, telefonbehörighet och leverans när appen
+  inte är öppen. Ingen sådan notis får beskrivas som fungerande innan den
+  faktiskt är byggd och provad.
+- **Protokoll och dokument:** medlemmar ska bara kunna läsa filer som styrelsen
+  uttryckligen har valt att dela med medlemmarna. Styrelsebehöriga ska kunna
+  läsa alla föreningens styrelsefiler. Vanliga styrelseledamöter ska inte
+  kunna redigera dem via appen. Sekreteraren får de särskilda
+  redigeringsmöjligheter som behövs för protokoll och mötesdokument; kassören
+  får motsvarande rätt för sina ekonomidokument. Exakt arbetsflöde och vilka
+  Drive-mappar som ska användas ska bestämmas innan funktionen byggs.
+- **Inloggade och mötesdeltagande:** alla ska se hur många som är aktuellt
+  inloggade. En vanlig medlem ska inte automatiskt få en namnlista. När
+  mötesläget senare är byggt ska möten kunna hållas helt eller delvis genom
+  appen. Alla inloggade med rätt mötesbehörighet ska då kunna följa exempelvis
+  dagordning, mötesunderlag och den ekonomiska information som kassören visar.
+  Systemet ska skilja mellan att vara allmänt inloggad i appen och att ha gått
+  in i det aktiva mötet. Sekreteraren ska med en knapp kunna föra in de
+  registrerade mötesdeltagarna i protokollet. Fysisk närvaro är inget krav;
+  listan ska kunna granskas och rättas om någon anslutit sent, lämnat mötet
+  eller deltagit på annat sätt.
+- **Begär ordet i mötesläget:** en deltagare i ett aktivt möte ska kunna
+  trycka på **Begär ordet**. Funktionen hör till det senare samlade arbetet
+  med mötesläget. Hur talarkö, återtagande av begäran och mötesordförandens
+  hantering ska fungera är förslag som måste bestämmas innan den byggs.
+- **Egen medlemsavgift:** medlemsvyn ska visa en enkel grön status
+  **Medlemsavgift betald** eller en röd status **Medlemsavgift inte betald**.
+  Betalt belopp ska inte visas. Återstående belopp ska bara visas när det är
+  större än noll. Förfallodatum visas när ett sådant finns. Om ett obetalt
+  belopp finns ska appen börja varna två kalendermånader före
+  förfallodatumet och fortsätta visa en tydlig varning efter förfallodagen.
+  Beräkningen får göras med den fullständiga avgiften på serversidan, men
+  onödiga avgifts- eller medlemsuppgifter ska inte skickas till webbläsaren.
+- **Betala medlemsavgiften med Swish:** när ett belopp återstår ska medlemmen
+  kunna öppna Swish från appen med föreningens mottagarnummer, rätt belopp och
+  en unik medlemsreferens ifyllda. Beloppet hämtas från medlemstyp,
+  familjeregler och eventuell särskild avgift i EKO; det styrs inte av
+  användarens approll. Det nu beslutade första flödet kräver inte Swish Handel
+  API, utan bygger på kassörens kontroll mot banken. Appen kan därför inte
+  själv bekräfta att pengarna kommit till banken. Efter betalningen ska
+  medlemmen uttryckligen kunna ange
+  **Jag har betalat**. Kassören får då ett meddelande med medlem, belopp,
+  referens och tid, tydligt märkt som **uppgiven betalning – behöver
+  kontrolleras**. Kassören kontrollerar insättningen mot bankkontot och
+  bokför betalningen direkt i EKO. Först när EKO visar betalningen ska appen
+  markera avgiften som betald. Medlemsbetalningen är alltså inte ett nytt
+  undantag från regeln att vanliga manuella EKO-ändringar görs utanför appen.
+- **Gemensam Swish-grund byggs senare:** den tekniska grunden för Swish ska
+  kunna återanvändas av både medlemsavgifter och försäljningskassan, men ska
+  inte byggas eller kopplas in nu. Den ska byggas och testas med låtsasdata
+  som ett eget sammanhållet steg omedelbart innan arbetet med
+  försäljningskassan börjar. Först därefter byggs kassan ovanpå samma
+  betalningsmodell. Ingen fysisk Swishanslutning, inget produktionscertifikat
+  och inga verkliga betalningar får användas innan Swish har aktiverats och
+  testflödet har godkänts.
+- **Begränsat läge vid obetald avgift:** om EKO fortfarande visar obetalt sju
+  dagar efter förfallodatumet får appen begränsa åtkomsten. Medlemmen ska även
+  då nå betalningsknappen, sin betalstatus, möjligt återstående belopp,
+  kontaktfunktionen och utloggning. Att Swish har öppnats eller att medlemmen
+  har tryckt **Jag har betalat** får inte låsa upp appen. Upplåsning sker först
+  när den kontrollerade betalningen finns i EKO. Avgiftsbefriade medlemmar,
+  familjemedlemmar som inte är avgiftsskyldiga och andra beslutade undantag
+  får inte spärras.
+- **Kontakt:** alla inloggade ska ha en kontaktknapp som visar de
+  kontaktuppgifter styrelsen uttryckligen har valt att dela, exempelvis namn,
+  styrelseroll, telefon och e-post. Kontaktknappen ska vara tillgänglig även i
+  begränsat läge. Den ska inte lämna ut andra uppgifter ur medlemsregistret.
+- **Att göra:** namnet avser en att-göra-lista, inte sekreterarens
+  medlemsregister. Styrelsen ska kunna lägga in uppgifter för medlemmarna. En
+  inloggad medlem ska kunna markera en uppgift som utförd, och utförandet ska
+  sparas med uppgiftens ID, personens medlems-ID och visningsnamn samt tid.
+  Det ska också finnas en separat lista som bara styrelsebehöriga ser. Regler
+  för rättelser, återöppning och samtidiga försök ska bestämmas före byggstart.
+- **Mötesläge:** den gamla prototypens idé med aktuell dagordning och
+  mötesfiler är endast underlag. Ett fullständigt arbetsflöde är ännu inte
+  beslutat. Mötesläget ska byggas i ett senare samlat steg, liksom
+  försäljningskassan. Den gemensamma Swish-grunden ska byggas före
+  försäljningskassan. Övriga beslutade delar ska göras funktionsdugliga först.
+- **Dator, platta och telefon:** appens funktioner och behörigheter ska fungera
+  på alla tre enhetstyperna. Telefonens instrumentpanel utformas för liggande
+  skärm. I stående läge får appen be användaren vrida telefonen. En mindre
+  skärm får inte bli en avskalad version som saknar nödvändiga funktioner.
+  Knappar och text ska vara tydliga och användbara även med pekskärm.
+- **Föreningsanpassat utseende:** när stöd för andra föreningar senare byggs
+  ska föreningen kunna använda egen logotyp och egna färger utan att ändra
+  appens grundlayout. Den nuvarande utseendeskissen och användarens två
+  referensbilder är förslag till formgivning, inte godkänd produktlayout.
+- **Appens visuella riktning:** Vägfölks layout ska utgå från användarens
+  senaste bild `bilder/vf app v5.png` (1672 × 941 pixlar) och eftersträva ett slutresultat så nära den som
+  läsbarhet och fungerande användning tillåter. Hela skärmen ska vara en mörk
+  instrumentpanel; ingen rundad panel ska visa en bakgrund bakom appen.
+  Bildens färger, belysta ramar, knappar och grafiska element är utgångspunkt.
+  Rubrikens tidigare `VF GT` ersätts av `VF 26`. Mittdisplayen ska vara fri
+  från fast text och ikoner så att framtida material kan visas ovanpå dess
+  väg- och skogsbakgrund. Den senaste bildens rena väg- och skogsmotiv får
+  användas som visuell resurs; inga separata originalskikt eller typsnitt
+  finns tillgängliga från bildgenereringen. Länkarna längst ned tas bort eftersom de dubblar
+  vänstermenyn; det frigjorda utrymmet används till större displayer. Den
+  gula markeringen ska följa det menyval som pekaren är över och visa det
+  valda alternativet när pekaren lämnar menyn. Telefonens huvudlayout utgår
+  från liggande skärm. Den tidigare `GT`-skissen är avvisad som VF-riktning
+  men sparas jämte tidigare alternativ; den modernare skissen är fortfarande
+  endast en **möjlig** standardlayout för andra föreningar i en senare etapp.
+  Den senaste bilden tillför ett smalt instrumentfält nedtill och en lägesväljare
+  upptill. Sportbilsdetaljer som varningslampor, bältestext och räckvidd är
+  dekorativa om de saknar verklig datakälla; de får inte se ut som äkta
+  fordonsvarningar eller enhetsmätningar. Klockan ska visa enhetens lokala tid.
+  Datumfältet i övre högra informationspanelen ska automatiskt visa enhetens
+  aktuella lokala datum och ändras när kalenderdagen växlar.
+  Temperatur ska hämtas automatiskt från SMHI för den aktuella enhetens plats,
+  inte från en fast ort som Storfors. Webbläsaren måste först få platsbehörighet;
+  när den har getts ska appen hämta och uppdatera prognosen utan ett manuellt
+  knapptryck varje gång. Om plats eller SMHI-svar saknas visas ingen påhittad temperatur. Värdet ska
+  beskrivas som prognostemperatur, inte som en mätning från enhetens sensor.
+  Den bildnära skissen ska visa nederdelen som en integrerad välvd panel,
+  lägesknappar och navigering i panelens form och utan extra `DEMO`-dekor.
+  Den fortsatta uppbyggnaden ska följa användarens färgmarkerade bild
+  `bilder/vf app v5 draw.png`: ytterram, de tre övre fälten, lägesval,
+  vänstermeny, hälsning, nästa möte, mittdisplayens ram och innehåll,
+  klubbinformation, styrelsemeddelande, de två fria ytorna och de nedre
+  fälten ska kunna ändras var för sig. Klocka, medlemsstatus och väder ska
+  också vara självständiga delar. Fasta etiketter som `demo`, `tillfälligt`
+  eller `exempel` ska inte läggas inne i panelens grafiska utformning;
+  skissens status och påhittade värden förklaras i text utanför panelen.
+  Nederdelens korta avgiftsindikator ska heta **Medlemsstatus** utan `OK`.
+  Den ska vara grön när avgiften är betald och tydligt röd vid obetald avgift,
+  med glaslik glöd i samma stil som lägesknapparna. Klockan till vänster om
+  medlemsstatus ska visa enhetens aktuella lokala tid.
+  Hälsningen ska använda den inloggade personens visningsnamn; ett fast namn
+  som Anna får inte ligga kvar i appen. Den övre 5G-texten tas bort och ersätts
+  av **Status – [antal] online**, där antalet ska komma från appens verkliga
+  inloggade användare. Status, Bluetooth och mottagning ska ligga direkt mot
+  det övre fältets bakgrund utan en separat rektangulär ruta.
+  Bluetooth- och mottagningsikonerna behålls. I den
+  grafiska förhandsvisningen får signalstyrkan växla för att visa ikonen,
+  men det får inte beskrivas som verklig mottagningsdata. Bältes-, tank- och
+  Bluetooth-ikonerna får blinka med jämn takt som en visuell effekt.
+  Temperaturvärdet och den lilla vägsymbolen i det övre högra fältet samt
+  varningstriangeln vid bältestexten tas bort. Den nedre vägsymbolen vid
+  temperaturfältet ska kunna vara neutral eller växla grafiskt mellan grönt
+  och blått; färgen är inte en verklig uppgift om vägförhållanden.
+  Prognostemperatur ska visas i ett eget fält med klockans
+  typografiska stil, endast när plats och SMHI ger ett giltigt värde.
+  Huvudskärmens innehåll samt de tomma vänstra och högra sidoytorna ska
+  följa respektive bildrams konturer och kunna ändras som separata moduler.
+  Den vänstra sidoytans kontur och klickyta får inte gå ut över menyknapparna.
+  Medlemsavgiftens status får bara visas som verklig när den kommer från en
+  behörighetskontrollerad källa; i skissen ska exempeluppgifter märkas tydligt.
+  Mötesläget är fortfarande uppskjutet och får inte framstå som färdigt.
+  Den nya `VF 26`-skissen ska granskas av användaren innan layouten byggs in
+  i appen. Inget beslut om att bygga stöd för andra föreningar tas nu.
+
+## Beslutade krav för EKO i Google Sheets
+
+- En familj ska kunna knytas ihop med ett familje-ID. Det ska vara tydligt vem som är **avgiftsskyldig**; övriga familjemedlemmar ska kunna vara medlemmar utan separat betalningsskyldighet. Familjeavgift ska definieras på ett enda ställe, inte i dubbla inställningar.
+- Standardavgift ska hämtas från vald medlemstyp i Grunddata/Inställningar. En behörig person ska kunna ange en särskild avgift vid behov. Det ska finnas utrymme att lägga till medlemstyper, roller och kategorier utan tekniska ingrepp.
+- Kassaboken ska ha användbara rader och val, tydlig översikt över ingående/utgående saldo och bank, kontanter och Swish. Viktiga uppgifter ska inte döljas av onödigt breda vyer. Kontrollstatus ska vara lätt att se, helst rött/grönt i stället för bara text som ”OK”. Undvik vit text på svart bakgrund.
+- Mottagen medlemsavgift via Swish ska bokföras som inkomst med sitt fulla
+  belopp. Bankens eller Swishtjänstens avgift ska bokföras separat som utgift
+  enligt bankavtalet och bankunderlaget, så att avgiften kan räknas av i
+  resultatet utan att medlemsintäkten förvanskas. EKO ska kunna hantera den
+  beslutade Swishavgiften som en verksamhetskostnad.
+- Räkenskapsår ska kunna anges i inställningarna. Nytt år ska utgå från föregående år och föra över ingående bank, kontanter, tillgångar och skulder korrekt utan att kassören måste kopiera saldon för hand. En avvikande period ska kunna väljas med kassörens godkännande och förklaring. Appen har ingen direkt bankkoppling och kan därför inte intyga att bokföringens saldo är samma som bankens faktiska saldo.
+- Bokslutet ska kunna skrivas ut med uppgift om bland annat kassören. Formella underskrifter görs för hand på papper och sparas i pärm; kassörens inloggade godkännande i systemet är en separat kontroll, inte en ersättning för pappersunderskrifter.
+- En frivillig räkningshjälp har uttryckligen lagts åt sidan för tillfället. VBA/makron får inte vara enda vägen att genomföra årsskifte i den webbaserade lösningen.
+
+## Arbetsregler från användaren
+
+- **Rekommendera exakt modell och resonemangsnivå innan varje ny eller återupptagen projektuppgift.** Säg samtidigt om uppgiften väntas dra ovanligt mycket krediter och låt användaren välja modell eller att göra ett stort moment själv. Börja inte läsa eller ändra projektfiler, arbeta i Drive eller starta själva uppgiften förrän användaren har fått rekommendationen och svarat. Om rekommendationen redan har getts för samma uppgift och användaren säger ”fortsätt”, fortsätt utan att begära den igen. Detta gäller också efter sidospår i samtalet.
+- Förklara resultat och praktiska steg på vanlig svenska. Användaren kan hantera mappar, uppladdningar och inställningar med tydlig vägledning, men skriver inte kod.
+- Skilj uttryckliga beslut från idéer och tekniska förslag. Diskutera en nödvändig ändring av arkitektur, datakälla, leverantör eller säkerhetsmodell innan den genomförs. En gammal text i projektet upphäver aldrig ett senare beslut från användaren.
+- Vid osäkerhet om ett tidigare beslut: kontrollera samtalet och detta dokument, säg vad som är oklart och gör inga ändringar med riktiga uppgifter på antaganden.
+
+## Öppet och ännu inte godkänt för drift
+
+- Vilken Google-baserad serverlösning som säkert kan verifiera besökaren och läsa privata Drive/Sheets-filer. Apps Script är ett spår att prova, inte en färdig eller godkänd koppling.
+- **Åtgärd före riktiga uppgifter:** I den lokala appen har VF-kontot öppnat appvyn och ett andra riktigt Google-konto fått **”Kontot har inte tillgång till föreningen”** utan att några testuppgifter visades. Det separata Apps Script-läsprovet är ännu inte löst: ett tidigare prov gav `data_unavailable`. Körningsloggar 2026-10-11 visar att dataskriptets `doPost` faktiskt slutfördes men att identitetsskriptet loggade HTTP 404 när det hämtade svaret. En ny version hämtar Googles omdirigerade svar igen utan att upprepa anropet; den fungerar med det kända testkontot. Ett senare svar med testpersonens uppgifter kom också från VF-kontot och utgör inte ett prov med okänt konto. Testsidan visar nu det konto skriptet faktiskt använder. Med det okända kontot `fl.linkan@gmail.com` svarade testet `authorization_required`; detta konto har ännu inte godkänt skriptets externa anrop. En senare länk till skriptprojektets auktorisering bad felaktigt om läs- eller redigeringsåtkomst till projektet och togs bort i version 10 utan att åtkomst beviljades. Version 11 försökte öppna Googles ordinarie godkännande men fastnade i Chrome inkognito på ”Waiting for authorization...”. Identitetsskriptet använde först ett eget Apps Script-hanterat Cloud-projekt, medan dataskriptet var kopplat till VF-APP. Efter användarens godkännande visar båda skripten VF-APP:s projektnummer 650474529830. Den inbyggda webbläsaren fastnade fortfarande i Googles godkännande; orsaken är fortfarande okänd. Ett uttryckligt `unknown_user` för okänt konto är ännu inte verifierat live. Den separata skriptkedjan är heller inte ansluten till den lokala appen. Kontoproven är vilande; den privata EKO-åtkomsten får inte kallas färdig eller användas med riktiga uppgifter på dessa resultat.
+- **Senaste behörighetsprov 2026-10-11:** Med det andra kontot i vanlig Chrome-profil visades Googles ”Det går inte att öppna filen just nu” i godkännandeflödet, utan svar från provknappen. Körningsloggen från samma minut visar ett slutfört `doGet` och `getTestAccount`, men avslöjar inte vilket konto de använde. Den aktiva version 11-publiceringen kör som besökaren och tillåter Google-konton. Ett separat misslyckat `doGet` visade i körningsloggen att `script.external_request` saknades; identitetsskriptet begär inte Drive- eller Sheets-åtkomst. Varför Google inte slutför godkännandet för det andra kontot är oklart. Detta ändrar inte statusen ovan: avslag från dataskriptets medlemskontroll är ännu inte verifierat.
+- VF-APP:s Google Auth Platform hade inga OAuth-behörigheter registrerade på sidan Data Access. De fyra behörigheter som Googles godkännandelänk begärde har nu registrerats och sparats: `openid`, e-post, grundläggande profil och `script.external_request`. Ingen Drive- eller Sheets-behörighet lades till. Codex inbyggda webbläsare fastnade fortfarande vid godkännandet efteråt och det andra kontot fick samma filfel i vanlig Chrome. Loggen från samma minut visar slutförda `doGet` och `getTestAccount` men inget `readTestData`; den visar inte säkert vilket konto som öppnade sidan. Detta är en konfigurationsåtgärd, inte ett godkänt åtkomstprov.
+- **EKO-filåtkomst 2026-10-11:** Med det befintliga dataskriptets `drive.file`-behörighet gav ett läsprov av enbart filmetadata HTTP 404 för den befintliga Sheets-testkopian `VF-EKO 4.4 – konverteringstest – ENDAST TESTDATA`, men HTTP 200 för testfilen som samma skript själv skapat. Den tillfälliga provkoden togs bort efteråt; inga EKO-celler eller roller ändrades. Ett rollprov mot befintliga EKO skulle nu blanda ihop filåtkomstfel med rollbeslut och har därför inte genomförts. Filval med bibehållen `drive.file`-begränsning är ett möjligt nästa förslag som behöver beslutas och verifieras; bredare Google-behörigheter är inte godkända.
+- **Picker-prov 2026-10-11:** Efter användarens besked att fortsätta med det smala filvalet finns nu en lokal, avstängd-som-standard testsida för att välja exakt den befintliga EKO-testkopian. Den är avsedd att läsa endast filmetadata. VF-APP-projektet saknar faktureringskonto. Med användarens särskilda godkännanden har Google Picker API aktiverats och en API-nyckel skapats; Google Cloud visar att den är begränsad till Google Picker API och Google Drive API samt `http://localhost:3000/*` och `https://docs.google.com/*`. Nyckelns värde finns inte i projektfilerna. VF-kontot godkände väntad `drive.file`-behörighet, men Picker visade därefter `The API developer key is invalid` vid två försök. Filvalet och dataskriptets separata åtkomst är därför ännu inte verifierade. Inga EKO-celler eller roller har ändrats i detta steg.
+- **EKO-importprov 2026-10-12:** Picker-felet kringgicks i ett separat test utan bredare Google-behörighet: ägarens dataskript skapade en privat testmapp och importerade en export av den befintliga EKO-testkopian till en ny Google Sheets-fil. Skriptet kunde därefter läsa filen med `drive.file`. Sex flikar, samtliga ifyllda celler och formler, datavalideringar och villkorsstyrda formateringar överensstämde vid jämförelse av exporterade arbetsböcker. Importen ändrade tidszonen till Los Angeles och tappade en tom extrakolumn i Medlemmar; båda rättades i den nya testkopian och verifierades. Med VF-kontot synligt på testsidan och testpersonens Google-konto-ID kopplat i den nya EKO-kopian gav rollen Medlem endast egen testavgift och nekade styrelseöversikten; rollen Styrelse gav översikten; status Väntar nekades; utan kontokoppling gav skriptet `unknown_user`. Testpersonen återställdes till Aktiv/Styrelse. Endast den nya testkopians fil-ID är nu aktivt i dataskriptets privata testkonfiguration; den tidigare EKO-kopian har inte ändrats eller raderats. Detta bevisar ett användbart testspår, **inte** att den lokala appen är ansluten, att ett separat okänt Google-konto har provats färdigt eller att lösningen är säker för verkliga uppgifter.
+- **Uppdaterad appstatus 2026-10-12:** Den lokala appen är nu ansluten till den privata EKO-testkopian genom ägarens dataskript. VF-kontot fick den begränsade styrelseöversikten; ett andra riktigt Google-konto nekades vid appinloggningen. Ett levande rollbyte Styrelse → Medlem visade att serverns aktuella roll slog igenom efter sidomladdning. Ett upptäckt gränssnittsfel med tidigare hämtade styrelsesummor rättades: vid nytt öppnande av vyn töms det gamla svaret och rollen kontrolleras igen, vilket provades mot testkopian utan sidomladdning. Ett automatiskt prov visade HTTP 403 för ett direkt styrelseanrop efter rollbyte i samma session. Därefter gav ett direkt liveanrop från samma inloggade VF-session mot Sheets-testkopian HTTP 200 med rollen Styrelse och HTTP 403 när samma testpost ändrades till Medlem. Endast HTTP-status visades i provet; inga ekonomisvar skrevs ut. Provkoden togs bort och testposten återställdes till Aktiv/Styrelse. Detta är fortsatt en lokal testapp med låtsasdata, inte godkänd för riktiga uppgifter eller publicering.
+- **Publicerad appvy 2026-10-12:** Enbart det granskade, statiska gränssnittet finns nu på GitHub Pages från `vagfolk/vf-app`, `main`. Startsidan öppnar instrumentpanelen. Den publika vyn har ingen inloggning eller EKO-anslutning och visar tydligt att medlemsstatus och ekonomi saknas. En öppning av ”Min avgift” på den publicerade sidan gav ”Status saknas”, utan EKO-uppgifter. Detta är inte en publicering av den lokala skyddade appservern och ändrar inte kravet på verifierad behörighet före riktiga uppgifter.
+- **Google-skyddad testpanel 2026-10-13:** GitHub-startsidan har ändrats till en tydlig länk till den befintliga Apps Script-webbappen; den statiska instrumentpanelen finns kvar som separat designförhandsvisning. Den inloggade testpanelen kör som besökaren, hämtar visningskod från en låst GitHub-commit och kontrollerar filens SHA-256 före visning. Identitetsskriptet lämnar bara ut begränsad profil, egen avgiftsstatus och styrelseöversikt efter dataskriptets kontroll mot den privata EKO-testkopian. I både utvecklingsversion och publicerad testversion visade VF-kontot testperson, betald avgift och styrelsesummor med enbart låtsasdata. Automatproven omfattar nekad styrelseöversikt för medlem och nekad profil för okänd användare. Ett andra riktigt konto har **inte** prövats mot just denna publicerade Google-vy; ingen del är godkänd för riktiga medlems- eller ekonomidata.
+- **Tidig åtkomstkontroll 2026-10-13:** Ett andra riktigt Google-konto öppnade först den publicerade instrumentpanelens tomma skal men såg inga föreningsuppgifter; sidan visade ”Kontot har inte tillgång till föreningen”. Identitetsskriptet ändrades därefter så att EKO-testkopians profilkontroll körs innan någon HTML för instrumentpanelen lämnas ut. Okänt eller inaktivt konto får en separat sida med ”Ingen åtkomst”; vid kontrollfel stängs åtkomsten också. Version 14 är publicerad på samma testlänk. Alla 18 lokala prov för den privata läskedjan passerade. VF-kontot öppnade fortfarande den publicerade testpanelen, och användaren provade det andra kontot i inkognito och rapporterade att ”Ingen åtkomst” visades. Vanliga Chrome visade tidigare ”Det går inte att öppna filen just nu”, medan inkognito fungerade; orsaken är inte fastställd. Inga riktiga uppgifter får användas på dessa prov.
+- **Chrome-kontoprov 2026-10-13:** I användarens vanliga Chrome-session var både `fl.linkan@gmail.com` och `vag26folk@gmail.com` inloggade hos Google. Den skyddade testlänken gav där ”Det går inte att öppna filen just nu”. Med endast `fl.linkan@gmail.com` i en separat Chrome-session öppnades samma länk och visade korrekt ”Ingen åtkomst”. Detta talar starkt för Googles dokumenterade begränsning för Apps Script-webbappar vid flera samtidiga Google-konton i samma session, snarare än ett allmänt fel i appen eller testfilen. En egen Chrome-profil per Google-konto är en möjlig praktisk lösning utan utloggning; det är inte ett beslut om ändrad apparkitektur. Felet i den blandade sessionen är inte åtgärdat i appkoden.
+- **Rollstyrda testvyer 2026-10-13:** Startsidan visar bara genvägar som den aktuella profilen tillåter. När en skyddad vy öppnas prövas den aktuella rollen på serversidan mot EKO-testkopian innan vyn visas. Styrelsens ekonomiska data har dessutom en separat kontroll vid själva dataanropet. Lokala automatprov täcker rollbyte, nekad åtkomst och avstängt konto; den publicerade Google-testpanelen version 15 öppnades med VF-kontot och visade styrelseöversikt med låtsasdata. De övriga rollvyerna är ännu bara tomma förberedelser, och någon livekontroll av dessa med flera riktiga konton är inte gjord. Detta är inte ett klartecken för riktiga uppgifter.
+- **Kalenderarbete 2026-10-13:** VF-kontot har två olika Google-kalendrar för medlemmar respektive styrelse; användaren har förtydligat att alla nuvarande händelser är testuppgifter. Styrelsekalendern var inställd på offentlig visning av händelsedetaljer och har gjorts privat; medlemskalenderns delning är oförändrad. Kalender-ID:n ligger i privata Script Properties. Kalenderläsning med serverkontrollerad EKO-roll är publicerad i den skyddade testappen. Vid ett levande prov mot Google Calendar API syntes en påhittad styrelsehändelse för rollen Styrelse. När samma testkonto tillfälligt ändrades till Medlem i EKO visades inte styrelsehändelsen, medan en medlemshändelse var synlig. Rollen återställdes till Styrelse och styrelsehändelsen visades åter. Testhändelsen ligger kvar i styrelsekalendern och är tydligt märkt TEST. Detta är ett lyckat prov av just kalenderns rollgräns med låtsasdata, inte ett godkännande för riktiga uppgifter eller hela appens säkerhet.
+- **Kalendervy 2026-10-14:** Den skyddade testappen visar nu Google-kalenderhändelser direkt, uppdelade efter roll. För VF-kontot med styrelseroll syntes båda kalendrarna och två små Google-länkar. Kalendervyn visade kommande oktoberhändelser, medan ”Nästa möte” samtidigt visade ett medlemsmöte i november och ett styrelsemöte i oktober. Detta är ett levande prov med låtsasdata. Medlemsrollens nya gränssnitt och styrelsekontons faktiska redigeringsrätt i Google har inte provats i denna version; Google Kalender-behörigheter måste tilldelas separat.
+- Hur VF:s första installation, Google-behörigheter och säker återställning genomförs säkert utan nya betalda tjänster. Ett återanvändbart installationsflöde för andra föreningar är uttryckligen uppskjutet tills VF-versionen fungerar och har utvärderats.
+- Hur EKO i Google Sheets färdigställs och jämförs mot Excel-förlagans funktioner, särskilt bokslut/årsskifte. Ingen automatisk Excel–Sheets-synk är beslutad.
+- Hur försäljningsgodkännande, offlinekö, separat logg och säker exakt-en-gång-överföring till EKO fungerar i verklig drift. Nuvarande test använder låtsasdata.

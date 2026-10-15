@@ -37,6 +37,9 @@
 .view-surface label{display:block;font-size:13px;color:#d9e4e7;margin:10px 0 5px}
 .view-surface .view-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #a4b3b13d;padding:10px 0}
 .view-surface .view-row:last-child{border-bottom:0}
+.view-surface .view-chat-row{display:grid;grid-template-columns:1fr auto;align-items:start}
+.view-surface .view-chat-row p{grid-column:1/-1;white-space:pre-wrap;overflow-wrap:anywhere}
+.view-surface .view-chat-row time{color:#afc0c6;font-size:12px}
 .view-surface .view-row small{color:#afc0c6}
 .view-surface .view-pill{display:inline-block;border:1px solid #789383;border-radius:999px;color:#a9f2c6;padding:4px 9px;font-size:12px}
 .view-surface .view-placeholder{border:1px dashed #88969a87;border-radius:12px;padding:16px;color:#c0ced2;margin:10px 0}
