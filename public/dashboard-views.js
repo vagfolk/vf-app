@@ -133,7 +133,7 @@
     if (!boardAllowed) state.taskTab = 'medlem';
     root.append(heading('Att göra', 'Uppgifter'));
     root.append(group(button('För medlemmar','task-tab','medlem',state.taskTab==='medlem'), ...(boardAllowed ? [button('För styrelsen','task-tab','styrelse',state.taskTab==='styrelse')] : [])));
-    root.append(paragraph('Övningsläge: uppgifter du lägger till visas bara i denna öppna sida. Inget skickas till föreningen eller sparas.','view-muted'));
+    root.append(paragraph('Övningsläge: uppgifter och ändringar sparas inte i föreningens system.','view-muted'));
     const list = element('ul','view-list');
     const tasks = state.tasks.filter(task => task.kind === state.taskTab);
     if (!tasks.length) list.append(element('li','','Inga övningsuppgifter tillagda.'));
@@ -145,18 +145,20 @@
       list.append(row);
     });
     root.append(list);
-    const form = element('form');
-    form.dataset.form = 'task';
-    const label = element('label','','Lägg till en övningsuppgift');
-    label.htmlFor = 'task-entry-' + root.id;
-    const input = element('input');
-    input.id = label.htmlFor;
-    input.name = 'task';
-    input.maxLength = 100;
-    input.required = true;
-    input.placeholder = 'Skriv en kort uppgift';
-    form.append(label,input,group(button('Lägg till','submit-task')));
-    root.append(form);
+    if (boardAllowed) {
+      const form = element('form');
+      form.dataset.form = 'task';
+      const label = element('label','','Lägg till en övningsuppgift');
+      label.htmlFor = 'task-entry-' + root.id;
+      const input = element('input');
+      input.id = label.htmlFor;
+      input.name = 'task';
+      input.maxLength = 100;
+      input.required = true;
+      input.placeholder = 'Skriv en kort uppgift';
+      form.append(label,input,group(button('Lägg till','submit-task')));
+      root.append(form);
+    }
   };
   const renderInformation = (root, options) => {
     root.append(heading('Information', 'Viktigt meddelande från styrelsen'));
@@ -306,7 +308,10 @@
       const input = form.querySelector('input, textarea');
       const text = input.value.trim();
       if (!text) return;
-      if (form.dataset.form === 'task') state.tasks.push({id:Date.now()+Math.random(),text:text.slice(0,100),kind:state.taskTab,done:false});
+      if (form.dataset.form === 'task') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
+        state.tasks.push({id:Date.now()+Math.random(),text:text.slice(0,100),kind:state.taskTab,done:false});
+      }
       else if (form.dataset.form === 'message') {
         if (window.VFAppData?.connection === 'google_test') document.dispatchEvent(new CustomEvent('vf:chat-post',{detail:{text:text.slice(0,120)}}));
         else state.messages.push({name:'Du',text:text.slice(0,120),createdAt:new Date().toISOString()});

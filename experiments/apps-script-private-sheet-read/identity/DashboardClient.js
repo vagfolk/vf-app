@@ -6,6 +6,7 @@
   let calendarRequest = 0;
   let informationRequest = 0;
   let chatRequest = 0;
+  let chatLoading = false;
   let activeView = 'start';
 
   function show() { window.VFDashboard?.setData(state); }
@@ -148,9 +149,10 @@
   }
 
   async function loadChat() {
+    if (state.connection !== 'google_test' || chatLoading) return;
+    chatLoading = true;
     const request = ++chatRequest;
-    state.chat = null;
-    show();
+    if (!state.chat) show();
     try {
       const chat = await read('chat');
       if (request !== chatRequest) return;
@@ -159,6 +161,8 @@
       if (request !== chatRequest) return;
       closePrivateView();
       return;
+    } finally {
+      chatLoading = false;
     }
     show();
   }
@@ -198,7 +202,7 @@
   document.addEventListener('vf:chat-post', event => {
     writeMessage('postChatMessage', event.detail?.text, loadChat);
   });
-  setInterval(() => { if (!document.hidden && activeView === 'chat') loadChat(); }, 15000);
+  setInterval(() => { if (!document.hidden && activeView === 'chat') loadChat(); }, 30000);
   document.addEventListener('vf:signout', () => {
     ++boardRequest;
     ++calendarRequest;

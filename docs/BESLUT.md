@@ -40,7 +40,9 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   Ett klick öppnar ett eget viktigt meddelande från styrelsen, inte Chat.
   Endast styrelsebehöriga får publicera sådana meddelanden. Alla aktiva
   användare ska kunna läsa dem. Informationsmeddelanden ska inte automatiskt
-  läggas i Chat.
+  läggas i Chat. Publiceringsfält och andra styrelse-, redigerings- och
+  administrationsreglage ska inte visas alls för en vanlig medlem. Dold
+  användarvy ersätter aldrig behörighetskontroll på serversidan.
 - **Chat:** alla inloggade får läsa och lämna korta meddelanden samt
   använda beslutade snabbval. Varje post ska knytas till den inloggade
   användarens beständiga medlems-ID, visningsnamn och tid. Användaren ska inte
