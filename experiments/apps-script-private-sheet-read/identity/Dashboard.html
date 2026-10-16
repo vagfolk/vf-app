@@ -268,6 +268,9 @@
     return node;
   };
   const renderStart = (root, options) => {
+    // Den skyddade appen får inte rita en medlemsvy innan profilen är känd.
+    // Annars blinkar medlemskort fram för en styrelseanvändare under laddning.
+    if (options.connection && !options.user) return;
     root.append(heading(options.name ? `Hej, ${options.name.split(/\s+/)[0]}` : 'Välkommen', 'Mina sidor'));
     const permissions = new Set(options.user?.permissions || []);
     const isBoard = permissions.has('board_view');
@@ -685,7 +688,7 @@
       state.connection = 'google_test';
       show();
       notice('');
-      loadCalendar(false);
+      loadCalendar();
       loadInformation();
       loadChat();
     } catch (error) {
@@ -704,17 +707,14 @@
         : 'Appen kunde inte öppnas. Försök igen senare.');
     }
   }
-  async function loadCalendar(refreshProfile = true) {
+  async function loadCalendar(force = false) {
+    if (state.connection !== 'google_test' || !state.user) return;
+    if (state.calendar && !force) return;
     const request = ++calendarRequest;
     if (!state.calendar) window.VFDashboard?.refresh();
     try {
-      const [profile, calendar] = await Promise.all([
-        refreshProfile ? read('profile') : Promise.resolve(state.user),
-        read('calendar'),
-      ]);
+      const calendar = await read('calendar');
       if (request !== calendarRequest) return;
-      state.user = profile;
-      if (!profile.permissions?.includes('board_view')) state.boardSummary = null;
       state.calendar = calendar;
     } catch (error) {
       if (request !== calendarRequest) return;
@@ -723,19 +723,14 @@
     }
     show();
   }
-  async function loadBoard() {
+  async function loadBoard(force = false) {
+    if (state.connection !== 'google_test' || !state.user) return;
+    if (state.boardSummary && !force) return;
     const request = ++boardRequest;
-    state.boardSummary = null;
-    window.VFDashboard?.refresh();
+    if (!state.boardSummary) window.VFDashboard?.refresh();
     try {
-      const [profile, summary] = await Promise.all([read('profile'), read('board_summary')]);
+      const summary = await read('board_summary');
       if (request !== boardRequest) return;
-      state.user = profile;
-      if (!profile.permissions?.includes('board_view')) {
-        show();
-        document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
-        return;
-      }
       state.boardSummary = summary;
     } catch {
       if (request !== boardRequest) return;
@@ -746,7 +741,9 @@
     window.VFDashboard?.refresh();
   }
 
-  async function loadInformation() {
+  async function loadInformation(force = false) {
+    if (state.connection !== 'google_test' || !state.user) return;
+    if (state.information && !force) return;
     const request = ++informationRequest;
     if (!state.information) show();
     try {
@@ -780,8 +777,9 @@
     show();
   }
 
-  async function loadTasks() {
+  async function loadTasks(force = false) {
     if (state.connection !== 'google_test') return;
+    if (state.tasks && !force) return;
     const request = ++tasksRequest;
     try {
       const tasks = await read('tasks');
@@ -793,8 +791,9 @@
     }
   }
 
-  async function loadContacts() {
+  async function loadContacts(force = false) {
     if (state.connection !== 'google_test') return;
+    if (state.contacts && !force) return;
     const request = ++contactsRequest;
     try {
       const contacts = await read('contacts');
@@ -815,18 +814,18 @@
         error.reason = result?.reason;
         throw error;
       }
-      await loadTasks();
+      await loadTasks(true);
       if (state.connection === 'google_test') notice(method === 'completeTask'
         ? 'Uppgiften markerades som utförd. Du kan välja Återkalla om det blev fel.'
         : method === 'recallTask' ? 'Markeringen återkallades som felaktig.'
           : 'Uppgiften lades till.');
     } catch (error) {
       if (error?.reason === 'already_completed') {
-        await loadTasks();
+        await loadTasks(true);
         notice('Någon annan hann markera uppgiften först.');
       } else {
         notice('Ändringen kunde inte bekräftas. Uppdatera listan innan du försöker igen.');
-        await loadTasks();
+        await loadTasks(true);
       }
     }
   }
@@ -836,7 +835,7 @@
     try {
       const result = await call(method, text);
       if (!result || result.allowed !== true) throw new Error('Meddelandet sparades inte');
-      await refresh();
+      await refresh(true);
       if (state.connection === 'google_test') notice('Meddelandet skickat.');
     } catch {
       notice('Meddelandet kunde inte sparas. Försök igen; kontrollera först att det inte redan syns.');
@@ -851,18 +850,7 @@
     if (activeView === 'chat') loadChat();
     if (activeView === 'medlemsarbete') loadTasks();
     if (activeView === 'kontakt') loadContacts();
-    if (activeView !== 'board') {
-      ++boardRequest;
-      state.boardSummary = null;
-    }
-  });
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && activeView === 'board') loadBoard();
-    if (!document.hidden && (activeView === 'kalender' || activeView === 'start')) loadCalendar();
-    if (!document.hidden && activeView === 'information') loadInformation();
-    if (!document.hidden && activeView === 'chat') loadChat();
-    if (!document.hidden && activeView === 'medlemsarbete') loadTasks();
-    if (!document.hidden && activeView === 'kontakt') loadContacts();
+    if (activeView !== 'board') ++boardRequest;
   });
   document.addEventListener('vf:information-publish', event => {
     writeMessage('publishInformation', event.detail?.text, loadInformation);
@@ -949,6 +937,7 @@
       kontakt:'<circle cx="18" cy="10" r="6"/><path d="M6 34v-5a12 12 0 0 1 24 0v5H6Zm24-16a6 6 0 0 1 4 6v10h-3"/>',
     };
     let selectedMenu = 'start';
+    let activeLayoutView = 'interactive';
     let hoveredMenu = null;
     let selectedMode = 'neutral';
     let selectedCard = null;
@@ -1226,6 +1215,16 @@
       compactContent.dataset.start = String(selectedMenu === 'start');
     }
 
+    function updateScreenContentVisibility() {
+      const active = activeLayoutView === 'interactive' || activeLayoutView === 'all';
+      const hasProfile = Boolean(window.VFAppData?.user);
+      const canShow = !document.body.classList.contains('app-mode') || hasProfile;
+      const boardStart = selectedMenu === 'start' &&
+        window.VFAppData?.user?.permissions?.includes('board_view');
+      screenContent.hidden = !((active && canShow && (selectedMenu !== 'start' || boardStart)) ||
+        (activeLayoutView === 'cards' && selectedCard));
+    }
+
     async function selectMenu(id) {
       if (!menu.some(entry => entry.id === id) && id !== 'information' && !Object.hasOwn(restrictedViews,id)) return;
       const request = ++navigationRequest;
@@ -1249,8 +1248,9 @@
       }
       selectedMenu = id;
       const item = menu.find(entry => entry.id === id);
-      screenContent.hidden = false;
+      screenContent.hidden = true;
       renderMenuContent();
+      updateScreenContentVisibility();
       showMenuSelection();
       for (const button of compactNav.querySelectorAll('button')) {
         if (button.dataset.menu === id) button.setAttribute('aria-current','page');
@@ -1289,6 +1289,7 @@
     }
 
     function setView(view, onlyId = null) {
+      activeLayoutView = view;
       original.hidden = view !== 'original';
       for (const {image, info} of panels) image.hidden = view === 'original' || view === 'frame' || (view === 'single' && info.id !== onlyId);
       for (const {image, panelId} of iconVariants) image.hidden = view === 'original' || view === 'frame' || (view === 'single' && panelId !== onlyId);
@@ -1306,7 +1307,7 @@
       if (interactive) renderMenuContent();
       showCardSelection();
       showSurfaceSelection();
-      screenContent.hidden = !(interactive && selectedMenu !== 'start' || view === 'cards' && selectedCard);
+      updateScreenContentVisibility();
       for (const button of document.querySelectorAll('[data-view]')) {
         const active = button.dataset.view === view && (view !== 'single' || button.dataset.id === onlyId);
         button.setAttribute('aria-pressed', String(active));
@@ -1417,6 +1418,7 @@
       buildMenu();
       window.VFDashboard = {
         setData(data) {
+          screenContent.hidden = true;
           window.VFAppData = data;
           if (restrictedViews[selectedMenu] && !data.user?.permissions?.includes(restrictedViews[selectedMenu])) {
             ++navigationRequest;
@@ -1428,6 +1430,7 @@
           showDashboardDetails();
           showMemberPanel();
           renderMenuContent();
+          updateScreenContentVisibility();
           const meetingText = document.querySelector('.unconnected-meeting span');
           const isBoard = data.user?.permissions?.includes('board_view');
           document.querySelector('.unconnected-meeting strong').textContent = isBoard ? 'Nästa möte' : 'Nästa medlemsmöte';
@@ -1443,7 +1446,7 @@
           compactFee.textContent = sampleMemberStatus === 'paid' ? 'Medlemsavgift betald' : sampleMemberStatus === 'unpaid' ? 'Medlemsavgift inte betald' : 'Medlemsstatus saknas';
           compactFee.dataset.status = sampleMemberStatus;
         },
-        refresh() { renderMenuContent(); },
+        refresh() { renderMenuContent(); updateScreenContentVisibility(); },
       };
       document.dispatchEvent(new Event('vf:dashboard-ready'));
       for (const button of modeHits.querySelectorAll('button')) button.addEventListener('click', () => {

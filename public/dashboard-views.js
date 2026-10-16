@@ -49,6 +49,9 @@
     return node;
   };
   const renderStart = (root, options) => {
+    // Den skyddade appen får inte rita en medlemsvy innan profilen är känd.
+    // Annars blinkar medlemskort fram för en styrelseanvändare under laddning.
+    if (options.connection && !options.user) return;
     root.append(heading(options.name ? `Hej, ${options.name.split(/\s+/)[0]}` : 'Välkommen', 'Mina sidor'));
     const permissions = new Set(options.user?.permissions || []);
     const isBoard = permissions.has('board_view');

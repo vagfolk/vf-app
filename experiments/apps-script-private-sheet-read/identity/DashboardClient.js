@@ -77,7 +77,7 @@
       state.connection = 'google_test';
       show();
       notice('');
-      loadCalendar(false);
+      loadCalendar();
       loadInformation();
       loadChat();
     } catch (error) {
@@ -96,17 +96,14 @@
         : 'Appen kunde inte öppnas. Försök igen senare.');
     }
   }
-  async function loadCalendar(refreshProfile = true) {
+  async function loadCalendar(force = false) {
+    if (state.connection !== 'google_test' || !state.user) return;
+    if (state.calendar && !force) return;
     const request = ++calendarRequest;
     if (!state.calendar) window.VFDashboard?.refresh();
     try {
-      const [profile, calendar] = await Promise.all([
-        refreshProfile ? read('profile') : Promise.resolve(state.user),
-        read('calendar'),
-      ]);
+      const calendar = await read('calendar');
       if (request !== calendarRequest) return;
-      state.user = profile;
-      if (!profile.permissions?.includes('board_view')) state.boardSummary = null;
       state.calendar = calendar;
     } catch (error) {
       if (request !== calendarRequest) return;
@@ -115,19 +112,14 @@
     }
     show();
   }
-  async function loadBoard() {
+  async function loadBoard(force = false) {
+    if (state.connection !== 'google_test' || !state.user) return;
+    if (state.boardSummary && !force) return;
     const request = ++boardRequest;
-    state.boardSummary = null;
-    window.VFDashboard?.refresh();
+    if (!state.boardSummary) window.VFDashboard?.refresh();
     try {
-      const [profile, summary] = await Promise.all([read('profile'), read('board_summary')]);
+      const summary = await read('board_summary');
       if (request !== boardRequest) return;
-      state.user = profile;
-      if (!profile.permissions?.includes('board_view')) {
-        show();
-        document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
-        return;
-      }
       state.boardSummary = summary;
     } catch {
       if (request !== boardRequest) return;
@@ -138,7 +130,9 @@
     window.VFDashboard?.refresh();
   }
 
-  async function loadInformation() {
+  async function loadInformation(force = false) {
+    if (state.connection !== 'google_test' || !state.user) return;
+    if (state.information && !force) return;
     const request = ++informationRequest;
     if (!state.information) show();
     try {
@@ -172,8 +166,9 @@
     show();
   }
 
-  async function loadTasks() {
+  async function loadTasks(force = false) {
     if (state.connection !== 'google_test') return;
+    if (state.tasks && !force) return;
     const request = ++tasksRequest;
     try {
       const tasks = await read('tasks');
@@ -185,8 +180,9 @@
     }
   }
 
-  async function loadContacts() {
+  async function loadContacts(force = false) {
     if (state.connection !== 'google_test') return;
+    if (state.contacts && !force) return;
     const request = ++contactsRequest;
     try {
       const contacts = await read('contacts');
@@ -207,18 +203,18 @@
         error.reason = result?.reason;
         throw error;
       }
-      await loadTasks();
+      await loadTasks(true);
       if (state.connection === 'google_test') notice(method === 'completeTask'
         ? 'Uppgiften markerades som utförd. Du kan välja Återkalla om det blev fel.'
         : method === 'recallTask' ? 'Markeringen återkallades som felaktig.'
           : 'Uppgiften lades till.');
     } catch (error) {
       if (error?.reason === 'already_completed') {
-        await loadTasks();
+        await loadTasks(true);
         notice('Någon annan hann markera uppgiften först.');
       } else {
         notice('Ändringen kunde inte bekräftas. Uppdatera listan innan du försöker igen.');
-        await loadTasks();
+        await loadTasks(true);
       }
     }
   }
@@ -228,7 +224,7 @@
     try {
       const result = await call(method, text);
       if (!result || result.allowed !== true) throw new Error('Meddelandet sparades inte');
-      await refresh();
+      await refresh(true);
       if (state.connection === 'google_test') notice('Meddelandet skickat.');
     } catch {
       notice('Meddelandet kunde inte sparas. Försök igen; kontrollera först att det inte redan syns.');
@@ -243,18 +239,7 @@
     if (activeView === 'chat') loadChat();
     if (activeView === 'medlemsarbete') loadTasks();
     if (activeView === 'kontakt') loadContacts();
-    if (activeView !== 'board') {
-      ++boardRequest;
-      state.boardSummary = null;
-    }
-  });
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && activeView === 'board') loadBoard();
-    if (!document.hidden && (activeView === 'kalender' || activeView === 'start')) loadCalendar();
-    if (!document.hidden && activeView === 'information') loadInformation();
-    if (!document.hidden && activeView === 'chat') loadChat();
-    if (!document.hidden && activeView === 'medlemsarbete') loadTasks();
-    if (!document.hidden && activeView === 'kontakt') loadContacts();
+    if (activeView !== 'board') ++boardRequest;
   });
   document.addEventListener('vf:information-publish', event => {
     writeMessage('publishInformation', event.detail?.text, loadInformation);

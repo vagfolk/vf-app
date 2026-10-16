@@ -116,6 +116,7 @@
       kontakt:'<circle cx="18" cy="10" r="6"/><path d="M6 34v-5a12 12 0 0 1 24 0v5H6Zm24-16a6 6 0 0 1 4 6v10h-3"/>',
     };
     let selectedMenu = 'start';
+    let activeLayoutView = 'interactive';
     let hoveredMenu = null;
     let selectedMode = 'neutral';
     let selectedCard = null;
@@ -393,6 +394,16 @@
       compactContent.dataset.start = String(selectedMenu === 'start');
     }
 
+    function updateScreenContentVisibility() {
+      const active = activeLayoutView === 'interactive' || activeLayoutView === 'all';
+      const hasProfile = Boolean(window.VFAppData?.user);
+      const canShow = !document.body.classList.contains('app-mode') || hasProfile;
+      const boardStart = selectedMenu === 'start' &&
+        window.VFAppData?.user?.permissions?.includes('board_view');
+      screenContent.hidden = !((active && canShow && (selectedMenu !== 'start' || boardStart)) ||
+        (activeLayoutView === 'cards' && selectedCard));
+    }
+
     async function selectMenu(id) {
       if (!menu.some(entry => entry.id === id) && id !== 'information' && !Object.hasOwn(restrictedViews,id)) return;
       const request = ++navigationRequest;
@@ -416,8 +427,9 @@
       }
       selectedMenu = id;
       const item = menu.find(entry => entry.id === id);
-      screenContent.hidden = false;
+      screenContent.hidden = true;
       renderMenuContent();
+      updateScreenContentVisibility();
       showMenuSelection();
       for (const button of compactNav.querySelectorAll('button')) {
         if (button.dataset.menu === id) button.setAttribute('aria-current','page');
@@ -456,6 +468,7 @@
     }
 
     function setView(view, onlyId = null) {
+      activeLayoutView = view;
       original.hidden = view !== 'original';
       for (const {image, info} of panels) image.hidden = view === 'original' || view === 'frame' || (view === 'single' && info.id !== onlyId);
       for (const {image, panelId} of iconVariants) image.hidden = view === 'original' || view === 'frame' || (view === 'single' && panelId !== onlyId);
@@ -473,7 +486,7 @@
       if (interactive) renderMenuContent();
       showCardSelection();
       showSurfaceSelection();
-      screenContent.hidden = !(interactive && selectedMenu !== 'start' || view === 'cards' && selectedCard);
+      updateScreenContentVisibility();
       for (const button of document.querySelectorAll('[data-view]')) {
         const active = button.dataset.view === view && (view !== 'single' || button.dataset.id === onlyId);
         button.setAttribute('aria-pressed', String(active));
@@ -584,6 +597,7 @@
       buildMenu();
       window.VFDashboard = {
         setData(data) {
+          screenContent.hidden = true;
           window.VFAppData = data;
           if (restrictedViews[selectedMenu] && !data.user?.permissions?.includes(restrictedViews[selectedMenu])) {
             ++navigationRequest;
@@ -595,6 +609,7 @@
           showDashboardDetails();
           showMemberPanel();
           renderMenuContent();
+          updateScreenContentVisibility();
           const meetingText = document.querySelector('.unconnected-meeting span');
           const isBoard = data.user?.permissions?.includes('board_view');
           document.querySelector('.unconnected-meeting strong').textContent = isBoard ? 'Nästa möte' : 'Nästa medlemsmöte';
@@ -610,7 +625,7 @@
           compactFee.textContent = sampleMemberStatus === 'paid' ? 'Medlemsavgift betald' : sampleMemberStatus === 'unpaid' ? 'Medlemsavgift inte betald' : 'Medlemsstatus saknas';
           compactFee.dataset.status = sampleMemberStatus;
         },
-        refresh() { renderMenuContent(); },
+        refresh() { renderMenuContent(); updateScreenContentVisibility(); },
       };
       document.dispatchEvent(new Event('vf:dashboard-ready'));
       for (const button of modeHits.querySelectorAll('button')) button.addEventListener('click', () => {
