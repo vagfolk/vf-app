@@ -473,7 +473,7 @@ function taskStates_(events) {
     const [eventId, taskId, scope, event, title, memberId, name, at] = row;
     if (!/^[0-9a-f-]{36}$/i.test(String(eventId)) ||
         !/^[0-9a-f-]{36}$/i.test(String(taskId)) ||
-        !['medlem', 'styrelse'].includes(scope) ||
+        !['medlem', 'styrelse', 'prioriterad'].includes(scope) ||
         !['skapad', 'utförd', 'återkallad'].includes(event) ||
         typeof memberId !== 'string' || !memberId ||
         typeof name !== 'string' || !name ||
@@ -510,7 +510,7 @@ function taskStates_(events) {
 
 function visibleTasks_(events, boardAllowed, viewerId) {
   return Array.from(taskStates_(events).values())
-    .filter(task => boardAllowed || task.kind === 'medlem')
+    .filter(task => boardAllowed || task.kind !== 'styrelse')
     .map(task => ({ id: task.id, kind: task.kind, text: task.text,
       done: task.done, completedBy: task.completedBy?.name || null,
       completedAt: task.completedAt,
@@ -527,7 +527,7 @@ function writeTaskEvent_(id, action, content, memberId, name, boardAllowed) {
     try {
       const input = JSON.parse(content);
       if (!input || Object.keys(input).sort().join(',') !== 'kind,text' ||
-          !['medlem', 'styrelse'].includes(input.kind) ||
+          !['medlem', 'styrelse', 'prioriterad'].includes(input.kind) ||
           typeof input.text !== 'string') return reply_(false, 'invalid_content');
       scope = input.kind;
       title = input.text.trim();

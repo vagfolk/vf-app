@@ -77,6 +77,33 @@
     if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
     if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng vyn' : 'Logga ut','signout'));
     root.append(actions, notice());
+    if (permissions.has('board_view') && options.connection === 'google_test') {
+      const form = element('form');
+      form.dataset.form = 'task';
+      const label = element('label', '', 'Lägg till uppgift');
+      label.htmlFor = 'task-entry-' + root.id;
+      const input = element('input');
+      input.id = label.htmlFor;
+      input.name = 'task';
+      input.maxLength = 100;
+      input.required = true;
+      input.placeholder = 'Skriv en kort uppgift';
+      const kindLabel = element('label', '', 'Lista');
+      kindLabel.htmlFor = 'task-kind-' + root.id;
+      const kind = element('select');
+      kind.id = kindLabel.htmlFor;
+      kind.name = 'kind';
+      for (const [value, title] of [
+        ['medlem', 'Medlem'], ['styrelse', 'Styrelse'], ['prioriterad', 'Prioriterad']
+      ]) {
+        const choice = element('option', '', title);
+        choice.value = value;
+        kind.append(choice);
+      }
+      form.append(label, input, kindLabel, kind,
+        group(button('Lägg till uppgift', 'submit-task')));
+      root.append(form);
+    }
   };
   const renderCalendar = (root, options) => {
     const now = new Date();
@@ -125,12 +152,15 @@
     root.append(heading('Att göra'));
     root.append(group(button('För medlemmar','task-tab','medlem',state.taskTab==='medlem'), ...(boardAllowed ? [button('För styrelsen','task-tab','styrelse',state.taskTab==='styrelse')] : [])));
     const list = element('ul','view-list');
-    const tasks = (options.tasks?.tasks || []).filter(task => task.kind === state.taskTab);
+    const tasks = (options.tasks?.tasks || []).filter(task => state.taskTab === 'styrelse'
+      ? task.kind === 'styrelse' : task.kind === 'medlem' || task.kind === 'prioriterad')
+      .sort((a, b) => Number(b.kind === 'prioriterad') - Number(a.kind === 'prioriterad'));
     if (!options.tasks && options.connection === 'google_test') list.append(element('li','','Hämtar uppgifter…'));
     else if (!tasks.length) list.append(element('li','','Inga uppgifter tillagda.'));
     tasks.forEach(task => {
       const row = element('li','view-row view-task-row');
       const details = element('div');
+      if (task.kind === 'prioriterad') details.append(element('span','view-priority','Prioriterad'));
       details.append(element('strong','',`${task.done ? '✓ ' : ''}${task.text}`));
       if (task.done && task.completedBy && task.completedAt) {
         details.append(paragraph(`Utförd av ${task.completedBy} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(new Date(task.completedAt))}`, 'view-muted'));
@@ -145,20 +175,6 @@
       list.append(row);
     });
     root.append(list);
-    if (boardAllowed && options.connection === 'google_test') {
-      const form = element('form');
-      form.dataset.form = 'task';
-      const label = element('label','','Lägg till uppgift');
-      label.htmlFor = 'task-entry-' + root.id;
-      const input = element('input');
-      input.id = label.htmlFor;
-      input.name = 'task';
-      input.maxLength = 100;
-      input.required = true;
-      input.placeholder = 'Skriv en kort uppgift';
-      form.append(label,input,group(button('Lägg till','submit-task')));
-      root.append(form);
-    }
   };
   const renderInformation = (root, options) => {
     root.append(heading('Information', 'Viktigt meddelande från styrelsen'));
@@ -337,8 +353,10 @@
       if (form.dataset.form === 'task') {
         if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
         if (window.VFAppData.connection === 'google_test') {
+          const kind = form.querySelector('select[name="kind"]')?.value;
+          if (!['medlem', 'styrelse', 'prioriterad'].includes(kind)) return;
           document.dispatchEvent(new CustomEvent('vf:task-create',
-            {detail:{text:text.slice(0,100),kind:state.taskTab}}));
+            {detail:{text:text.slice(0,100),kind:kind}}));
           input.value = '';
         }
       }

@@ -502,8 +502,11 @@ test('styrelsens uppgifter och kontaktuppgifter avgränsas efter aktiv EKO-statu
   app.setSubject('google-board');
   const created = app.identity.createTask({ kind: 'styrelse', text: 'Boka lokal' });
   assert.equal(created.allowed, true);
+  const priority = app.identity.createTask({ kind: 'prioriterad', text: 'Akut uppgift' });
+  assert.equal(priority.allowed, true);
   app.setSubject('google-member');
-  assert.deepEqual(result(app.identity.readDashboardData('tasks').data.tasks), []);
+  assert.deepEqual(result(app.identity.readDashboardData('tasks').data.tasks)
+    .map(task => task.text), ['Akut uppgift']);
   assert.equal(app.identity.completeTask(created.taskId).reason, 'task_not_found');
   const contacts = result(app.identity.readDashboardData('contacts').data.contacts);
   assert.deepEqual(contacts.map(person => person.name), ['Anna', 'Bo']);

@@ -126,7 +126,11 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   Kontaktknappen ska vara tillgänglig även i begränsat läge. Foton behöver
   ligga i en privat, behörighetskontrollerad källa, inte via offentliga länkar.
 - **Att göra:** namnet avser en att-göra-lista, inte sekreterarens
-  medlemsregister. Styrelsen ska kunna lägga in uppgifter för medlemmarna. En
+  medlemsregister. Styrelsen ska lägga till uppgifter från startsidan med
+  rullistan **Medlem**, **Styrelse** eller **Prioriterad**. Prioriterade
+  uppgifter syns överst för alla medlemmar. Själva Att göra-vyn ska enbart
+  visa uppgifterna och låta behöriga användare bocka av eller återkalla en
+  egen felmarkering. En
   inloggad medlem ska kunna markera en uppgift som utförd, och utförandet ska
   sparas med uppgiftens ID, personens medlems-ID och visningsnamn samt tid.
   Det ska också finnas en separat lista som bara styrelsebehöriga ser.

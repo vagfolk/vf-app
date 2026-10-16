@@ -211,7 +211,7 @@ function readDashboardData(action) {
         data.tasks.some(function(task) {
           return !task || typeof task.id !== 'string' ||
             !/^[0-9a-f-]{36}$/i.test(task.id) ||
-            !['medlem', 'styrelse'].includes(task.kind) ||
+            !['medlem', 'styrelse', 'prioriterad'].includes(task.kind) ||
             typeof task.text !== 'string' || task.text.length > 100 ||
             typeof task.done !== 'boolean' || typeof task.canRecall !== 'boolean' ||
             (task.completedBy !== null && typeof task.completedBy !== 'string') ||
@@ -256,7 +256,7 @@ function postChatMessage(text) {
 
 function createTask(input) {
   if (!input || typeof input !== 'object' ||
-      !['medlem', 'styrelse'].includes(input.kind) ||
+      !['medlem', 'styrelse', 'prioriterad'].includes(input.kind) ||
       typeof input.text !== 'string' || !input.text.trim() ||
       input.text.length > 100) return { allowed: false, reason: 'invalid_content' };
   return taskWrite_('create_task', JSON.stringify({ kind: input.kind, text: input.text }));
