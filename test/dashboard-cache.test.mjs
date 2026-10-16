@@ -9,7 +9,8 @@ test('växling mellan Start och Kalender hämtar inte om oförändrad profil och
   const responses = {
     profile: { permissions: ['own_fee', 'board_view'], name: 'Anna' },
     own_fee: { memberId: 'M1', name: 'Anna' },
-    calendar: { events: [], links: {} },
+    calendar: { events: [], links: {}, version: { member: 'v1' } },
+    calendar_version: { version: { member: 'v1' } },
     information: { message: null },
     chat: { messages: [] },
   };
@@ -58,4 +59,12 @@ test('växling mellan Start och Kalender hämtar inte om oförändrad profil och
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.filter(action => action === 'profile').length, 1);
   assert.equal(calls.filter(action => action === 'calendar').length, 1);
+  assert.equal(calls.filter(action => action === 'calendar_version').length, 1);
+
+  responses.calendar_version = { version: { member: 'v2' } };
+  responses.calendar = { events: [], links: {}, version: { member: 'v2' } };
+  document.dispatchEvent({ type: 'visibilitychange' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.filter(action => action === 'calendar').length, 2);
+  assert.equal(calls.filter(action => action === 'profile').length, 1);
 });

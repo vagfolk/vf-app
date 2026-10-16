@@ -55,7 +55,7 @@ function getTestAccount() {
 function readTestData_(request) {
   const action = request && typeof request === 'object' && !Array.isArray(request)
     ? request.action : null;
-  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'information', 'chat',
+  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'information', 'chat',
       'publish_information', 'post_chat', 'tasks', 'contacts',
       'create_task', 'complete_task', 'recall_task'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
@@ -123,7 +123,7 @@ function readTestData_(request) {
 // Endast begränsade vydata lämnas till instrumentpanelen. Dataskriptet gör
 // medlems- och rollkontrollen på nytt vid varje anrop.
 function readDashboardData(action) {
-  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'information', 'chat',
+  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'information', 'chat',
       'tasks', 'contacts'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
@@ -171,7 +171,18 @@ function readDashboardData(action) {
       status: remaining === 0 ? 'paid' : 'unpaid', paymentNotice: null
     } };
   }
-  if (action === 'calendar') {
+  if (action === 'calendar' || action === 'calendar_version') {
+    const version = data.version;
+    if (!version || typeof version !== 'object' || Array.isArray(version) ||
+        Object.keys(version).some(function(kind) { return !['member', 'board'].includes(kind); }) ||
+        typeof version.member !== 'string' || !Number.isFinite(Date.parse(version.member)) ||
+        (version.board !== undefined &&
+          (typeof version.board !== 'string' || !Number.isFinite(Date.parse(version.board))))) {
+      return { allowed: false, reason: 'data_unavailable' };
+    }
+    if (action === 'calendar_version') {
+      return { allowed: true, data: { version: version } };
+    }
     const links = data.links === undefined ? null : data.links;
     if (!Array.isArray(data.events) || data.events.length > 2000 ||
         data.events.some(function(event) {
@@ -186,7 +197,8 @@ function readDashboardData(action) {
           })))) {
       return { allowed: false, reason: 'data_unavailable' };
     }
-    return { allowed: true, data: { testData: true, events: data.events, links: links } };
+    return { allowed: true, data: { testData: true, events: data.events,
+      links: links, version: version } };
   }
   if (action === 'information') {
     const message = data.message;

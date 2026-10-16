@@ -108,7 +108,7 @@ function doPost(event) {
       : 'action,associationId,nonce,subject,ts,v';
     if (Object.keys(body).sort().join(',') !== expectedKeys) return reply_(false, 'wrong_association_or_action');
     if (body.v !== 1 || body.associationId !== associationId) return reply_(false, 'wrong_association_or_action');
-    if (!['profile', 'own_fee', 'board_summary', 'calendar', 'information', 'chat',
+    if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'information', 'chat',
           'publish_information', 'post_chat', 'tasks', 'contacts',
           'create_task', 'complete_task', 'recall_task'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
     if (typeof body.subject !== 'string' || !body.subject || body.subject.length > 255) return reply_(false, 'wrong_association_or_action');
@@ -214,7 +214,7 @@ function doPost(event) {
         fee: fee, paid: paid, remaining: fee - paid
       });
     }
-    if (body.action === 'calendar') {
+    if (body.action === 'calendar' || body.action === 'calendar_version') {
       const boardAllowed = roles.some(role =>
         ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role));
       const memberCalendarId = properties.getProperty(MEMBER_CALENDAR_PROPERTY);
@@ -223,17 +223,27 @@ function doPost(event) {
           (boardAllowed && !validCalendarId_(boardCalendarId))) {
         return reply_(false, 'calendar_setup_missing');
       }
+      if (body.action === 'calendar_version') {
+        const version = { member: readCalendarUpdated_(memberCalendarId) };
+        if (boardAllowed) version.board = readCalendarUpdated_(boardCalendarId);
+        return reply_(true, null, { version: version });
+      }
       const now = new Date();
-      const events = readCalendar_(memberCalendarId, 'member', now);
+      const memberCalendar = readCalendar_(memberCalendarId, 'member', now);
+      const events = memberCalendar.events;
+      const version = { member: memberCalendar.updated };
       if (boardAllowed) {
-        events.push(...readCalendar_(boardCalendarId, 'board', now));
+        const boardCalendar = readCalendar_(boardCalendarId, 'board', now);
+        events.push(...boardCalendar.events);
+        version.board = boardCalendar.updated;
       }
       events.sort((a, b) => a.start.localeCompare(b.start));
       const links = boardAllowed ? {
         member: 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(memberCalendarId),
         board: 'https://calendar.google.com/calendar/u/0/r?cid=' + encodeURIComponent(boardCalendarId)
       } : null;
-      return reply_(true, null, { testData: true, events: events, links: links });
+      return reply_(true, null, { testData: true, events: events, links: links,
+        version: version });
     }
     if (!roles.some(role => ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
       return reply_(false, 'insufficient_role');
@@ -279,18 +289,35 @@ function verifyCalendarAccess() {
   ]) {
     const id = properties.getProperty(key);
     if (!validCalendarId_(id)) throw new Error('Kalender-ID saknas: ' + key);
-    console.log(kind + ': ' + readCalendar_(id, kind, from, until).length + ' testhändelser');
+    console.log(kind + ': ' + readCalendar_(id, kind, from, until).events.length + ' testhändelser');
   }
+}
+
+function readCalendarUpdated_(calendarId) {
+  const url = 'https://www.googleapis.com/calendar/v3/calendars/' +
+    encodeURIComponent(calendarId) + '/events?maxResults=1&fields=updated';
+  const response = UrlFetchApp.fetch(url, {
+    method: 'get', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) throw new Error('Calendar version read failed');
+  const parsed = JSON.parse(response.getContentText());
+  if (!parsed || typeof parsed.updated !== 'string' ||
+      !Number.isFinite(Date.parse(parsed.updated))) {
+    throw new Error('Invalid Calendar version');
+  }
+  return parsed.updated;
 }
 
 function readCalendar_(calendarId, kind, from) {
   const events = [];
+  let updated = '';
   let pageToken = '';
   for (let page = 0; page < 4; page++) {
     const url = 'https://www.googleapis.com/calendar/v3/calendars/' +
       encodeURIComponent(calendarId) + '/events?singleEvents=true&orderBy=startTime' +
       '&maxResults=250&timeMin=' + encodeURIComponent(from.toISOString()) +
-      '&fields=' + encodeURIComponent('items(summary,start,end,status,visibility),nextPageToken') +
+      '&fields=' + encodeURIComponent('items(summary,start,end,status,visibility),nextPageToken,updated') +
       (pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : '');
     const response = UrlFetchApp.fetch(url, {
       method: 'get', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
@@ -309,6 +336,11 @@ function readCalendar_(calendarId, kind, from) {
     }
     const parsed = JSON.parse(response.getContentText());
     if (!parsed || !Array.isArray(parsed.items)) throw new Error('Invalid Calendar response');
+    if (page === 0) {
+      if (typeof parsed.updated !== 'string' ||
+          !Number.isFinite(Date.parse(parsed.updated))) throw new Error('Invalid Calendar version');
+      updated = parsed.updated;
+    }
     for (const item of parsed.items) {
       if (item.status === 'cancelled' ||
           (kind === 'member' && ['private', 'confidential'].includes(item.visibility))) continue;
@@ -323,7 +355,7 @@ function readCalendar_(calendarId, kind, from) {
         start: start, end: end, allDay: !!item.start.date });
     }
     pageToken = parsed.nextPageToken || '';
-    if (!pageToken) return events;
+    if (!pageToken) return { events: events, updated: updated };
   }
   throw new Error('Calendar result exceeds safe page limit');
 }

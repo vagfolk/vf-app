@@ -4,6 +4,9 @@
     information: null, chat: null, tasks: null, contacts: null, connection: 'checking' };
   let boardRequest = 0;
   let calendarRequest = 0;
+  let calendarCheckPromise = null;
+  let lastCalendarCheckAt = 0;
+  let calendarDay = '';
   let informationRequest = 0;
   let chatRequest = 0;
   let tasksRequest = 0;
@@ -27,6 +30,7 @@
     state.fee = null;
     state.boardSummary = null;
     state.calendar = null;
+    calendarDay = '';
     state.information = null;
     state.chat = null;
     state.tasks = null;
@@ -105,12 +109,38 @@
       const calendar = await read('calendar');
       if (request !== calendarRequest) return;
       state.calendar = calendar;
+      calendarDay = new Date().toDateString();
+      lastCalendarCheckAt = Date.now();
     } catch (error) {
       if (request !== calendarRequest) return;
       closePrivateView();
       return;
     }
     show();
+  }
+  function checkCalendar(force = false) {
+    if (state.connection !== 'google_test' || !state.user || !state.calendar ||
+        document.hidden || !['start', 'kalender'].includes(activeView)) return;
+    if (calendarCheckPromise) return calendarCheckPromise;
+    if (calendarDay !== new Date().toDateString()) return loadCalendar(true);
+    if (!force && Date.now() - lastCalendarCheckAt < 20000) return;
+    lastCalendarCheckAt = Date.now();
+    calendarCheckPromise = (async () => {
+      try {
+        const latest = await read('calendar_version');
+        if (state.connection !== 'google_test' || !state.user || !state.calendar) return;
+        if (JSON.stringify(latest.version) === JSON.stringify(state.calendar.version)) return;
+        if (Boolean(latest.version?.board) !== Boolean(state.calendar.version?.board)) {
+          state.user = await read('profile');
+          state.boardSummary = null;
+          show();
+        }
+        await loadCalendar(true);
+      } catch {
+        if (state.connection === 'google_test') closePrivateView();
+      }
+    })().finally(() => { calendarCheckPromise = null; });
+    return calendarCheckPromise;
   }
   async function loadBoard(force = false) {
     if (state.connection !== 'google_test' || !state.user) return;
@@ -234,7 +264,10 @@
   document.addEventListener('vf:view-selected', event => {
     activeView = event.detail?.id || 'start';
     if (activeView === 'board') loadBoard();
-    if (activeView === 'kalender' || activeView === 'start') loadCalendar();
+    if (activeView === 'kalender' || activeView === 'start') {
+      if (state.calendar) checkCalendar();
+      else loadCalendar();
+    }
     if (activeView === 'information') loadInformation();
     if (activeView === 'chat') loadChat();
     if (activeView === 'medlemsarbete') loadTasks();
@@ -257,6 +290,10 @@
     writeTask('recallTask', event.detail?.id);
   });
   setInterval(() => { if (!document.hidden && activeView === 'chat') loadChat(); }, 30000);
+  setInterval(() => { if (!document.hidden) checkCalendar(); }, 60000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) checkCalendar(true);
+  });
   document.addEventListener('vf:signout', () => {
     ++boardRequest;
     ++calendarRequest;

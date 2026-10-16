@@ -91,6 +91,10 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
   const seenNonces = new Set();
   const sheetReads = [];
   const calendarReads = [];
+  const calendarVersions = new Map([
+    [memberCalendarId, '2026-10-16T10:00:00.000Z'],
+    [boardCalendarId, '2026-10-16T11:00:00.000Z']
+  ]);
   const informationRows = [['ID','Medlems-ID','Namn','Text','Tid']];
   const chatRows = [['ID','Medlems-ID','Namn','Text','Tid']];
   const taskRows = emptyTaskStore ? [] : [['Händelse-ID','Uppgift-ID','Lista','Händelse','Uppgift',
@@ -117,8 +121,10 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
         calendarReads.push(url);
         if (failCalendar) return reply({ error: 'unavailable' }, 403);
         const id = decodeURIComponent(new URL(url).pathname.split('/calendars/')[1].split('/events')[0]);
+        const updated = calendarVersions.get(id);
+        if (new URL(url).searchParams.get('fields') === 'updated') return reply({ updated });
         const title = id === memberCalendarId ? 'Test medlemsmöte' : 'Test styrelsemöte';
-        return reply({ items: [{ summary: title,
+        return reply({ updated, items: [{ summary: title,
           description: 'Får inte lämna servern', attendees: [{ email: 'private@example.invalid' }],
           start: { dateTime: '2026-11-01T18:00:00+01:00' },
           end: { dateTime: '2026-11-01T19:00:00+01:00' } },
@@ -214,7 +220,7 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
   runInNewContext(readFileSync(new URL('identity/Code.gs', root), 'utf8'), identity);
   return {
     data, identity, dataProperties, identityProperties, sheetReads, calendarReads,
-    informationRows, chatRows, taskRows,
+    informationRows, chatRows, taskRows, calendarVersions,
     setSubject: value => { subject = value; },
     forwarded: () => forwarded, redirectFetches: () => redirectFetches,
     requiredScopeChecks: () => requiredScopeChecks
@@ -248,6 +254,7 @@ test('medlem får bara medlemskalendern medan styrelsen får båda', () => {
   const member = result(app.identity.readDashboardData('calendar'));
   assert.equal(member.allowed, true);
   assert.deepEqual(member.data.events.map(event => event.kind), ['member']);
+  assert.deepEqual(member.data.version, { member: '2026-10-16T10:00:00.000Z' });
   assert.equal(JSON.stringify(member).includes('private@example.invalid'), false);
   assert.equal(JSON.stringify(member).includes('Får inte lämna servern'), false);
   assert.equal(JSON.stringify(member).includes('Privat testmöte'), false);
@@ -257,10 +264,29 @@ test('medlem får bara medlemskalendern medan styrelsen får båda', () => {
   const board = result(app.identity.readDashboardData('calendar'));
   assert.equal(board.allowed, true);
   assert.deepEqual(board.data.events.map(event => event.kind), ['member', 'board']);
+  assert.deepEqual(board.data.version, { member: '2026-10-16T10:00:00.000Z',
+    board: '2026-10-16T11:00:00.000Z' });
   assert.equal(app.calendarReads.length, 3);
   assert.match(app.calendarReads[2], /board-test/);
   app.dataProperties.set('VF_MEMBER_CALENDAR_ID', null);
   assert.equal(app.identity.readDashboardData('calendar').reason, 'calendar_setup_missing');
+});
+
+test('kalenderns ändringskontroll avslöjar inte styrelsekalendern för medlem', () => {
+  const app = fixture();
+  assert.deepEqual(result(app.identity.readDashboardData('calendar_version')).data.version,
+    { member: '2026-10-16T10:00:00.000Z' });
+  assert.equal(app.calendarReads.length, 1);
+  assert.equal(new URL(app.calendarReads[0]).searchParams.get('fields'), 'updated');
+  app.calendarVersions.set(memberCalendarId, '2026-10-16T12:00:00.000Z');
+  assert.equal(result(app.identity.readDashboardData('calendar_version')).data.version.member,
+    '2026-10-16T12:00:00.000Z');
+  app.setSubject('google-board');
+  assert.deepEqual(result(app.identity.readDashboardData('calendar_version')).data.version,
+    { member: '2026-10-16T12:00:00.000Z', board: '2026-10-16T11:00:00.000Z' });
+  app.setSubject('unknown');
+  assert.equal(app.identity.readDashboardData('calendar_version').reason, 'unknown_user');
+  assert.equal(app.calendarReads.length, 4);
 });
 
 test('kalender nekar okänd användare och visar inget vid API-fel', () => {
