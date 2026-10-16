@@ -294,23 +294,33 @@ function authorizeDashboardView(view) {
   };
 }
 
-// ContentService svarar med en engångs-URL. Ett 404 från den URL:en får
-// hämtas om; den signerade POST-begäran körs aldrig en gång till.
+// ContentService svarar med en engångs-URL. Google kan ge ytterligare en 302
+// eller ett kortvarigt 404. Endast Googles engångs-URL får följas; den signerade
+// POST-begäran körs aldrig en gång till.
 function readBridgeResponse_(initial) {
-  if (initial.getResponseCode() !== 302) return initial;
-  const headers = initial.getAllHeaders();
-  const location = headers && (headers.Location || headers.location);
-  if (typeof location !== 'string' ||
-      !location.startsWith('https://script.googleusercontent.com/macros/echo?')) {
-    throw new Error('Unexpected bridge redirect');
-  }
-  let response;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) Utilities.sleep(attempt === 1 ? 1000 : 3000);
+  let response = initial;
+  let location = null;
+  let missing = 0;
+  for (let attempt = 0; attempt < 7; attempt++) {
+    const status = response.getResponseCode();
+    if (status === 200) return response;
+    if (status === 302) {
+      const headers = response.getAllHeaders();
+      location = headers && (headers.Location || headers.location);
+      if (typeof location !== 'string' ||
+          !location.startsWith('https://script.googleusercontent.com/macros/echo?')) {
+        throw new Error('Unexpected bridge redirect');
+      }
+      missing = 0;
+    } else if (status === 404 && location && missing < 2) {
+      missing++;
+      Utilities.sleep(missing === 1 ? 1000 : 3000);
+    } else {
+      return response;
+    }
     response = UrlFetchApp.fetch(location, {
       method: 'get', followRedirects: false, muteHttpExceptions: true
     });
-    if (response.getResponseCode() !== 404) return response;
   }
   return response;
 }

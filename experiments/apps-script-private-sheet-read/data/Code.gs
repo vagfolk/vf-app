@@ -328,7 +328,7 @@ function readCalendar_(calendarId, kind, from) {
   throw new Error('Calendar result exceeds safe page limit');
 }
 
-function readRange_(spreadsheetId, range) {
+function readRange_(spreadsheetId, range, allowEmpty) {
   const url = 'https://sheets.googleapis.com/v4/spreadsheets/' +
     encodeURIComponent(spreadsheetId) + '/values/' + encodeURIComponent(range) +
     '?valueRenderOption=UNFORMATTED_VALUE';
@@ -338,8 +338,10 @@ function readRange_(spreadsheetId, range) {
   });
   if (response.getResponseCode() !== 200) throw new Error('Sheets read failed');
   const parsed = JSON.parse(response.getContentText());
-  if (!parsed || !Array.isArray(parsed.values)) throw new Error('Invalid Sheets response');
-  return parsed.values;
+  if (!parsed || (!Array.isArray(parsed.values) && !(allowEmpty && parsed.values === undefined))) {
+    throw new Error('Invalid Sheets response');
+  }
+  return parsed.values || [];
 }
 
 // Skapar en avskild, privat meddelandefil en gång i testägarens Drive.
@@ -449,7 +451,7 @@ function prepareTaskStore() {
         requests: [{ addSheet: { properties: { title: 'Uppgifter' } } }]
       }, token);
   }
-  const existing = readRange_(id, "'Uppgifter'!A1:I1");
+  const existing = readRange_(id, "'Uppgifter'!A1:I1", true);
   if (existing.length && existing[0].length) {
     if (existing[0].join('|') !== TASK_HEADER.join('|')) throw new Error('Fel uppgiftsformat');
     return;

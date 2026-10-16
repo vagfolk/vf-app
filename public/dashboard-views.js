@@ -50,45 +50,51 @@
   };
   const renderStart = (root, options) => {
     root.append(heading(options.name ? `Hej, ${options.name.split(/\s+/)[0]}` : 'Välkommen', 'Mina sidor'));
-    const grid = element('div', 'view-grid');
-    const events = options.calendar?.events || [];
-    const memberMeeting = nextMeeting(events, 'member');
-    const isBoard = options.user?.permissions?.includes('board_view');
-    const meeting = card(isBoard ? 'Nästa möte' : 'Nästa medlemsmöte', memberMeeting
-      ? `${isBoard ? 'Medlemsmöte: ' : ''}${formatEvent(memberMeeting)}` : options.calendar?.error
-        ? 'Kalendern kunde inte hämtas.' : 'Inget kommande medlemsmöte hittades.');
-    if (isBoard) {
-      const boardMeeting = nextMeeting(events, 'board');
-      meeting.append(paragraph(boardMeeting
-        ? `Nästa styrelsemöte: ${formatEvent(boardMeeting)}`
-        : 'Inget kommande styrelsemöte hittades.'));
-    }
-    meeting.append(button('Öppna kalender', 'navigate', 'kalender'));
-    const info = options.information?.message;
-    const board = card('Information', info?.text || 'Inget viktigt meddelande publicerat.');
-    board.append(button('Öppna information', 'navigate', 'information'));
-    grid.append(meeting, board);
-    root.append(grid);
     const permissions = new Set(options.user?.permissions || []);
+    const isBoard = permissions.has('board_view');
+    const events = options.calendar?.events || [];
+    if (!isBoard) {
+      const grid = element('div', 'view-grid');
+      const memberMeeting = nextMeeting(events, 'member');
+      const meeting = card('Nästa medlemsmöte', memberMeeting
+        ? formatEvent(memberMeeting) : options.calendar?.error
+          ? 'Kalendern kunde inte hämtas.' : 'Inget kommande medlemsmöte hittades.');
+      meeting.append(button('Öppna kalender', 'navigate', 'kalender'));
+      const info = options.information?.message;
+      const board = card('Information', info?.text || 'Inget viktigt meddelande publicerat.');
+      board.append(button('Öppna information', 'navigate', 'information'));
+      grid.append(meeting, board);
+      root.append(grid);
+    }
     const actions = element('div','view-actions');
-    if (permissions.has('board_view')) actions.append(button('Styrelseöversikt','navigate','board'));
-    if (permissions.has('members_manage')) actions.append(button('Medlemmar och roller','navigate','secretary'));
-    if (permissions.has('finance_manage')) actions.append(button('Kassörens ekonomi','navigate','treasurer'));
+    if (isBoard) {
+      actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','kontakt'));
+      for (const [kind, title] of [['member', 'Ändra medlemskalender'], ['board', 'Ändra styrelsekalender']]) {
+        const url = options.calendar?.links?.[kind];
+        if (typeof url !== 'string' || !/^https:\/\/calendar\.google\.com\/calendar\//.test(url)) continue;
+        const link = element('a', 'view-calendar-link', title);
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        actions.append(link);
+      }
+    }
     if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
     if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng vyn' : 'Logga ut','signout'));
     root.append(actions, notice());
     if (permissions.has('board_view') && options.connection === 'google_test') {
-      const form = element('form');
+      const form = element('form', 'view-task-form');
       form.dataset.form = 'task';
-      const label = element('label', '', 'Lägg till uppgift');
+      const label = element('label', 'view-screen-reader-only', 'Lägg till uppgift');
       label.htmlFor = 'task-entry-' + root.id;
-      const input = element('input');
+      const input = element('textarea');
       input.id = label.htmlFor;
       input.name = 'task';
+      input.rows = 1;
       input.maxLength = 100;
       input.required = true;
       input.placeholder = 'Skriv en kort uppgift';
-      const kindLabel = element('label', '', 'Lista');
+      const kindLabel = element('label', 'view-screen-reader-only', 'Lista');
       kindLabel.htmlFor = 'task-kind-' + root.id;
       const kind = element('select');
       kind.id = kindLabel.htmlFor;
@@ -101,7 +107,7 @@
         kind.append(choice);
       }
       form.append(label, input, kindLabel, kind,
-        group(button('Lägg till uppgift', 'submit-task')));
+        button('Lägg till uppgift', 'submit-task'));
       root.append(form);
     }
   };
@@ -118,14 +124,6 @@
         const section = element('section', 'view-calendar-section');
         const header = element('div', 'view-calendar-section-header');
         header.append(element('h3', '', kind === 'member' ? 'Medlemskalender' : 'Styrelsekalender'));
-        const url = options.calendar.links?.[kind];
-        if (boardAllowed && typeof url === 'string' && /^https:\/\/calendar\.google\.com\/calendar\//.test(url)) {
-          const link = element('a', 'view-calendar-link', 'Öppna i Google');
-          link.href = url;
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
-          header.append(link);
-        }
         section.append(header);
         const list = element('ul', 'view-calendar-events');
         const events = (options.calendar.events || []).filter(event =>

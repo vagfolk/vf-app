@@ -125,17 +125,28 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   föreningskontroll; inaktiva medlemmar och andra registerfält ska inte visas.
   Kontaktknappen ska vara tillgänglig även i begränsat läge. Foton behöver
   ligga i en privat, behörighetskontrollerad källa, inte via offentliga länkar.
+- **Styrelsens startsida:** de stora innehållskorten för **Nästa möte** och
+  **Information** tas bort från mittdisplayens startvy för styrelseroller.
+  De mindre sidodisplayerna behålls. På startsidan visas i stället knapparna
+  **Ekonomi** (styrelsens begränsade översikt) och **Medlemmar**
+  (kontaktlistan), samt länkarna för att öppna medlems- och
+  styrelsekalendern i Google. Kalenderlänkarna flyttas från kalendervyn.
+  Google och EKO avgör
+  fortfarande vilka uppgifter respektive roll får läsa eller ändra.
 - **Att göra:** namnet avser en att-göra-lista, inte sekreterarens
   medlemsregister. Styrelsen ska lägga till uppgifter från startsidan med
   rullistan **Medlem**, **Styrelse** eller **Prioriterad**. Prioriterade
-  uppgifter syns överst för alla medlemmar. Själva Att göra-vyn ska enbart
+  uppgifter syns överst för alla medlemmar. Varje uppgift visas i en egen
+  mörkgrå ruta. Skrivfältet på startsidan är kompakt, kan växa nedåt vid
+  längre text och har listvalet och knappen **Lägg till uppgift** intill sig.
+  Själva Att göra-vyn ska enbart
   visa uppgifterna och låta behöriga användare bocka av eller återkalla en
   egen felmarkering. En
   inloggad medlem ska kunna markera en uppgift som utförd, och utförandet ska
   sparas med uppgiftens ID, personens medlems-ID och visningsnamn samt tid.
   Det ska också finnas en separat lista som bara styrelsebehöriga ser.
   Om två personer försöker bocka av samma uppgift gäller den avbockning som
-  sparas först. Före avbockningen sparas visas bekräftelsen
+  sparas först. Före avbockningen visas bekräftelsen
   **Bekräfta att uppgiften är klar** med valen **OK** och **Avbryt**.
   Den som bockade av ska kunna välja **Återkalla** vid en
   felmarkering; uppgiften öppnas då igen. Både avbockning och återkallelse

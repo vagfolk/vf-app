@@ -66,7 +66,7 @@ function reply(value, status = 200, headers = {}) {
     getAllHeaders: () => headers };
 }
 
-function fixture({ members, finance, failSheet = false,
+function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
   failCalendar = false,
   authorizationMissing = false, bridgeStatus = 200,
   redirectCodes = null, redirectLocation =
@@ -93,8 +93,9 @@ function fixture({ members, finance, failSheet = false,
   const calendarReads = [];
   const informationRows = [['ID','Medlems-ID','Namn','Text','Tid']];
   const chatRows = [['ID','Medlems-ID','Namn','Text','Tid']];
-  const taskRows = [['Händelse-ID','Uppgift-ID','Lista','Händelse','Uppgift',
+  const taskRows = emptyTaskStore ? [] : [['Händelse-ID','Uppgift-ID','Lista','Händelse','Uppgift',
     'Medlems-ID','Namn','Tid','Orsak']];
+  let taskSheetExists = !emptyTaskStore;
   dataProperties.set('VF_TEST_MESSAGES_SHEET_ID', 'messages-test-file-aaaaaaaaaaaaaa');
   let forwarded = 0;
   let redirectFetches = 0;
@@ -129,6 +130,17 @@ function fixture({ members, finance, failSheet = false,
       assert.equal(options.headers.Authorization, 'Bearer fake-readonly-token');
       sheetReads.push(url);
       if (failSheet) return reply({ error: 'unavailable' }, 403);
+      if (url.includes('?fields=sheets.properties.title')) {
+        return reply({ sheets: [
+          { properties: { title: 'Information' } },
+          { properties: { title: 'Chat' } },
+          ...(taskSheetExists ? [{ properties: { title: 'Uppgifter' } }] : [])
+        ] });
+      }
+      if (url.includes(':batchUpdate')) {
+        taskSheetExists = true;
+        return reply({ replies: [{}] });
+      }
       const range = decodeURIComponent(new URL(url).pathname.split('/values/')[1]);
       if (range.startsWith("'Information'") || range.startsWith("'Chat'") ||
           range.startsWith("'Uppgifter'")) {
@@ -138,6 +150,11 @@ function fixture({ members, finance, failSheet = false,
           target.push(...JSON.parse(options.payload).values);
           return reply({ updates: { updatedRows: 1 } });
         }
+        if (options.method === 'put') {
+          target.splice(0, target.length, ...JSON.parse(options.payload).values);
+          return reply({ updatedRows: 1 });
+        }
+        if (!target.length) return reply({ range });
         return reply({ values: target });
       }
       return reply({ values: range.startsWith("'Medlemmar'") ? rows : cash });
@@ -189,7 +206,8 @@ function fixture({ members, finance, failSheet = false,
       assert.equal(options.method, 'get');
       redirectFetches++;
       const status = redirectCodes[Math.min(redirectFetches - 1, redirectCodes.length - 1)];
-      return reply(status === 200 ? bridgeResult : { error: 'not ready' }, status);
+      return reply(status === 200 ? bridgeResult : { error: 'not ready' }, status,
+        status === 302 ? { Location: redirectLocation } : {});
     } },
     Date, JSON, Math, Number, Object, Array
   };
@@ -422,6 +440,14 @@ test('ett tillfälligt 404 hämtar samma engångssvar utan ny POST', () => {
   assert.equal(app.sheetReads.length, 1);
 });
 
+test('en andra Google-omdirigering hämtas utan ny POST', () => {
+  const app = fixture({ redirectCodes: [302, 200] });
+  app.setSubject('google-unknown');
+  assert.equal(app.identity.readTestData_({ action: 'own_fee' }).reason, 'unknown_user');
+  assert.equal(app.forwarded(), 1);
+  assert.equal(app.redirectFetches(), 2);
+});
+
 test('bestående 404 och oväntad omdirigering nekar åtkomst', () => {
   const unavailable = fixture({ redirectCodes: [404, 404, 404] });
   assert.equal(unavailable.identity.readTestData_({ action: 'own_fee' }).reason,
@@ -490,6 +516,15 @@ test('första avbockningen vinner och bara den personen får återkalla som fela
   app.setSubject('google-second');
   assert.equal(app.identity.completeTask(id).allowed, true);
   assert.equal(app.identity.readDashboardData('tasks').data.tasks[0].canRecall, true);
+});
+
+test('tom privat uppgiftsflik får rubriker utan att befintliga meddelanden ändras', () => {
+  const app = fixture({ emptyTaskStore: true });
+  app.data.prepareTaskStore();
+  assert.equal(app.taskRows[0].join('|'),
+    'Händelse-ID|Uppgift-ID|Lista|Händelse|Uppgift|Medlems-ID|Namn|Tid|Orsak');
+  assert.equal(app.chatRows.length, 1);
+  assert.equal(app.informationRows.length, 1);
 });
 
 test('styrelsens uppgifter och kontaktuppgifter avgränsas efter aktiv EKO-status', () => {

@@ -36,6 +36,10 @@
 .view-surface button[aria-pressed=true]{border-color:#f3c54c;box-shadow:inset 0 1px #ffe0a6a8,0 0 14px #e8aa344a}
 .view-surface input,.view-surface textarea,.view-surface select{width:100%;min-height:40px;border:1px solid #89979d;background:#0b141b;color:#fff;border-radius:8px;padding:9px;font:inherit}
 .view-surface textarea{min-height:68px;resize:vertical}
+.view-surface .view-task-form{display:flex;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-top:12px}
+.view-surface .view-task-form textarea{flex:1 1 220px;width:auto;min-width:0;min-height:44px;max-height:140px;field-sizing:content;resize:vertical;overflow-y:auto}
+.view-surface .view-task-form select{flex:0 0 132px;width:132px;min-height:44px}
+.view-surface .view-task-form button{flex:0 0 auto;white-space:nowrap}
 .view-surface label{display:block;font-size:13px;color:#d9e4e7;margin:10px 0 5px}
 .view-surface .view-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #a4b3b13d;padding:10px 0}
 .view-surface .view-row:last-child{border-bottom:0}
@@ -58,6 +62,7 @@
 .view-surface .view-calendar-section-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .view-surface .view-calendar-section-header h3{margin:0}
 .view-surface .view-calendar-link{flex:none;border:1px solid #d2a63788;border-radius:8px;padding:5px 8px;color:#f9d777;font-size:12px;text-decoration:none}
+.view-surface .view-actions .view-calendar-link{display:inline-flex;align-items:center;min-height:44px;padding:7px 12px;font-size:14px;background:linear-gradient(#2a353d,#0d171e);box-shadow:inset 0 1px #ffffff38,0 3px 9px #0008}
 .view-surface .view-calendar-link:hover,.view-surface .view-calendar-link:focus-visible{background:#57421a;outline:2px solid #d2a637;outline-offset:2px}
 .view-surface .view-calendar-events{list-style:none;margin:0;padding:0}
 .view-surface .view-calendar-event{display:grid;gap:3px;padding:10px 0;border-top:1px solid #7b919047;overflow-wrap:anywhere}
@@ -68,6 +73,7 @@
 .view-surface .view-list{list-style:none;margin:0;padding:0}
 .view-surface .view-list li{padding:9px 0;border-bottom:1px solid #7b919047}
 .view-surface .view-list li:last-child{border:0}
+.view-surface .view-list .view-task-row{margin:8px 0;padding:12px 14px;border:1px solid #65747a88;border-radius:12px;background:linear-gradient(145deg,#30363b,#20272c 55%,#171d22);box-shadow:inset 0 1px 0 #ffffff24,0 5px 12px #0005}
 .view-surface .view-status-line{display:flex;align-items:center;gap:9px}
 .view-surface .view-status-dot{width:11px;height:11px;border-radius:50%;background:#f2b64c;box-shadow:0 0 10px #f2b64c}
 .screen-content{scrollbar-color:#8e6530 #091017;scrollbar-width:thin}
