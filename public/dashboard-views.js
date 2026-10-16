@@ -30,12 +30,8 @@
     node.append(element('h3', '', title), paragraph(body));
     return node;
   };
-  const heading = (title, kicker) => {
-    const fragment = document.createDocumentFragment();
-    fragment.append(paragraph(kicker, 'view-kicker'), element('h2', '', title));
-    return fragment;
-  };
-  const notice = () => paragraph('Teknisk testversion. Ekonomiuppgifter och kalenderhändelser är testuppgifter. Övriga föreningsfunktioner är ännu inte anslutna.', 'view-muted');
+  const heading = title => element('h2', 'view-screen-reader-only', title);
+  const notice = () => document.createDocumentFragment();
   const formatEventDate = event => {
     const date = event.allDay && /^\d{4}-\d{2}-\d{2}$/.test(event.start)
       ? new Date(`${event.start}T12:00:00`) : new Date(event.start);
@@ -55,9 +51,6 @@
   };
   const renderStart = (root, options) => {
     root.append(heading(options.name ? `Hej, ${options.name.split(/\s+/)[0]}` : 'Välkommen', 'Mina sidor'));
-    root.append(paragraph(options.connection === 'unavailable'
-      ? 'Välj en funktion i menyn. Inloggning och EKO är ännu inte anslutna till den här publicerade vyn.'
-      : 'Välj en funktion i menyn. Egen avgift och styrelsens ekonomiöversikt använder låtsasdata i den skyddade testservern.'));
     const grid = element('div', 'view-grid');
     const events = options.calendar?.events || [];
     const memberMeeting = nextMeeting(events, 'member');
@@ -83,14 +76,13 @@
     if (permissions.has('members_manage')) actions.append(button('Medlemmar och roller','navigate','secretary'));
     if (permissions.has('finance_manage')) actions.append(button('Kassörens ekonomi','navigate','treasurer'));
     if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
-    if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng testvyn' : 'Logga ut','signout'));
+    if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng vyn' : 'Logga ut','signout'));
     root.append(actions, notice());
   };
   const renderCalendar = (root, options) => {
     const now = new Date();
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const month = new Intl.DateTimeFormat('sv-SE', { month: 'long', year: 'numeric' }).format(now);
-    root.append(heading('Kalender', `Kommande händelser i ${month}`));
+    root.append(heading('Kalender'));
     if (options.calendar?.error) root.append(card('Kalendern kunde inte hämtas', 'Försök igen senare.', 'alert'));
     else if (!options.calendar) root.append(card('Hämtar kalender', 'Vänta ett ögonblick.'));
     else {
@@ -133,10 +125,9 @@
     if (!boardAllowed) state.taskTab = 'medlem';
     root.append(heading('Att göra', 'Uppgifter'));
     root.append(group(button('För medlemmar','task-tab','medlem',state.taskTab==='medlem'), ...(boardAllowed ? [button('För styrelsen','task-tab','styrelse',state.taskTab==='styrelse')] : [])));
-    root.append(paragraph('Övningsläge: uppgifter och ändringar sparas inte i föreningens system.','view-muted'));
     const list = element('ul','view-list');
     const tasks = state.tasks.filter(task => task.kind === state.taskTab);
-    if (!tasks.length) list.append(element('li','','Inga övningsuppgifter tillagda.'));
+    if (!tasks.length) list.append(element('li','','Inga uppgifter tillagda.'));
     tasks.forEach(task => {
       const row = element('li','view-row');
       const label = element('span','',`${task.done ? '✓ ' : ''}${task.text}`);
@@ -148,7 +139,7 @@
     if (boardAllowed) {
       const form = element('form');
       form.dataset.form = 'task';
-      const label = element('label','','Lägg till en övningsuppgift');
+      const label = element('label','','Lägg till uppgift');
       label.htmlFor = 'task-entry-' + root.id;
       const input = element('input');
       input.id = label.htmlFor;
@@ -172,21 +163,19 @@
     if (options.user?.permissions?.includes('board_view')) {
       const form = element('form');
       form.dataset.form = 'information';
-      const label = element('label', '', 'Publicera viktigt meddelande');
-      label.htmlFor = 'information-entry-' + root.id;
       const input = element('textarea');
-      input.id = label.htmlFor;
+      input.id = 'information-entry-' + root.id;
+      input.setAttribute('aria-label', 'Viktigt meddelande');
       input.name = 'information';
       input.maxLength = 600;
       input.required = true;
       input.rows = 4;
-      form.append(label,input,group(button('Publicera','submit-information')));
+      form.append(input,group(button('Skicka viktigt meddelande','submit-information')));
       root.append(form);
     }
   };
   const renderChat = (root, options) => {
     root.append(heading('Chat', 'Korta meddelanden'));
-    if (options.connection !== 'google_test') root.append(paragraph('Förhandsvisning: meddelanden här sparas bara tills sidan stängs.', 'view-muted'));
     if (options.chat?.error) root.append(card('Kunde inte läsa Chat', 'Försök igen senare.', 'alert'));
     else if (!options.chat && options.connection === 'google_test') root.append(card('Hämtar Chat', 'Vänta ett ögonblick.'));
     const list = element('ul','view-list');
@@ -217,16 +206,14 @@
     if (!boardAllowed) state.documentTab = 'medlem';
     root.append(heading('Dokument', 'Delade filer'));
     root.append(group(button('För medlemmar','document-tab','medlem',state.documentTab==='medlem'),...(boardAllowed ? [button('För styrelsen','document-tab','styrelse',state.documentTab==='styrelse')] : [])));
-    root.append(card(state.documentTab === 'medlem' ? 'Medlemsdokument' : 'Styrelsedokument', state.documentTab === 'medlem' ? 'Godkända dokument kommer att visas här efter anslutning till Drive.' : 'Styrelsens dokument kräver inloggning och serverkontrollerad behörighet innan de kan visas.'));
+    root.append(card(state.documentTab === 'medlem' ? 'Medlemsdokument' : 'Styrelsedokument', 'Inga dokument att visa.'));
     root.append(notice());
   };
   const renderFee = root => {
     root.append(heading('Min avgift','Medlemsstatus'));
     const fee = window.VFPreviewViews.options.fee;
     if (!fee) {
-      root.append(card('Status saknas', window.VFPreviewViews.options.connection === 'unavailable'
-        ? 'Inloggning och EKO är ännu inte anslutna till den här publicerade vyn.'
-        : 'Din avgift kunde inte hämtas. Ladda om sidan eller försök senare.', 'alert'));
+      root.append(card('Status saknas', 'Din avgift kunde inte hämtas. Ladda om sidan eller försök senare.', 'alert'));
       return;
     }
     const info = element('div','view-card notice');
@@ -237,32 +224,31 @@
     if (fee.dueDate) info.append(paragraph(`Förfallodatum: ${new Intl.DateTimeFormat('sv-SE',{year:'numeric',month:'long',day:'numeric'}).format(new Date(`${fee.dueDate}T00:00:00`))}`));
     if (fee.paymentNotice === 'due_soon') info.append(paragraph('Medlemsavgiften behöver snart betalas.'));
     if (fee.paymentNotice === 'overdue') info.append(paragraph('Medlemsavgiften har passerat förfallodatum.'));
-    info.append(paragraph('Detta är låtsasdata från den tekniska testservern.','view-muted'));
     root.append(info,notice());
   };
   const renderBoardSummary = (root, options) => {
     if (!options.user?.permissions?.includes('board_view')) return root.append(heading('Ingen åtkomst','Styrelseöversikt'));
     root.append(heading('Styrelseöversikt','Ekonomi i korthet'));
-    if (!options.boardSummary) return root.append(card('Läser uppgifter', 'Översikten hämtas från testservern.'));
+    if (!options.boardSummary) return root.append(card('Läser uppgifter', 'Vänta ett ögonblick.'));
     if (options.boardSummary.error) return root.append(card('Kunde inte läsa', 'Försök igen senare.', 'alert'));
     const summary = options.boardSummary;
     root.append(card('Period',summary.period));
     const grid = element('div','view-grid');
     const format = value => new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK'}).format(value);
     grid.append(card('Bank',format(summary.bank)),card('Kontanter',format(summary.cash)),card('Resultat',format(summary.result)));
-    root.append(grid,paragraph('Endast låtsasdata från den behörighetskontrollerade testservern.','view-muted'));
+    root.append(grid);
   };
-  const renderPlanned = (root,title,description) => root.append(heading(title,'Under uppbyggnad'),card(title,description),notice());
+  const renderPlanned = (root,title,description) => root.append(heading(title),card(title,description));
   const renderRestricted = (root,options,permission,title,description) => {
     if (!options.user?.permissions?.includes(permission)) return root.append(heading('Ingen åtkomst',title));
     return renderPlanned(root,title,description);
   };
   const renderContact = root => {
     root.append(heading('Kontakt','Styrelsen'));
-    root.append(card('Kontaktuppgifter', 'Styrelsens godkända kontaktuppgifter kommer att visas här när de är anslutna.'));
+    root.append(card('Kontaktuppgifter', 'Inga kontaktuppgifter att visa.'));
     root.append(notice());
   };
-  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i den privata EKO-filen i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Läsning av hela EKO är ännu inte ansluten.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Säker reservåtkomst och återställning är ännu inte byggda.')};
+  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
   function draw(options = {}) {
     for (const target of targets) {
       const surface = element('div','view-surface');

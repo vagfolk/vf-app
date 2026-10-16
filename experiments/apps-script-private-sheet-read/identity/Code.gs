@@ -33,7 +33,7 @@ function doGet(request) {
   const digest = Utilities.base64EncodeWebSafe(Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256, response.getContent())).replace(/=+$/, '');
   if (digest !== DASHBOARD_SHA256) throw new Error('Instrumentpanelens version avviker');
-  return HtmlService.createHtmlOutput(html).setTitle('Vägfölk 26 – endast låtsasdata');
+  return HtmlService.createHtmlOutput(html).setTitle('Vägfölk 26');
 }
 
 // Visas bara för att testaren ska kunna kontrollera vilket konto som används.

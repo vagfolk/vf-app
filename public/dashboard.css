@@ -4,6 +4,7 @@
 .app-mode .stage{width:min(100%,177.68vh);max-width:none;margin:0 auto;box-shadow:none;visibility:hidden}
 .app-mode .stage[data-ready=true]{visibility:visible}
 .app-notice{max-width:1100px;margin:10px auto 18px;padding:0 16px;color:#adbcc4;font-size:13px;line-height:1.5}
+.app-notice:empty{display:none}
 .unconnected-card{position:absolute;z-index:3;display:flex;flex-direction:column;justify-content:flex-start;padding:1.25% 1.05%;pointer-events:none;color:#e7e9ea;background:linear-gradient(165deg,#111016 0%,#07090d 40%,#030508 100%);border-radius:7%;box-shadow:inset 0 9px 16px -12px #000,inset 0 -12px 20px -15px #000}
 .unconnected-card strong{display:block;padding-bottom:6%;border-bottom:1px solid #a9adb02e;font-size:clamp(12px,1.1vw,19px);line-height:1.2;font-weight:600}
 .unconnected-card span{margin-top:9%;font-size:clamp(10px,.85vw,15px);line-height:1.4}
@@ -18,6 +19,7 @@
 .view-card[data-status=unpaid] .view-status-dot{background:#ff5266;box-shadow:0 0 12px #ff5266}
 .compact-shell{display:none}
 .view-surface{color:#eef2f2;font-family:"Segoe UI",Arial,sans-serif}
+.view-screen-reader-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .view-surface h2{margin:0 0 10px;font-size:clamp(19px,2vw,30px);line-height:1.1;color:#fff}
 .view-surface h3{margin:0 0 8px;font-size:16px;color:#f6d47e}
 .view-surface p{margin:0 0 12px;color:#d4dfe3;font-size:14px;line-height:1.45}

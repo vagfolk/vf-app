@@ -87,8 +87,6 @@ document.addEventListener('vf:dashboard-ready', async () => {
     appState.connection = error.message === 'HTTP 404' ? 'unavailable' : 'error';
     updateDashboard();
     const notice = document.querySelector('.app-notice');
-    if (notice) notice.textContent = appState.connection === 'unavailable'
-      ? 'Appvyn är publicerad utan inloggning och EKO-anslutning. Ingen medlemsstatus eller ekonomi visas här. Den skyddade Google-kopplingen provas fortfarande med låtsasdata.'
-      : 'Dina uppgifter kunde inte hämtas. Ladda om sidan eller försök senare.';
+    if (notice) notice.textContent = 'Dina uppgifter kunde inte hämtas. Ladda om sidan eller försök senare.';
   }
 });

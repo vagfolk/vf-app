@@ -324,7 +324,7 @@
       const title = document.createElement('h2');
       title.textContent = heading;
       const note = document.createElement('p');
-      note.textContent = 'Kortets innehåll är ännu inte anslutet till föreningens uppgifter.';
+      note.textContent = '';
       screenContent.append(title, note);
     }
 
@@ -698,7 +698,7 @@
     <div class="compact-rotate" hidden><strong>Vrid telefonen till liggande läge</strong>Alla funktioner finns kvar när skärmen är bredare.</div>
     <div class="compact-top"><span class="compact-brand">VÄGFÖLK <em>26</em></span><div class="compact-top-right"><span id="compact-online" class="compact-online">– online</span><time id="compact-time" class="compact-time"></time></div></div>
     <div class="compact-body"><nav class="compact-nav" id="compact-nav" aria-label="Huvudmeny"></nav><main class="compact-display" id="compact-content" aria-live="polite" data-start="true"></main></div>
-    <div class="compact-bottom"><span>Vägfölk 26</span><span class="compact-fee">Medlemsstatus visas efter säker anslutning</span></div>
+    <div class="compact-bottom"><span>Vägfölk 26</span><span class="compact-fee"></span></div>
   </div>
   <div class="stage" id="stage" role="group" aria-label="Vägfölk 26 instrumentpanel uppbyggd av separata bilddelar">
     <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -723,8 +723,8 @@
     <div class="card-hits" id="card-hits" role="group" aria-label="Informationskort" hidden><button type="button" data-card="meeting" aria-label="Nästa medlemsmöte"></button><button type="button" data-card="board" aria-label="Information"></button></div>
     <svg class="member-art" id="member-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
     <svg class="dashboard-art" id="dashboard-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
-    <div class="unconnected-card unconnected-meeting" aria-hidden="true"><strong>Nästa medlemsmöte</strong><span>Inga mötesuppgifter anslutna</span></div>
-    <div class="unconnected-card unconnected-board" aria-hidden="true"><strong>Information</strong><span>Inget meddelande anslutet</span></div>
+    <div class="unconnected-card unconnected-meeting" aria-hidden="true"><strong>Nästa medlemsmöte</strong><span></span></div>
+    <div class="unconnected-card unconnected-board" aria-hidden="true"><strong>Information</strong><span></span></div>
     <svg class="surface-art" id="surface-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
     <div class="surface-hits" id="surface-hits" role="group" aria-label="Välj skärmyta" hidden><button type="button" data-surface="main" aria-label="Huvudskärmen"></button><button type="button" data-surface="left" aria-label="Vänster tomma panel"></button><button type="button" data-surface="right" aria-label="Höger tomma panel"></button></div>
     <section class="screen-content" id="screen-content" aria-live="polite" hidden></section>
@@ -737,7 +737,7 @@
   <div class="status-options" data-visible="true" role="group" aria-label="Förhandsvisa vägsymbol"><span>Vägsymbol:</span><button type="button" data-road-mode="alternate" aria-pressed="true">Växla grön/blå</button><button type="button" data-road-mode="neutral" aria-pressed="false">Neutral</button><button type="button" data-road-mode="green" aria-pressed="false">Grön</button><button type="button" data-road-mode="blue" aria-pressed="false">Blå</button></div>
   <div class="status-options" id="status-options" data-visible="false"><span>Endast visuell test av avgiftsstatus:</span><button type="button" data-member-status="paid" aria-pressed="true">Betald</button><button type="button" data-member-status="unpaid" aria-pressed="false">Obetald</button></div>
   <p class="status" id="status" role="status">Läser bilddelarna…</p>
-  <p class="app-notice">Teknisk testversion med låtsasdata. Kalender, Att göra, Chat, Information, dokument och kontakt har ännu ingen föreningsdata. Antal online och fordonsikonerna är inte verkliga mätningar.</p>
+  <p class="app-notice" role="status"></p>
   <div class="panel-list" id="panel-list" aria-label="Visa en panel i taget"></div>
 </body>
 </html>

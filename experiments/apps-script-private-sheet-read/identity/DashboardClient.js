@@ -1,4 +1,4 @@
-// Endast låtsasdata. Den här filen bäddas in i Dashboard.html vid provbygget.
+// Den här filen bäddas in i Dashboard.html vid bygget.
 (() => {
   const state = { user: null, fee: null, boardSummary: null, calendar: null,
     information: null, chat: null, connection: 'checking' };
@@ -54,12 +54,7 @@
   }
   async function start() {
     try {
-      const account = await call('getTestAccount');
-      if (!account || typeof account.email !== 'string' || !account.email) {
-        throw new Error('Google-konto kunde inte fastställas');
-      }
-      const profile = await read('profile');
-      const fee = await read('own_fee');
+      const [profile, fee] = await Promise.all([read('profile'), read('own_fee')]);
       if (!Array.isArray(profile.permissions) || !profile.permissions.includes('own_fee') ||
           typeof fee.memberId !== 'string' || !fee.memberId) {
         throw new Error('Ogiltig medlemsprofil');
@@ -68,10 +63,10 @@
       state.fee = fee;
       state.connection = 'google_test';
       show();
-      notice('Inloggat Google-konto: ' + account.email +
-        '. Testversion. Kalenderhändelser läses från föreningens två testkalendrar.');
-      loadCalendar();
+      notice('');
+      loadCalendar(false);
       loadInformation();
+      loadChat();
     } catch (error) {
       state.user = null;
       state.fee = null;
@@ -83,21 +78,20 @@
       show();
       notice(error && error.reason === 'unknown_user' || error && error.reason === 'inactive_user'
         ? 'Kontot har inte tillgång till föreningen.'
-        : 'Den skyddade testvyn kunde inte öppnas. Inga EKO-uppgifter visas.');
+        : 'Appen kunde inte öppnas. Försök igen senare.');
     }
   }
-  async function loadCalendar() {
+  async function loadCalendar(refreshProfile = true) {
     const request = ++calendarRequest;
-    state.calendar = null;
-    window.VFDashboard?.refresh();
+    if (!state.calendar) window.VFDashboard?.refresh();
     try {
-      const profile = await read('profile');
+      const [profile, calendar] = await Promise.all([
+        refreshProfile ? read('profile') : Promise.resolve(state.user),
+        read('calendar'),
+      ]);
       if (request !== calendarRequest) return;
       state.user = profile;
       if (!profile.permissions?.includes('board_view')) state.boardSummary = null;
-      show();
-      const calendar = await read('calendar');
-      if (request !== calendarRequest) return;
       state.calendar = calendar;
     } catch (error) {
       if (request !== calendarRequest) return;
@@ -111,7 +105,7 @@
     state.boardSummary = null;
     window.VFDashboard?.refresh();
     try {
-      const profile = await read('profile');
+      const [profile, summary] = await Promise.all([read('profile'), read('board_summary')]);
       if (request !== boardRequest) return;
       state.user = profile;
       if (!profile.permissions?.includes('board_view')) {
@@ -119,9 +113,6 @@
         document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
         return;
       }
-      show();
-      const summary = await read('board_summary');
-      if (request !== boardRequest) return;
       state.boardSummary = summary;
     } catch {
       if (request !== boardRequest) return;
@@ -134,8 +125,7 @@
 
   async function loadInformation() {
     const request = ++informationRequest;
-    state.information = null;
-    show();
+    if (!state.information) show();
     try {
       const information = await read('information');
       if (request !== informationRequest) return;
@@ -173,7 +163,7 @@
       const result = await call(method, text);
       if (!result || result.allowed !== true) throw new Error('Meddelandet sparades inte');
       await refresh();
-      notice('Meddelandet sparades i den privata testfilen.');
+      if (state.connection === 'google_test') notice('Meddelandet skickat.');
     } catch {
       notice('Meddelandet kunde inte sparas. Försök igen; kontrollera först att det inte redan syns.');
     }
@@ -215,7 +205,7 @@
     state.connection = 'error';
     show();
     document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
-    notice('Testvyn är stängd. Google-kontot är fortfarande inloggat i webbläsaren.');
+    notice('Vyn är stängd. Google-kontot är fortfarande inloggat i webbläsaren.');
   });
   document.addEventListener('vf:dashboard-ready', () => {
     window.VFDashboard.authorizeView = async view => {

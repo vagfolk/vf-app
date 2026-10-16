@@ -21,6 +21,7 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
     särskild styrelsechatt ska inte byggas; styrelsen kan kommunicera utanför
     appen.
 11. **Vägfölks installation byggs färdig först.** Den första etappen är en fullt körbar och säker VF-app för Vägfölks faktiska arbetssätt. Automatisk installation, administration och paketering för andra föreningar ska inte byggas innan VF-versionen fungerar och har kunnat utvärderas. VF får tills vidare vara den enda konfigurerade föreningen, men förenings-ID samt Drive-, mapp- och fil-ID:n ska ligga i skyddad konfiguration och inte hårdkodas i den offentliga appkoden. Säkerhetskontrollerna ska fortfarande verifiera både användare, VF:s förenings-ID och användarens aktuella behörighet. Efter att VF-versionen är fullt fungerande tas ett nytt beslut om eventuell fortsättning för andra föreningar och vilka installationssteg som då krävs.
+12. **Appen ska kunna installeras på telefon, platta och dator.** Den färdiga appen ska öppnas från en egen ikon och använda en begriplig appadress. Den nuvarande Apps Script-adressen är en skyddad ingång under uppbyggnaden, inte den beslutade slutliga installationsadressen. Installationssättet måste fortfarande utformas så att inloggning, privata uppgifter och offlineförsäljning fungerar säkert; att lägga en genväg på hemskärmen ensam uppfyller inte kravet.
 
 ## Beslutade krav för information, möten och uppgifter
 
@@ -43,10 +44,15 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   läggas i Chat. Publiceringsfält och andra styrelse-, redigerings- och
   administrationsreglage ska inte visas alls för en vanlig medlem. Dold
   användarvy ersätter aldrig behörighetskontroll på serversidan.
+  Själva informationsvyn ska inte ha ett extra rubrikpar; styrelsens åtgärd
+  ska heta **Skicka viktigt meddelande**.
 - **Chat:** alla inloggade får läsa och lämna korta meddelanden samt
   använda beslutade snabbval. Varje post ska knytas till den inloggade
   användarens beständiga medlems-ID, visningsnamn och tid. Användaren ska inte
   kunna ange någon annans identitet.
+  Chatvyn ska inte upprepa menynamnet i stora rubriker. Detsamma gäller
+  andra vyers dubbla rubrikpar. Teknik- och teststatus dokumenteras utanför
+  appens användargränssnitt; upprepade testetiketter ska inte täcka innehållet.
 - **Notiser byggs efter grundfunktionerna:** Chat-knappen ska blinka när den
   inloggade har olästa meddelanden. Telefonen ska kunna få en notis både när
   någon skriver i Chat och när styrelsen publicerar Information. Detta kräver
