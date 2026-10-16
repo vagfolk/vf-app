@@ -574,7 +574,14 @@
     });
   }
   async function read(action) {
-    const result = await call('readDashboardData', action);
+    let result;
+    try {
+      result = await call('readDashboardData', action);
+    } catch (_temporaryError) {
+      // Ett misslyckat Google-körningsförsök kan vara tillfälligt. Endast läsning
+      // får provas igen; ett uttryckligt nekat behörighetssvar provas aldrig om.
+      result = await call('readDashboardData', action);
+    }
     if (!result || typeof result.allowed !== 'boolean' ||
         (result.allowed && (!result.data || typeof result.data !== 'object'))) {
       throw new Error('Ogiltigt svar');
