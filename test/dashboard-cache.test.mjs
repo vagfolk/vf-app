@@ -9,10 +9,13 @@ test('växling mellan Start och Kalender hämtar inte om oförändrad profil och
   const responses = {
     profile: { permissions: ['own_fee', 'board_view'], name: 'Anna' },
     own_fee: { memberId: 'M1', name: 'Anna' },
+    board_summary: { result: 0 },
     calendar: { events: [], links: {}, version: { member: 'v1' } },
-    calendar_version: { version: { member: 'v1' } },
+    app_versions: { eko: 'e1', store: 's1', calendar: { member: 'v1' } },
     information: { message: null },
     chat: { messages: [] },
+    tasks: { tasks: [] },
+    contacts: { contacts: [] },
   };
   const document = {
     hidden: false,
@@ -59,12 +62,19 @@ test('växling mellan Start och Kalender hämtar inte om oförändrad profil och
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.filter(action => action === 'profile').length, 1);
   assert.equal(calls.filter(action => action === 'calendar').length, 1);
-  assert.equal(calls.filter(action => action === 'calendar_version').length, 1);
+  assert.equal(calls.filter(action => action === 'app_versions').length, 2);
 
-  responses.calendar_version = { version: { member: 'v2' } };
+  responses.app_versions = { eko: 'e1', store: 's1', calendar: { member: 'v2' } };
   responses.calendar = { events: [], links: {}, version: { member: 'v2' } };
   document.dispatchEvent({ type: 'visibilitychange' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.filter(action => action === 'calendar').length, 2);
   assert.equal(calls.filter(action => action === 'profile').length, 1);
+
+  responses.app_versions = { eko: 'e1', store: 's2', calendar: { member: 'v2' } };
+  document.dispatchEvent({ type: 'visibilitychange' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.filter(action => action === 'tasks').length, 2);
+  assert.equal(calls.filter(action => action === 'contacts').length, 1);
+  assert.equal(calls.filter(action => action === 'calendar').length, 2);
 });

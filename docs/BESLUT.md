@@ -6,7 +6,7 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
 
 1. **Inget Cloudflare.** Projektet ska fortsätta med GitHub och Google. Gamla dokument om Cloudflare är historiska förslag, inte arbetsorder. Om Google-lösningen visar sig otillräckligt säker ska arbetet med verkliga uppgifter stanna och alternativen diskuteras med användaren. Välj inte en ny leverantör på egen hand.
 2. **EKO betyder EKO i Google Sheets när appen diskuteras.** Excel-originalet `VF-EKO_3.13` är förlaga och jämförelsematerial. Appen ska inte synkronisera Excel mot Sheets eller bygga på två parallella medlems- eller ekonomiregister. Den aktuella Sheets-testkopian är inte automatiskt godkänd för drift.
-3. **En samlad EKO-fil.** Medlemsuppgifter, roller och ekonomi hör ihop i EKO i Google Sheets. Behöriga personer sköter vanliga manuella ändringar direkt i den privata filen på datorn; kassören arbetar med ekonomi och sekreteraren med medlems- och rollfrågor enligt sina behörigheter. Appen ska inte ge någon roll ett allmänt formulär för att redigera EKO. Den särskilt beslutade automatiska överföringen från godkänd försäljningskassa till EKO är ett undantag.
+3. **En samlad EKO-fil.** Medlemsuppgifter, roller och ekonomi hör ihop i EKO i Google Sheets. Behöriga personer sköter vanliga manuella ändringar direkt i den privata filen på datorn; kassören arbetar med ekonomi och sekreteraren med medlems- och rollfrågor enligt sina behörigheter. Appen ska inte ge någon roll ett allmänt formulär för att redigera EKO. Den särskilt beslutade automatiska överföringen från godkänd försäljningskassa samt styrelsens snävt avgränsade ändring av telefon och e-post från ett kopplat kontaktkort är undantag. Övriga EKO-fält redigeras fortfarande direkt i filen.
 4. **Försäljningskassan är skild från kassörens ekonomiöversikt.** Behöriga styrelsemedlemmar ska kunna öppna och sköta en kassa utan att kassören är på plats. Ett försäljningstillfälle ska få ett automatiskt, beständigt ID; detaljer som antal sålda varor sparas i en separat, spårbar Drive-logg som kan skrivas ut. Efter avslut och godkännande ska de ekonomiska summorna synkas till EKO utan dubbelbokföring. Om en annan person godkänner än den som öppnade kassan ska namn och position anges. Hur den personens identitet säkert kontrolleras via inloggningen återstår att utforma; enbart inskrivet namn är inte en säker verifiering.
 5. **Offlineförsäljning är ett krav.** Ett pågående försäljningstillfälle ska kunna lagras lokalt när kontakten saknas och synkas senare. Väntande, godkänt och faktiskt bokfört måste visas som olika tillstånd. Testad lokal lagring innebär ännu inte att detta är klart eller säkert för riktiga uppgifter.
 6. **Behörighet och sekretess går före bekvämlighet.** Vanlig medlem får bara se sin egen avgift och möjligen egen historik. Styrelsen får begränsad ekonomiöversikt, kassören ska kunna läsa hela EKO via appen och sekreterare/kassör har även styrelsebehörigheter. Flera praktiska roller kan tilldelas samma person. Sekreteraren ska kunna hantera approller; en säker reservväg för administration och återställning behövs. Exakt återställningsmetod är ännu inte beslutad. Ingen medlem ska få tillgång till den privata EKO-filen bara för att appen visar en begränsad uppgift.
@@ -22,6 +22,7 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
     appen.
 11. **Vägfölks installation byggs färdig först.** Den första etappen är en fullt körbar och säker VF-app för Vägfölks faktiska arbetssätt. Automatisk installation, administration och paketering för andra föreningar ska inte byggas innan VF-versionen fungerar och har kunnat utvärderas. VF får tills vidare vara den enda konfigurerade föreningen, men förenings-ID samt Drive-, mapp- och fil-ID:n ska ligga i skyddad konfiguration och inte hårdkodas i den offentliga appkoden. Säkerhetskontrollerna ska fortfarande verifiera både användare, VF:s förenings-ID och användarens aktuella behörighet. Efter att VF-versionen är fullt fungerande tas ett nytt beslut om eventuell fortsättning för andra föreningar och vilka installationssteg som då krävs.
 12. **Appen ska kunna installeras på telefon, platta och dator.** Den färdiga appen ska öppnas från en egen ikon och använda en begriplig appadress. Den nuvarande Apps Script-adressen är en skyddad ingång under uppbyggnaden, inte den beslutade slutliga installationsadressen. Installationssättet måste fortfarande utformas så att inloggning, privata uppgifter och offlineförsäljning fungerar säkert; att lägga en genväg på hemskärmen ensam uppfyller inte kravet.
+13. **Snabb inläsning och ändringsstyrda uppdateringar gäller hela appen.** Behörigt innehåll för de befintliga vyerna ska läsas in vid inloggning så att ett menyval visar redan inläst innehåll direkt. Därefter kontrollerar appen om källorna ändrats och hämtar endast de delar som behöver uppdateras. Innehåll ska inte hämtas om vid varje menyval eller i täta fullständiga omhämtningar. Regeln gäller också funktioner som byggs senare. Behörighetskontroll, aktuell roll och återkallad åtkomst måste fortfarande hanteras säkert; prestanda får inte kringgå serverns behörighetsgräns. Kontroller under en öppen session behöver en dokumenterad frekvens och ska pausas när appen inte är aktiv.
 
 ## Beslutade krav för information, möten och uppgifter
 
@@ -125,11 +126,42 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   föreningskontroll; inaktiva medlemmar och andra registerfält ska inte visas.
   Kontaktknappen ska vara tillgänglig även i begränsat läge. Foton behöver
   ligga i en privat, behörighetskontrollerad källa, inte via offentliga länkar.
+  Kontakt visas som kort i alfabetisk ordning efter förnamn. Knappen
+  **Kontakt** öppnar kontaktlistan. Den befintliga knappen **Medlemmar** på
+  styrelsens startsida ska i stället öppna en separat vy för att skapa ett
+  medlemskort direkt; den ska inte öppna kontaktlistan och ingen extra
+  tilläggsknapp ska ligga på startsidan. Skapandevyn sparar ett kontaktkort med namn,
+  kort beskrivning och foto från galleri eller kamera, men skapar ingen
+  medlemspost i EKO. Kortet och fotot sparas som filer i en egen privat
+  kontaktmapp i föreningens Drive, inte i ett extra Google-kalkylark eller
+  i det publika GitHub-arkivet. Appen namnger automatiskt sparade kort med
+  personens namn och ID; användaren ska inte namnge filer manuellt.
+  Innan ett Medlems-ID finns används ett beständigt internt kort-ID;
+  filens Drive-ID och den faktiska EKO-kopplingen styr funktionen, inte
+  filnamnet.
+  Alla aktiva EKO-medlemmar visas automatiskt som enkla kontaktkort även
+  om styrelsen ännu inte har lagt in foto eller beskrivning.
+  Ett okopplat kort visas ändå för inloggade medlemmar. Styrelsen kan koppla
+  kortet till ett beständigt Medlems-ID (samma sak som medlemsnummer), även
+  senare när posten skapats manuellt i EKO. Namn ensamt får inte användas för
+  automatisk koppling. För kopplade kort hämtas telefon och e-post från EKO.
+  Diskreta knappar **Redigera** och **Ta bort** finns inne i varje kort och
+  visas bara för styrelsen. Ta bort avser kontaktkortet, inte EKO-posten.
+  Ett borttaget kopplat kort ska inte automatiskt återskapas ur EKO;
+  styrelsen får skapa ett nytt kort om personen ska visas i Kontakt igen.
+  För att hindra återskapande sparas endast en intern markering av det
+  borttagna Medlems-ID:t i den privata kontaktmappen; själva kortet och
+  fotot försvinner från Kontakt.
+  Ändrar styrelsen telefon eller e-post i ett kort med aktiv EKO-koppling ska
+  appen skriva just de fälten till den kopplade posten i EKO och bekräfta
+  ändringen först när den är sparad. Redigering av andra EKO-fält via kortet
+  ingår inte. För okopplade kort kan telefon och e-post sparas i kortet;
+  vid senare koppling får dessa inte automatiskt skriva över EKO:s värden.
 - **Styrelsens startsida:** de stora innehållskorten för **Nästa möte** och
   **Information** tas bort från mittdisplayens startvy för styrelseroller.
   De mindre sidodisplayerna behålls. På startsidan visas i stället knapparna
   **Ekonomi** (styrelsens begränsade översikt) och **Medlemmar**
-  (kontaktlistan), samt länkarna för att öppna medlems- och
+  (vyn för att skapa medlemskort), samt länkarna för att öppna medlems- och
   styrelsekalendern i Google. Kalenderlänkarna flyttas från kalendervyn.
   Google och EKO avgör
   fortfarande vilka uppgifter respektive roll får läsa eller ändra.

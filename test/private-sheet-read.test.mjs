@@ -95,6 +95,10 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
     [memberCalendarId, '2026-10-16T10:00:00.000Z'],
     [boardCalendarId, '2026-10-16T11:00:00.000Z']
   ]);
+  const driveVersions = new Map([
+    [fileId, '2026-10-16T09:00:00.000Z'],
+    ['messages-test-file-aaaaaaaaaaaaaa', '2026-10-16T09:30:00.000Z']
+  ]);
   const informationRows = [['ID','Medlems-ID','Namn','Text','Tid']];
   const chatRows = [['ID','Medlems-ID','Namn','Text','Tid']];
   const taskRows = emptyTaskStore ? [] : [['Händelse-ID','Uppgift-ID','Lista','Händelse','Uppgift',
@@ -131,6 +135,12 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
           ...(id === memberCalendarId ? [{ summary: 'Privat testmöte', visibility: 'private',
             start: { dateTime: '2026-11-02T18:00:00+01:00' },
             end: { dateTime: '2026-11-02T19:00:00+01:00' } }] : [])] });
+      }
+      if (url.startsWith('https://www.googleapis.com/drive/v3/files/')) {
+        assert.equal(options.headers.Authorization, 'Bearer fake-readonly-token');
+        const id = decodeURIComponent(new URL(url).pathname.split('/files/')[1]);
+        assert.equal(new URL(url).searchParams.get('fields'), 'modifiedTime');
+        return reply({ modifiedTime: driveVersions.get(id) });
       }
       assert.match(url, /^https:\/\/sheets\.googleapis\.com\/v4\/spreadsheets\//);
       assert.equal(options.headers.Authorization, 'Bearer fake-readonly-token');
@@ -220,7 +230,7 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
   runInNewContext(readFileSync(new URL('identity/Code.gs', root), 'utf8'), identity);
   return {
     data, identity, dataProperties, identityProperties, sheetReads, calendarReads,
-    informationRows, chatRows, taskRows, calendarVersions,
+    informationRows, chatRows, taskRows, calendarVersions, driveVersions,
     setSubject: value => { subject = value; },
     forwarded: () => forwarded, redirectFetches: () => redirectFetches,
     requiredScopeChecks: () => requiredScopeChecks
@@ -287,6 +297,25 @@ test('kalenderns ändringskontroll avslöjar inte styrelsekalendern för medlem'
   app.setSubject('unknown');
   assert.equal(app.identity.readDashboardData('calendar_version').reason, 'unknown_user');
   assert.equal(app.calendarReads.length, 4);
+});
+
+test('gemensam ändringskontroll skiljer EKO, appinnehåll och rollstyrd kalender', () => {
+  const app = fixture();
+  assert.deepEqual(result(app.identity.readDashboardData('app_versions')).data, {
+    eko: '2026-10-16T09:00:00.000Z',
+    store: '2026-10-16T09:30:00.000Z',
+    calendar: { member: '2026-10-16T10:00:00.000Z' }
+  });
+  app.driveVersions.set(fileId, '2026-10-16T12:00:00.000Z');
+  app.setSubject('google-board');
+  assert.deepEqual(result(app.identity.readDashboardData('app_versions')).data, {
+    eko: '2026-10-16T12:00:00.000Z',
+    store: '2026-10-16T09:30:00.000Z',
+    calendar: { member: '2026-10-16T10:00:00.000Z',
+      board: '2026-10-16T11:00:00.000Z' }
+  });
+  app.setSubject('unknown');
+  assert.equal(app.identity.readDashboardData('app_versions').reason, 'unknown_user');
 });
 
 test('kalender nekar okänd användare och visar inget vid API-fel', () => {

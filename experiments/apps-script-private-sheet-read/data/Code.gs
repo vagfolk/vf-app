@@ -108,7 +108,7 @@ function doPost(event) {
       : 'action,associationId,nonce,subject,ts,v';
     if (Object.keys(body).sort().join(',') !== expectedKeys) return reply_(false, 'wrong_association_or_action');
     if (body.v !== 1 || body.associationId !== associationId) return reply_(false, 'wrong_association_or_action');
-    if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'information', 'chat',
+    if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
           'publish_information', 'post_chat', 'tasks', 'contacts',
           'create_task', 'complete_task', 'recall_task'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
     if (typeof body.subject !== 'string' || !body.subject || body.subject.length > 255) return reply_(false, 'wrong_association_or_action');
@@ -150,6 +150,25 @@ function doPost(event) {
         typeof row[16] !== 'string' || !row[16] ||
         typeof row[1] !== 'string' || !row[1]) {
       return reply_(false, 'test_sheet_invalid');
+    }
+    if (body.action === 'app_versions') {
+      const boardAllowed = roles.some(role =>
+        ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role));
+      const memberCalendarId = properties.getProperty(MEMBER_CALENDAR_PROPERTY);
+      const boardCalendarId = properties.getProperty(BOARD_CALENDAR_PROPERTY);
+      const messagesId = properties.getProperty(MESSAGES_SHEET_PROPERTY);
+      if (!validCalendarId_(memberCalendarId) ||
+          (boardAllowed && !validCalendarId_(boardCalendarId)) ||
+          !/^[A-Za-z0-9_-]{20,128}$/.test(messagesId || '')) {
+        return reply_(false, 'setup_missing');
+      }
+      const calendar = { member: readCalendarUpdated_(memberCalendarId) };
+      if (boardAllowed) calendar.board = readCalendarUpdated_(boardCalendarId);
+      return reply_(true, null, {
+        eko: readDriveModified_(spreadsheetId),
+        store: readDriveModified_(messagesId),
+        calendar: calendar
+      });
     }
     if (['information', 'chat', 'publish_information', 'post_chat'].includes(body.action)) {
       const messagesId = properties.getProperty(MESSAGES_SHEET_PROPERTY);
@@ -307,6 +326,19 @@ function readCalendarUpdated_(calendarId) {
     throw new Error('Invalid Calendar version');
   }
   return parsed.updated;
+}
+
+function readDriveModified_(fileId) {
+  const response = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' +
+    encodeURIComponent(fileId) + '?fields=modifiedTime', {
+    method: 'get', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) throw new Error('Drive version read failed');
+  const parsed = JSON.parse(response.getContentText());
+  if (!parsed || typeof parsed.modifiedTime !== 'string' ||
+      !Number.isFinite(Date.parse(parsed.modifiedTime))) throw new Error('Invalid Drive version');
+  return parsed.modifiedTime;
 }
 
 function readCalendar_(calendarId, kind, from) {

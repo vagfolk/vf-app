@@ -55,7 +55,7 @@ function getTestAccount() {
 function readTestData_(request) {
   const action = request && typeof request === 'object' && !Array.isArray(request)
     ? request.action : null;
-  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'information', 'chat',
+  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
       'publish_information', 'post_chat', 'tasks', 'contacts',
       'create_task', 'complete_task', 'recall_task'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
@@ -123,7 +123,7 @@ function readTestData_(request) {
 // Endast begränsade vydata lämnas till instrumentpanelen. Dataskriptet gör
 // medlems- och rollkontrollen på nytt vid varje anrop.
 function readDashboardData(action) {
-  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'information', 'chat',
+  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
       'tasks', 'contacts'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
@@ -170,6 +170,21 @@ function readDashboardData(action) {
       remaining: remaining, dueDate: null,
       status: remaining === 0 ? 'paid' : 'unpaid', paymentNotice: null
     } };
+  }
+  if (action === 'app_versions') {
+    const validTime = function(value) {
+      return typeof value === 'string' && Number.isFinite(Date.parse(value));
+    };
+    const calendar = data.calendar;
+    if (!validTime(data.eko) || !validTime(data.store) || !calendar ||
+        typeof calendar !== 'object' || Array.isArray(calendar) ||
+        Object.keys(calendar).some(function(kind) { return !['member', 'board'].includes(kind); }) ||
+        !validTime(calendar.member) ||
+        (calendar.board !== undefined && !validTime(calendar.board))) {
+      return { allowed: false, reason: 'data_unavailable' };
+    }
+    return { allowed: true, data: { eko: data.eko, store: data.store,
+      calendar: calendar } };
   }
   if (action === 'calendar' || action === 'calendar_version') {
     const version = data.version;

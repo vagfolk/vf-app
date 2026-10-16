@@ -1,18 +1,17 @@
 // Den här filen bäddas in i Dashboard.html vid bygget.
 (() => {
   const state = { user: null, fee: null, boardSummary: null, calendar: null,
-    information: null, chat: null, tasks: null, contacts: null, connection: 'checking' };
-  let boardRequest = 0;
-  let calendarRequest = 0;
-  let calendarCheckPromise = null;
-  let lastCalendarCheckAt = 0;
+    information: null, chat: null, tasks: null, contacts: null,
+    versions: null, connection: 'checking' };
+  let updateCheckPromise = null;
+  let lastUpdateCheckAt = 0;
+  let updateGeneration = 0;
   let calendarDay = '';
   let informationRequest = 0;
   let chatRequest = 0;
   let tasksRequest = 0;
   let contactsRequest = 0;
   let chatLoading = false;
-  let activeView = 'start';
 
   function show() { window.VFDashboard?.setData(state); }
   function notice(message) {
@@ -20,8 +19,7 @@
     if (node) node.textContent = message;
   }
   function closePrivateView() {
-    ++boardRequest;
-    ++calendarRequest;
+    ++updateGeneration;
     ++informationRequest;
     ++chatRequest;
     ++tasksRequest;
@@ -35,6 +33,7 @@
     state.chat = null;
     state.tasks = null;
     state.contacts = null;
+    state.versions = null;
     state.connection = 'error';
     show();
     notice('Åtkomsten kunde inte kontrolleras. Försök logga in på nytt.');
@@ -76,14 +75,25 @@
           typeof fee.memberId !== 'string' || !fee.memberId) {
         throw new Error('Ogiltig medlemsprofil');
       }
+      const boardAllowed = profile.permissions.includes('board_view');
+      const actions = ['calendar', 'information', 'chat', 'tasks', 'contacts', 'app_versions'];
+      if (boardAllowed) actions.push('board_summary');
+      const loaded = await Promise.all(actions.map(read));
+      const snapshot = Object.fromEntries(actions.map((action, index) => [action, loaded[index]]));
       state.user = profile;
       state.fee = fee;
+      state.calendar = snapshot.calendar;
+      state.information = snapshot.information;
+      state.chat = snapshot.chat;
+      state.tasks = snapshot.tasks;
+      state.contacts = snapshot.contacts;
+      state.boardSummary = snapshot.board_summary || null;
+      state.versions = snapshot.app_versions;
+      calendarDay = new Date().toDateString();
+      lastUpdateCheckAt = Date.now();
       state.connection = 'google_test';
       show();
       notice('');
-      loadCalendar();
-      loadInformation();
-      loadChat();
     } catch (error) {
       state.user = null;
       state.fee = null;
@@ -93,6 +103,7 @@
       state.chat = null;
       state.tasks = null;
       state.contacts = null;
+      state.versions = null;
       state.connection = 'error';
       show();
       notice(error && error.reason === 'unknown_user' || error && error.reason === 'inactive_user'
@@ -100,66 +111,57 @@
         : 'Appen kunde inte öppnas. Försök igen senare.');
     }
   }
-  async function loadCalendar(force = false) {
-    if (state.connection !== 'google_test' || !state.user) return;
-    if (state.calendar && !force) return;
-    const request = ++calendarRequest;
-    if (!state.calendar) window.VFDashboard?.refresh();
-    try {
-      const calendar = await read('calendar');
-      if (request !== calendarRequest) return;
-      state.calendar = calendar;
-      calendarDay = new Date().toDateString();
-      lastCalendarCheckAt = Date.now();
-    } catch (error) {
-      if (request !== calendarRequest) return;
-      closePrivateView();
-      return;
-    }
-    show();
-  }
-  function checkCalendar(force = false) {
-    if (state.connection !== 'google_test' || !state.user || !state.calendar ||
-        document.hidden || !['start', 'kalender'].includes(activeView)) return;
-    if (calendarCheckPromise) return calendarCheckPromise;
-    if (calendarDay !== new Date().toDateString()) return loadCalendar(true);
-    if (!force && Date.now() - lastCalendarCheckAt < 20000) return;
-    lastCalendarCheckAt = Date.now();
-    calendarCheckPromise = (async () => {
+  function checkUpdates(force = false) {
+    if (state.connection !== 'google_test' || !state.user || !state.versions ||
+        document.hidden) return;
+    if (updateCheckPromise) return updateCheckPromise;
+    if (!force && Date.now() - lastUpdateCheckAt < 20000) return;
+    lastUpdateCheckAt = Date.now();
+    const generation = updateGeneration;
+    updateCheckPromise = (async () => {
       try {
-        const latest = await read('calendar_version');
-        if (state.connection !== 'google_test' || !state.user || !state.calendar) return;
-        if (JSON.stringify(latest.version) === JSON.stringify(state.calendar.version)) return;
-        if (Boolean(latest.version?.board) !== Boolean(state.calendar.version?.board)) {
-          state.user = await read('profile');
-          state.boardSummary = null;
-          show();
+        const latest = await read('app_versions');
+        if (generation !== updateGeneration || state.connection !== 'google_test') return;
+        const ekoChanged = latest.eko !== state.versions.eko;
+        const storeChanged = latest.store !== state.versions.store;
+        const calendarChanged = calendarDay !== new Date().toDateString() ||
+          JSON.stringify(latest.calendar) !== JSON.stringify(state.versions.calendar);
+        if (!ekoChanged && !storeChanged && !calendarChanged) return;
+        const actions = [];
+        if (ekoChanged) actions.push('profile', 'own_fee', 'contacts');
+        if (storeChanged) actions.push('information', 'chat', 'tasks');
+        if (calendarChanged) actions.push('calendar');
+        const loaded = await Promise.all(actions.map(read));
+        if (generation !== updateGeneration || state.connection !== 'google_test') return;
+        const updated = Object.fromEntries(actions.map((action, index) =>
+          [action, loaded[index]]));
+        if (ekoChanged) {
+          state.user = updated.profile;
+          state.fee = updated.own_fee;
+          state.contacts = updated.contacts;
+          state.boardSummary = state.user.permissions.includes('board_view')
+            ? await read('board_summary') : null;
+          if (generation !== updateGeneration || state.connection !== 'google_test') return;
         }
-        await loadCalendar(true);
+        if (storeChanged) {
+          state.information = updated.information;
+          state.chat = updated.chat;
+          state.tasks = updated.tasks;
+        }
+        if (calendarChanged) {
+          state.calendar = updated.calendar;
+          calendarDay = new Date().toDateString();
+        }
+        state.versions = latest;
+        show();
       } catch {
-        if (state.connection === 'google_test') closePrivateView();
+        if (generation === updateGeneration && state.connection === 'google_test') {
+          closePrivateView();
+        }
       }
-    })().finally(() => { calendarCheckPromise = null; });
-    return calendarCheckPromise;
+    })().finally(() => { updateCheckPromise = null; });
+    return updateCheckPromise;
   }
-  async function loadBoard(force = false) {
-    if (state.connection !== 'google_test' || !state.user) return;
-    if (state.boardSummary && !force) return;
-    const request = ++boardRequest;
-    if (!state.boardSummary) window.VFDashboard?.refresh();
-    try {
-      const summary = await read('board_summary');
-      if (request !== boardRequest) return;
-      state.boardSummary = summary;
-    } catch {
-      if (request !== boardRequest) return;
-      closePrivateView();
-      document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
-      return;
-    }
-    window.VFDashboard?.refresh();
-  }
-
   async function loadInformation(force = false) {
     if (state.connection !== 'google_test' || !state.user) return;
     if (state.information && !force) return;
@@ -262,17 +264,7 @@
   }
 
   document.addEventListener('vf:view-selected', event => {
-    activeView = event.detail?.id || 'start';
-    if (activeView === 'board') loadBoard();
-    if (activeView === 'kalender' || activeView === 'start') {
-      if (state.calendar) checkCalendar();
-      else loadCalendar();
-    }
-    if (activeView === 'information') loadInformation();
-    if (activeView === 'chat') loadChat();
-    if (activeView === 'medlemsarbete') loadTasks();
-    if (activeView === 'kontakt') loadContacts();
-    if (activeView !== 'board') ++boardRequest;
+    checkUpdates();
   });
   document.addEventListener('vf:information-publish', event => {
     writeMessage('publishInformation', event.detail?.text, loadInformation);
@@ -289,14 +281,12 @@
   document.addEventListener('vf:task-recall', event => {
     writeTask('recallTask', event.detail?.id);
   });
-  setInterval(() => { if (!document.hidden && activeView === 'chat') loadChat(); }, 30000);
-  setInterval(() => { if (!document.hidden) checkCalendar(); }, 60000);
+  setInterval(() => { if (!document.hidden) checkUpdates(); }, 60000);
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) checkCalendar(true);
+    if (!document.hidden) checkUpdates(true);
   });
   document.addEventListener('vf:signout', () => {
-    ++boardRequest;
-    ++calendarRequest;
+    ++updateGeneration;
     state.user = null;
     state.fee = null;
     state.boardSummary = null;
@@ -305,6 +295,7 @@
     state.chat = null;
     state.tasks = null;
     state.contacts = null;
+    state.versions = null;
     state.connection = 'error';
     show();
     document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
@@ -323,6 +314,7 @@
         state.chat = null;
         state.tasks = null;
         state.contacts = null;
+        state.versions = null;
       }
       show();
       return result.allowed;
