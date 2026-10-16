@@ -2,8 +2,8 @@
 const ASSOCIATION_PROPERTY = 'VF_TEST_ASSOCIATION_ID';
 const KEY_PROPERTY = 'VF_TEST_BRIDGE_KEY';
 const DATA_URL_PROPERTY = 'VF_TEST_DATA_URL';
-const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/1f62069/public/dashboard-google.html';
-const DASHBOARD_SHA256 = 'BRpqHJSlbtRZRyZb_u-Fjoz-WJ7_9QeOW-ZL0fKkBEQ';
+const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/2185a67/public/dashboard-google.html';
+const DASHBOARD_SHA256 = 'GKU-a_Lclz-YkgtZogsp-X_A7HdAStwbHt38XsTPeLI';
 
 function doGet(request) {
   ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
