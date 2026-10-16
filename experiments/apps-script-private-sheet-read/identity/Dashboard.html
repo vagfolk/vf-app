@@ -129,6 +129,13 @@
 .view-surface .view-chat-row p{grid-column:1/-1;white-space:pre-wrap;overflow-wrap:anywhere}
 .view-surface .view-chat-row time{color:#afc0c6;font-size:12px}
 .view-surface .view-row small{color:#afc0c6}
+.view-surface .view-task-row>div{min-width:0;overflow-wrap:anywhere}
+.view-surface .view-task-row p{margin:4px 0 0}
+.view-surface .view-contact-list{list-style:none;margin:8px 0;padding:0;display:grid;gap:8px}
+.view-surface .view-contact{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #65747a88;border-radius:14px;background:linear-gradient(145deg,#1c2a32d9,#071018e8 55%,#15181ce8)}
+.view-surface .view-contact-avatar{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:50%;color:#f8df9e;border:1px solid #d2a63799;background:linear-gradient(145deg,#373025,#0b141b);font-weight:700}
+.view-surface .view-contact div{display:grid;gap:3px;min-width:0}
+.view-surface .view-contact a{color:#e9d38e;overflow-wrap:anywhere}
 .view-surface .view-pill{display:inline-block;border:1px solid #789383;border-radius:999px;color:#a9f2c6;padding:4px 9px;font-size:12px}
 .view-surface .view-placeholder{border:1px dashed #88969a87;border-radius:12px;padding:16px;color:#c0ced2;margin:10px 0}
 .view-surface .view-calendar-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
@@ -203,12 +210,11 @@
 
 </style>
   <script>
-/* Fungerande vyer för gränssnittsprovet. Inga föreningsuppgifter läses eller sparas. */
+/* Vyerna visar bara uppgifter som den skyddade anslutningen tillåter. */
 (() => {
   const state = {
     documentTab: 'medlem',
     taskTab: 'medlem',
-    tasks: [],
     messages: [],
     information: null,
   };
@@ -328,20 +334,30 @@
   const renderTasks = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
     if (!boardAllowed) state.taskTab = 'medlem';
-    root.append(heading('Att göra', 'Uppgifter'));
+    root.append(heading('Att göra'));
     root.append(group(button('För medlemmar','task-tab','medlem',state.taskTab==='medlem'), ...(boardAllowed ? [button('För styrelsen','task-tab','styrelse',state.taskTab==='styrelse')] : [])));
     const list = element('ul','view-list');
-    const tasks = state.tasks.filter(task => task.kind === state.taskTab);
-    if (!tasks.length) list.append(element('li','','Inga uppgifter tillagda.'));
+    const tasks = (options.tasks?.tasks || []).filter(task => task.kind === state.taskTab);
+    if (!options.tasks && options.connection === 'google_test') list.append(element('li','','Hämtar uppgifter…'));
+    else if (!tasks.length) list.append(element('li','','Inga uppgifter tillagda.'));
     tasks.forEach(task => {
-      const row = element('li','view-row');
-      const label = element('span','',`${task.done ? '✓ ' : ''}${task.text}`);
-      const toggle = button(task.done ? 'Ångra' : 'Klart','task-toggle',task.id);
-      row.append(label,toggle);
+      const row = element('li','view-row view-task-row');
+      const details = element('div');
+      details.append(element('strong','',`${task.done ? '✓ ' : ''}${task.text}`));
+      if (task.done && task.completedBy && task.completedAt) {
+        details.append(paragraph(`Utförd av ${task.completedBy} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(new Date(task.completedAt))}`, 'view-muted'));
+      } else if (task.lastRecall) {
+        details.append(paragraph(`Återkallad som felaktig av ${task.lastRecall.name}`, 'view-muted'));
+      }
+      row.append(details);
+      if (options.connection === 'google_test') {
+        if (!task.done) row.append(button('Klart','task-complete',task.id));
+        else if (task.canRecall) row.append(button('Återkalla','task-recall',task.id));
+      }
       list.append(row);
     });
     root.append(list);
-    if (boardAllowed) {
+    if (boardAllowed && options.connection === 'google_test') {
       const form = element('form');
       form.dataset.form = 'task';
       const label = element('label','','Lägg till uppgift');
@@ -448,10 +464,34 @@
     if (!options.user?.permissions?.includes(permission)) return root.append(heading('Ingen åtkomst',title));
     return renderPlanned(root,title,description);
   };
-  const renderContact = root => {
-    root.append(heading('Kontakt','Styrelsen'));
-    root.append(card('Kontaktuppgifter', 'Inga kontaktuppgifter att visa.'));
-    root.append(notice());
+  const renderContact = (root, options) => {
+    root.append(heading('Kontakt'));
+    const contacts = options.contacts?.contacts;
+    if (!contacts) return root.append(paragraph('Hämtar medlemmar…'));
+    if (!contacts.length) return root.append(paragraph('Inga aktiva medlemmar att visa.'));
+    const list = element('ul', 'view-contact-list');
+    for (const contact of contacts) {
+      const item = element('li', 'view-contact');
+      const initials = contact.name.trim().split(/\s+/).slice(0, 2)
+        .map(part => part[0]?.toLocaleUpperCase('sv-SE') || '').join('');
+      const avatar = element('span', 'view-contact-avatar', initials);
+      avatar.setAttribute('aria-hidden', 'true');
+      const details = element('div');
+      details.append(element('strong', '', contact.name));
+      if (contact.phone && /^[+0-9() .-]{3,40}$/.test(contact.phone)) {
+        const link = element('a', '', contact.phone);
+        link.href = 'tel:' + contact.phone.replace(/[^+0-9]/g, '');
+        details.append(link);
+      }
+      if (contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {
+        const link = element('a', '', contact.email);
+        link.href = 'mailto:' + contact.email;
+        details.append(link);
+      }
+      item.append(avatar, details);
+      list.append(item);
+    }
+    root.append(list);
   };
   const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
   function draw(options = {}) {
@@ -478,9 +518,16 @@
       }
       if (action === 'task-tab') state.taskTab = value;
       else if (action === 'document-tab') state.documentTab = value;
-      else if (action === 'task-toggle') {
-        const task = state.tasks.find(item => item.id === Number(value));
-        if (task) task.done = !task.done;
+      else if (action === 'task-complete' || action === 'task-recall') {
+        const task = window.VFAppData?.tasks?.tasks?.find(item => item.id === value);
+        if (!task) return;
+        if (action === 'task-complete' && task.done) return;
+        if (action === 'task-complete' &&
+            !window.confirm('Bekräfta att uppgiften är klar')) return;
+        if (action === 'task-recall' && (!task.canRecall || !window.confirm('Återkalla avbockningen som felaktig?'))) return;
+        document.dispatchEvent(new CustomEvent(action === 'task-complete'
+          ? 'vf:task-complete' : 'vf:task-recall', {detail:{id:value}}));
+        return;
       } else if (action === 'quick-message') {
         const form = control.closest('form');
         if (form) { form.querySelector('input').value = value; form.requestSubmit(); }
@@ -501,7 +548,11 @@
       if (!text) return;
       if (form.dataset.form === 'task') {
         if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
-        state.tasks.push({id:Date.now()+Math.random(),text:text.slice(0,100),kind:state.taskTab,done:false});
+        if (window.VFAppData.connection === 'google_test') {
+          document.dispatchEvent(new CustomEvent('vf:task-create',
+            {detail:{text:text.slice(0,100),kind:state.taskTab}}));
+          input.value = '';
+        }
       }
       else if (form.dataset.form === 'message') {
         if (window.VFAppData?.connection === 'google_test') document.dispatchEvent(new CustomEvent('vf:chat-post',{detail:{text:text.slice(0,120)}}));
@@ -535,11 +586,13 @@
 // Den här filen bäddas in i Dashboard.html vid bygget.
 (() => {
   const state = { user: null, fee: null, boardSummary: null, calendar: null,
-    information: null, chat: null, connection: 'checking' };
+    information: null, chat: null, tasks: null, contacts: null, connection: 'checking' };
   let boardRequest = 0;
   let calendarRequest = 0;
   let informationRequest = 0;
   let chatRequest = 0;
+  let tasksRequest = 0;
+  let contactsRequest = 0;
   let chatLoading = false;
   let activeView = 'start';
 
@@ -553,12 +606,16 @@
     ++calendarRequest;
     ++informationRequest;
     ++chatRequest;
+    ++tasksRequest;
+    ++contactsRequest;
     state.user = null;
     state.fee = null;
     state.boardSummary = null;
     state.calendar = null;
     state.information = null;
     state.chat = null;
+    state.tasks = null;
+    state.contacts = null;
     state.connection = 'error';
     show();
     notice('Åtkomsten kunde inte kontrolleras. Försök logga in på nytt.');
@@ -615,6 +672,8 @@
       state.calendar = null;
       state.information = null;
       state.chat = null;
+      state.tasks = null;
+      state.contacts = null;
       state.connection = 'error';
       show();
       notice(error && error.reason === 'unknown_user' || error && error.reason === 'inactive_user'
@@ -698,6 +757,57 @@
     show();
   }
 
+  async function loadTasks() {
+    if (state.connection !== 'google_test') return;
+    const request = ++tasksRequest;
+    try {
+      const tasks = await read('tasks');
+      if (request !== tasksRequest) return;
+      state.tasks = tasks;
+      show();
+    } catch {
+      if (request === tasksRequest) closePrivateView();
+    }
+  }
+
+  async function loadContacts() {
+    if (state.connection !== 'google_test') return;
+    const request = ++contactsRequest;
+    try {
+      const contacts = await read('contacts');
+      if (request !== contactsRequest) return;
+      state.contacts = contacts;
+      show();
+    } catch {
+      if (request === contactsRequest) closePrivateView();
+    }
+  }
+
+  async function writeTask(method, input) {
+    if (state.connection !== 'google_test') return;
+    try {
+      const result = await call(method, input);
+      if (!result || result.allowed !== true) {
+        const error = new Error('Uppgiften sparades inte');
+        error.reason = result?.reason;
+        throw error;
+      }
+      await loadTasks();
+      if (state.connection === 'google_test') notice(method === 'completeTask'
+        ? 'Uppgiften markerades som utförd. Du kan välja Återkalla om det blev fel.'
+        : method === 'recallTask' ? 'Markeringen återkallades som felaktig.'
+          : 'Uppgiften lades till.');
+    } catch (error) {
+      if (error?.reason === 'already_completed') {
+        await loadTasks();
+        notice('Någon annan hann markera uppgiften först.');
+      } else {
+        notice('Ändringen kunde inte bekräftas. Uppdatera listan innan du försöker igen.');
+        await loadTasks();
+      }
+    }
+  }
+
   async function writeMessage(method, text, refresh) {
     if (state.connection !== 'google_test') return;
     try {
@@ -716,6 +826,8 @@
     if (activeView === 'kalender' || activeView === 'start') loadCalendar();
     if (activeView === 'information') loadInformation();
     if (activeView === 'chat') loadChat();
+    if (activeView === 'medlemsarbete') loadTasks();
+    if (activeView === 'kontakt') loadContacts();
     if (activeView !== 'board') {
       ++boardRequest;
       state.boardSummary = null;
@@ -726,12 +838,23 @@
     if (!document.hidden && (activeView === 'kalender' || activeView === 'start')) loadCalendar();
     if (!document.hidden && activeView === 'information') loadInformation();
     if (!document.hidden && activeView === 'chat') loadChat();
+    if (!document.hidden && activeView === 'medlemsarbete') loadTasks();
+    if (!document.hidden && activeView === 'kontakt') loadContacts();
   });
   document.addEventListener('vf:information-publish', event => {
     writeMessage('publishInformation', event.detail?.text, loadInformation);
   });
   document.addEventListener('vf:chat-post', event => {
     writeMessage('postChatMessage', event.detail?.text, loadChat);
+  });
+  document.addEventListener('vf:task-create', event => {
+    writeTask('createTask', event.detail);
+  });
+  document.addEventListener('vf:task-complete', event => {
+    writeTask('completeTask', event.detail?.id);
+  });
+  document.addEventListener('vf:task-recall', event => {
+    writeTask('recallTask', event.detail?.id);
   });
   setInterval(() => { if (!document.hidden && activeView === 'chat') loadChat(); }, 30000);
   document.addEventListener('vf:signout', () => {
@@ -743,6 +866,8 @@
     state.calendar = null;
     state.information = null;
     state.chat = null;
+    state.tasks = null;
+    state.contacts = null;
     state.connection = 'error';
     show();
     document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
@@ -759,6 +884,8 @@
         state.calendar = null;
         state.information = null;
         state.chat = null;
+        state.tasks = null;
+        state.contacts = null;
       }
       show();
       return result.allowed;

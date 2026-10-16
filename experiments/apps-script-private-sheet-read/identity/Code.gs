@@ -56,10 +56,12 @@ function readTestData_(request) {
   const action = request && typeof request === 'object' && !Array.isArray(request)
     ? request.action : null;
   if (!['profile', 'own_fee', 'board_summary', 'calendar', 'information', 'chat',
-      'publish_information', 'post_chat'].includes(action)) {
+      'publish_information', 'post_chat', 'tasks', 'contacts',
+      'create_task', 'complete_task', 'recall_task'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
-  const writeAction = action === 'publish_information' || action === 'post_chat';
+  const writeAction = ['publish_information', 'post_chat', 'create_task',
+    'complete_task', 'recall_task'].includes(action);
   const content = request && request.content;
   if (writeAction && (typeof content !== 'string' ||
       !content.trim() || content.length > (action === 'post_chat' ? 120 : 600))) {
@@ -121,7 +123,8 @@ function readTestData_(request) {
 // Endast begränsade vydata lämnas till instrumentpanelen. Dataskriptet gör
 // medlems- och rollkontrollen på nytt vid varje anrop.
 function readDashboardData(action) {
-  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'information', 'chat'].includes(action)) {
+  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'information', 'chat',
+      'tasks', 'contacts'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
   const result = readTestData_({ action: action });
@@ -203,6 +206,29 @@ function readDashboardData(action) {
         })) return { allowed: false, reason: 'data_unavailable' };
     return { allowed: true, data: { messages: data.messages } };
   }
+  if (action === 'tasks') {
+    if (!Array.isArray(data.tasks) || data.tasks.length > 1000 ||
+        data.tasks.some(function(task) {
+          return !task || typeof task.id !== 'string' ||
+            !/^[0-9a-f-]{36}$/i.test(task.id) ||
+            !['medlem', 'styrelse'].includes(task.kind) ||
+            typeof task.text !== 'string' || task.text.length > 100 ||
+            typeof task.done !== 'boolean' || typeof task.canRecall !== 'boolean' ||
+            (task.completedBy !== null && typeof task.completedBy !== 'string') ||
+            (task.completedAt !== null && typeof task.completedAt !== 'string');
+        })) return { allowed: false, reason: 'data_unavailable' };
+    return { allowed: true, data: { tasks: data.tasks } };
+  }
+  if (action === 'contacts') {
+    if (!Array.isArray(data.contacts) || data.contacts.length > 1000 ||
+        data.contacts.some(function(contact) {
+          return !contact || typeof contact.memberId !== 'string' ||
+            typeof contact.name !== 'string' || typeof contact.phone !== 'string' ||
+            typeof contact.email !== 'string' || contact.name.length > 80 ||
+            contact.phone.length > 40 || contact.email.length > 120;
+        })) return { allowed: false, reason: 'data_unavailable' };
+    return { allowed: true, data: { contacts: data.contacts } };
+  }
   if (typeof data.period !== 'string' || !data.period ||
       ['bank', 'cash', 'result'].some(function(field) {
         return typeof data[field] !== 'number' || !Number.isFinite(data[field]) ||
@@ -226,6 +252,24 @@ function postChatMessage(text) {
   const result = readTestData_({ action: 'post_chat', content: text });
   return result.allowed && result.data && result.data.saved === true
     ? { allowed: true } : { allowed: false, reason: result.reason || 'data_unavailable' };
+}
+
+function createTask(input) {
+  if (!input || typeof input !== 'object' ||
+      !['medlem', 'styrelse'].includes(input.kind) ||
+      typeof input.text !== 'string' || !input.text.trim() ||
+      input.text.length > 100) return { allowed: false, reason: 'invalid_content' };
+  return taskWrite_('create_task', JSON.stringify({ kind: input.kind, text: input.text }));
+}
+
+function completeTask(id) { return taskWrite_('complete_task', id); }
+function recallTask(id) { return taskWrite_('recall_task', id); }
+
+function taskWrite_(action, content) {
+  const result = readTestData_({ action: action, content: content });
+  return result.allowed && result.data && result.data.saved === true
+    ? { allowed: true, taskId: result.data.taskId }
+    : { allowed: false, reason: result.reason || 'data_unavailable' };
 }
 
 // Kontrollera aktuell EKO-roll på nytt innan en rollstyrd vy öppnas.

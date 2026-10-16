@@ -1,9 +1,8 @@
-/* Fungerande vyer för gränssnittsprovet. Inga föreningsuppgifter läses eller sparas. */
+/* Vyerna visar bara uppgifter som den skyddade anslutningen tillåter. */
 (() => {
   const state = {
     documentTab: 'medlem',
     taskTab: 'medlem',
-    tasks: [],
     messages: [],
     information: null,
   };
@@ -123,20 +122,30 @@
   const renderTasks = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
     if (!boardAllowed) state.taskTab = 'medlem';
-    root.append(heading('Att göra', 'Uppgifter'));
+    root.append(heading('Att göra'));
     root.append(group(button('För medlemmar','task-tab','medlem',state.taskTab==='medlem'), ...(boardAllowed ? [button('För styrelsen','task-tab','styrelse',state.taskTab==='styrelse')] : [])));
     const list = element('ul','view-list');
-    const tasks = state.tasks.filter(task => task.kind === state.taskTab);
-    if (!tasks.length) list.append(element('li','','Inga uppgifter tillagda.'));
+    const tasks = (options.tasks?.tasks || []).filter(task => task.kind === state.taskTab);
+    if (!options.tasks && options.connection === 'google_test') list.append(element('li','','Hämtar uppgifter…'));
+    else if (!tasks.length) list.append(element('li','','Inga uppgifter tillagda.'));
     tasks.forEach(task => {
-      const row = element('li','view-row');
-      const label = element('span','',`${task.done ? '✓ ' : ''}${task.text}`);
-      const toggle = button(task.done ? 'Ångra' : 'Klart','task-toggle',task.id);
-      row.append(label,toggle);
+      const row = element('li','view-row view-task-row');
+      const details = element('div');
+      details.append(element('strong','',`${task.done ? '✓ ' : ''}${task.text}`));
+      if (task.done && task.completedBy && task.completedAt) {
+        details.append(paragraph(`Utförd av ${task.completedBy} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(new Date(task.completedAt))}`, 'view-muted'));
+      } else if (task.lastRecall) {
+        details.append(paragraph(`Återkallad som felaktig av ${task.lastRecall.name}`, 'view-muted'));
+      }
+      row.append(details);
+      if (options.connection === 'google_test') {
+        if (!task.done) row.append(button('Klart','task-complete',task.id));
+        else if (task.canRecall) row.append(button('Återkalla','task-recall',task.id));
+      }
       list.append(row);
     });
     root.append(list);
-    if (boardAllowed) {
+    if (boardAllowed && options.connection === 'google_test') {
       const form = element('form');
       form.dataset.form = 'task';
       const label = element('label','','Lägg till uppgift');
@@ -243,10 +252,34 @@
     if (!options.user?.permissions?.includes(permission)) return root.append(heading('Ingen åtkomst',title));
     return renderPlanned(root,title,description);
   };
-  const renderContact = root => {
-    root.append(heading('Kontakt','Styrelsen'));
-    root.append(card('Kontaktuppgifter', 'Inga kontaktuppgifter att visa.'));
-    root.append(notice());
+  const renderContact = (root, options) => {
+    root.append(heading('Kontakt'));
+    const contacts = options.contacts?.contacts;
+    if (!contacts) return root.append(paragraph('Hämtar medlemmar…'));
+    if (!contacts.length) return root.append(paragraph('Inga aktiva medlemmar att visa.'));
+    const list = element('ul', 'view-contact-list');
+    for (const contact of contacts) {
+      const item = element('li', 'view-contact');
+      const initials = contact.name.trim().split(/\s+/).slice(0, 2)
+        .map(part => part[0]?.toLocaleUpperCase('sv-SE') || '').join('');
+      const avatar = element('span', 'view-contact-avatar', initials);
+      avatar.setAttribute('aria-hidden', 'true');
+      const details = element('div');
+      details.append(element('strong', '', contact.name));
+      if (contact.phone && /^[+0-9() .-]{3,40}$/.test(contact.phone)) {
+        const link = element('a', '', contact.phone);
+        link.href = 'tel:' + contact.phone.replace(/[^+0-9]/g, '');
+        details.append(link);
+      }
+      if (contact.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email)) {
+        const link = element('a', '', contact.email);
+        link.href = 'mailto:' + contact.email;
+        details.append(link);
+      }
+      item.append(avatar, details);
+      list.append(item);
+    }
+    root.append(list);
   };
   const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
   function draw(options = {}) {
@@ -273,9 +306,16 @@
       }
       if (action === 'task-tab') state.taskTab = value;
       else if (action === 'document-tab') state.documentTab = value;
-      else if (action === 'task-toggle') {
-        const task = state.tasks.find(item => item.id === Number(value));
-        if (task) task.done = !task.done;
+      else if (action === 'task-complete' || action === 'task-recall') {
+        const task = window.VFAppData?.tasks?.tasks?.find(item => item.id === value);
+        if (!task) return;
+        if (action === 'task-complete' && task.done) return;
+        if (action === 'task-complete' &&
+            !window.confirm('Bekräfta att uppgiften är klar')) return;
+        if (action === 'task-recall' && (!task.canRecall || !window.confirm('Återkalla avbockningen som felaktig?'))) return;
+        document.dispatchEvent(new CustomEvent(action === 'task-complete'
+          ? 'vf:task-complete' : 'vf:task-recall', {detail:{id:value}}));
+        return;
       } else if (action === 'quick-message') {
         const form = control.closest('form');
         if (form) { form.querySelector('input').value = value; form.requestSubmit(); }
@@ -296,7 +336,11 @@
       if (!text) return;
       if (form.dataset.form === 'task') {
         if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
-        state.tasks.push({id:Date.now()+Math.random(),text:text.slice(0,100),kind:state.taskTab,done:false});
+        if (window.VFAppData.connection === 'google_test') {
+          document.dispatchEvent(new CustomEvent('vf:task-create',
+            {detail:{text:text.slice(0,100),kind:state.taskTab}}));
+          input.value = '';
+        }
       }
       else if (form.dataset.form === 'message') {
         if (window.VFAppData?.connection === 'google_test') document.dispatchEvent(new CustomEvent('vf:chat-post',{detail:{text:text.slice(0,120)}}));

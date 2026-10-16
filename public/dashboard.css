@@ -43,6 +43,13 @@
 .view-surface .view-chat-row p{grid-column:1/-1;white-space:pre-wrap;overflow-wrap:anywhere}
 .view-surface .view-chat-row time{color:#afc0c6;font-size:12px}
 .view-surface .view-row small{color:#afc0c6}
+.view-surface .view-task-row>div{min-width:0;overflow-wrap:anywhere}
+.view-surface .view-task-row p{margin:4px 0 0}
+.view-surface .view-contact-list{list-style:none;margin:8px 0;padding:0;display:grid;gap:8px}
+.view-surface .view-contact{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #65747a88;border-radius:14px;background:linear-gradient(145deg,#1c2a32d9,#071018e8 55%,#15181ce8)}
+.view-surface .view-contact-avatar{display:grid;place-items:center;flex:none;width:42px;height:42px;border-radius:50%;color:#f8df9e;border:1px solid #d2a63799;background:linear-gradient(145deg,#373025,#0b141b);font-weight:700}
+.view-surface .view-contact div{display:grid;gap:3px;min-width:0}
+.view-surface .view-contact a{color:#e9d38e;overflow-wrap:anywhere}
 .view-surface .view-pill{display:inline-block;border:1px solid #789383;border-radius:999px;color:#a9f2c6;padding:4px 9px;font-size:12px}
 .view-surface .view-placeholder{border:1px dashed #88969a87;border-radius:12px;padding:16px;color:#c0ced2;margin:10px 0}
 .view-surface .view-calendar-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}

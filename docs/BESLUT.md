@@ -118,16 +118,25 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   när den kontrollerade betalningen finns i EKO. Avgiftsbefriade medlemmar,
   familjemedlemmar som inte är avgiftsskyldiga och andra beslutade undantag
   får inte spärras.
-- **Kontakt:** alla inloggade ska ha en kontaktknapp som visar de
-  kontaktuppgifter styrelsen uttryckligen har valt att dela, exempelvis namn,
-  styrelseroll, telefon och e-post. Kontaktknappen ska vara tillgänglig även i
-  begränsat läge. Den ska inte lämna ut andra uppgifter ur medlemsregistret.
+- **Kontakt:** alla inloggade aktiva medlemmar ska kunna se alla andra aktiva
+  medlemmars namn, små foton och kontaktuppgifter. Användaren har uttryckligen
+  valt detta även utan ett individuellt delningsval i appen. Uppgifterna ska
+  fortfarande lämnas ut först efter serverns inloggnings- och
+  föreningskontroll; inaktiva medlemmar och andra registerfält ska inte visas.
+  Kontaktknappen ska vara tillgänglig även i begränsat läge. Foton behöver
+  ligga i en privat, behörighetskontrollerad källa, inte via offentliga länkar.
 - **Att göra:** namnet avser en att-göra-lista, inte sekreterarens
   medlemsregister. Styrelsen ska kunna lägga in uppgifter för medlemmarna. En
   inloggad medlem ska kunna markera en uppgift som utförd, och utförandet ska
   sparas med uppgiftens ID, personens medlems-ID och visningsnamn samt tid.
-  Det ska också finnas en separat lista som bara styrelsebehöriga ser. Regler
-  för rättelser, återöppning och samtidiga försök ska bestämmas före byggstart.
+  Det ska också finnas en separat lista som bara styrelsebehöriga ser.
+  Om två personer försöker bocka av samma uppgift gäller den avbockning som
+  sparas först. Före avbockningen sparas visas bekräftelsen
+  **Bekräfta att uppgiften är klar** med valen **OK** och **Avbryt**.
+  Den som bockade av ska kunna välja **Återkalla** vid en
+  felmarkering; uppgiften öppnas då igen. Både avbockning och återkallelse
+  sparas med uppgift, person och tid, och återkallelsen märks **felaktig**.
+  Ingen annan medlem får återkalla den personens avbockning.
 - **Mötesläge:** den gamla prototypens idé med aktuell dagordning och
   mötesfiler är endast underlag. Ett fullständigt arbetsflöde är ännu inte
   beslutat. Mötesläget ska byggas i ett senare samlat steg, liksom

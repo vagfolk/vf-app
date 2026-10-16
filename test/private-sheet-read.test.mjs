@@ -24,9 +24,12 @@ const financeRows = [
   ['Utgående bank', 1250, 'Utgående kontant', 80, 'Resultat', 450]
 ];
 
-function memberRow({ sub, role = 'Medlem', status = 'Aktiv', name, id, fee = 300, paid = 100, extra = '' }) {
+function memberRow({ sub, role = 'Medlem', status = 'Aktiv', name, id,
+  phone = '', email = '', fee = 300, paid = 100, extra = '' }) {
   const row = Array(21).fill('');
   row[1] = name;
+  row[2] = phone;
+  row[3] = email;
   row[7] = fee;
   row[9] = paid;
   row[16] = id;
@@ -90,6 +93,8 @@ function fixture({ members, finance, failSheet = false,
   const calendarReads = [];
   const informationRows = [['ID','Medlems-ID','Namn','Text','Tid']];
   const chatRows = [['ID','Medlems-ID','Namn','Text','Tid']];
+  const taskRows = [['Händelse-ID','Uppgift-ID','Lista','Händelse','Uppgift',
+    'Medlems-ID','Namn','Tid','Orsak']];
   dataProperties.set('VF_TEST_MESSAGES_SHEET_ID', 'messages-test-file-aaaaaaaaaaaaaa');
   let forwarded = 0;
   let redirectFetches = 0;
@@ -125,8 +130,10 @@ function fixture({ members, finance, failSheet = false,
       sheetReads.push(url);
       if (failSheet) return reply({ error: 'unavailable' }, 403);
       const range = decodeURIComponent(new URL(url).pathname.split('/values/')[1]);
-      if (range.startsWith("'Information'") || range.startsWith("'Chat'")) {
-        const target = range.startsWith("'Information'") ? informationRows : chatRows;
+      if (range.startsWith("'Information'") || range.startsWith("'Chat'") ||
+          range.startsWith("'Uppgifter'")) {
+        const target = range.startsWith("'Information'") ? informationRows :
+          range.startsWith("'Chat'") ? chatRows : taskRows;
         if (options.method === 'post') {
           target.push(...JSON.parse(options.payload).values);
           return reply({ updates: { updatedRows: 1 } });
@@ -189,7 +196,7 @@ function fixture({ members, finance, failSheet = false,
   runInNewContext(readFileSync(new URL('identity/Code.gs', root), 'utf8'), identity);
   return {
     data, identity, dataProperties, identityProperties, sheetReads, calendarReads,
-    informationRows, chatRows,
+    informationRows, chatRows, taskRows,
     setSubject: value => { subject = value; },
     forwarded: () => forwarded, redirectFetches: () => redirectFetches,
     requiredScopeChecks: () => requiredScopeChecks
@@ -453,4 +460,56 @@ test('okänt konto och ogiltigt innehåll får inte skriva meddelanden', () => {
   assert.equal(app.identity.publishInformation(' ').reason, 'invalid_content');
   assert.equal(app.informationRows.length, 1);
   assert.equal(app.chatRows.length, 1);
+});
+
+test('första avbockningen vinner och bara den personen får återkalla som felaktig', () => {
+  const app = fixture({ members: [memberHead,
+    memberRow({ sub: 'google-member', name: 'Anna', id: 'M-001' }),
+    memberRow({ sub: 'google-second', name: 'Bo', id: 'M-003' }),
+    memberRow({ sub: 'google-board', role: 'Styrelse', name: 'Styrelsen', id: 'M-002' })] });
+  assert.equal(app.identity.createTask({ kind: 'medlem', text: 'Torka golvet' }).reason,
+    'insufficient_role');
+  app.setSubject('google-board');
+  const created = app.identity.createTask({ kind: 'medlem', text: 'Torka golvet' });
+  assert.equal(created.allowed, true);
+  const id = created.taskId;
+  app.setSubject('google-member');
+  assert.equal(app.identity.completeTask(id).allowed, true);
+  app.setSubject('google-second');
+  assert.equal(app.identity.completeTask(id).reason, 'already_completed');
+  assert.equal(app.identity.recallTask(id).reason, 'recall_denied');
+  app.setSubject('google-member');
+  assert.equal(app.identity.recallTask(id).allowed, true);
+  assert.equal(app.taskRows.length, 4);
+  assert.equal(app.taskRows[2][5], 'M-001');
+  assert.equal(app.taskRows[3][3], 'återkallad');
+  assert.equal(app.taskRows[3][8], 'felaktig');
+  const visible = result(app.identity.readDashboardData('tasks')).data.tasks[0];
+  assert.equal(visible.done, false);
+  assert.equal(visible.lastRecall.name, 'Anna');
+  app.setSubject('google-second');
+  assert.equal(app.identity.completeTask(id).allowed, true);
+  assert.equal(app.identity.readDashboardData('tasks').data.tasks[0].canRecall, true);
+});
+
+test('styrelsens uppgifter och kontaktuppgifter avgränsas efter aktiv EKO-status', () => {
+  const app = fixture({ members: [memberHead,
+    memberRow({ sub: 'google-member', name: 'Anna', id: 'M-001',
+      phone: '070 123 45 67', email: 'anna@example.test' }),
+    memberRow({ sub: 'google-board', role: 'Styrelse', name: 'Bo', id: 'M-002' }),
+    memberRow({ sub: 'inactive', status: 'Spärrad', name: 'Cecilia', id: 'M-003',
+      phone: '070 999 99 99' })] });
+  app.setSubject('google-board');
+  const created = app.identity.createTask({ kind: 'styrelse', text: 'Boka lokal' });
+  assert.equal(created.allowed, true);
+  app.setSubject('google-member');
+  assert.deepEqual(result(app.identity.readDashboardData('tasks').data.tasks), []);
+  assert.equal(app.identity.completeTask(created.taskId).reason, 'task_not_found');
+  const contacts = result(app.identity.readDashboardData('contacts').data.contacts);
+  assert.deepEqual(contacts.map(person => person.name), ['Anna', 'Bo']);
+  assert.equal(contacts[0].phone, '070 123 45 67');
+  assert.equal(contacts[0].email, 'anna@example.test');
+  assert.equal(JSON.stringify(contacts).includes('999'), false);
+  app.setSubject('inactive');
+  assert.equal(app.identity.readDashboardData('contacts').reason, 'inactive_user');
 });

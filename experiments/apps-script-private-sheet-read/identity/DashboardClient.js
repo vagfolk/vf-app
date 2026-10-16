@@ -1,11 +1,13 @@
 // Den här filen bäddas in i Dashboard.html vid bygget.
 (() => {
   const state = { user: null, fee: null, boardSummary: null, calendar: null,
-    information: null, chat: null, connection: 'checking' };
+    information: null, chat: null, tasks: null, contacts: null, connection: 'checking' };
   let boardRequest = 0;
   let calendarRequest = 0;
   let informationRequest = 0;
   let chatRequest = 0;
+  let tasksRequest = 0;
+  let contactsRequest = 0;
   let chatLoading = false;
   let activeView = 'start';
 
@@ -19,12 +21,16 @@
     ++calendarRequest;
     ++informationRequest;
     ++chatRequest;
+    ++tasksRequest;
+    ++contactsRequest;
     state.user = null;
     state.fee = null;
     state.boardSummary = null;
     state.calendar = null;
     state.information = null;
     state.chat = null;
+    state.tasks = null;
+    state.contacts = null;
     state.connection = 'error';
     show();
     notice('Åtkomsten kunde inte kontrolleras. Försök logga in på nytt.');
@@ -81,6 +87,8 @@
       state.calendar = null;
       state.information = null;
       state.chat = null;
+      state.tasks = null;
+      state.contacts = null;
       state.connection = 'error';
       show();
       notice(error && error.reason === 'unknown_user' || error && error.reason === 'inactive_user'
@@ -164,6 +172,57 @@
     show();
   }
 
+  async function loadTasks() {
+    if (state.connection !== 'google_test') return;
+    const request = ++tasksRequest;
+    try {
+      const tasks = await read('tasks');
+      if (request !== tasksRequest) return;
+      state.tasks = tasks;
+      show();
+    } catch {
+      if (request === tasksRequest) closePrivateView();
+    }
+  }
+
+  async function loadContacts() {
+    if (state.connection !== 'google_test') return;
+    const request = ++contactsRequest;
+    try {
+      const contacts = await read('contacts');
+      if (request !== contactsRequest) return;
+      state.contacts = contacts;
+      show();
+    } catch {
+      if (request === contactsRequest) closePrivateView();
+    }
+  }
+
+  async function writeTask(method, input) {
+    if (state.connection !== 'google_test') return;
+    try {
+      const result = await call(method, input);
+      if (!result || result.allowed !== true) {
+        const error = new Error('Uppgiften sparades inte');
+        error.reason = result?.reason;
+        throw error;
+      }
+      await loadTasks();
+      if (state.connection === 'google_test') notice(method === 'completeTask'
+        ? 'Uppgiften markerades som utförd. Du kan välja Återkalla om det blev fel.'
+        : method === 'recallTask' ? 'Markeringen återkallades som felaktig.'
+          : 'Uppgiften lades till.');
+    } catch (error) {
+      if (error?.reason === 'already_completed') {
+        await loadTasks();
+        notice('Någon annan hann markera uppgiften först.');
+      } else {
+        notice('Ändringen kunde inte bekräftas. Uppdatera listan innan du försöker igen.');
+        await loadTasks();
+      }
+    }
+  }
+
   async function writeMessage(method, text, refresh) {
     if (state.connection !== 'google_test') return;
     try {
@@ -182,6 +241,8 @@
     if (activeView === 'kalender' || activeView === 'start') loadCalendar();
     if (activeView === 'information') loadInformation();
     if (activeView === 'chat') loadChat();
+    if (activeView === 'medlemsarbete') loadTasks();
+    if (activeView === 'kontakt') loadContacts();
     if (activeView !== 'board') {
       ++boardRequest;
       state.boardSummary = null;
@@ -192,12 +253,23 @@
     if (!document.hidden && (activeView === 'kalender' || activeView === 'start')) loadCalendar();
     if (!document.hidden && activeView === 'information') loadInformation();
     if (!document.hidden && activeView === 'chat') loadChat();
+    if (!document.hidden && activeView === 'medlemsarbete') loadTasks();
+    if (!document.hidden && activeView === 'kontakt') loadContacts();
   });
   document.addEventListener('vf:information-publish', event => {
     writeMessage('publishInformation', event.detail?.text, loadInformation);
   });
   document.addEventListener('vf:chat-post', event => {
     writeMessage('postChatMessage', event.detail?.text, loadChat);
+  });
+  document.addEventListener('vf:task-create', event => {
+    writeTask('createTask', event.detail);
+  });
+  document.addEventListener('vf:task-complete', event => {
+    writeTask('completeTask', event.detail?.id);
+  });
+  document.addEventListener('vf:task-recall', event => {
+    writeTask('recallTask', event.detail?.id);
   });
   setInterval(() => { if (!document.hidden && activeView === 'chat') loadChat(); }, 30000);
   document.addEventListener('vf:signout', () => {
@@ -209,6 +281,8 @@
     state.calendar = null;
     state.information = null;
     state.chat = null;
+    state.tasks = null;
+    state.contacts = null;
     state.connection = 'error';
     show();
     document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
@@ -225,6 +299,8 @@
         state.calendar = null;
         state.information = null;
         state.chat = null;
+        state.tasks = null;
+        state.contacts = null;
       }
       show();
       return result.allowed;
