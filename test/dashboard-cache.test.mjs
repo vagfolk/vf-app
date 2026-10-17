@@ -3,6 +3,60 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 
+test('EKO-läsning startar under filmen och visas först när alla svar finns', async () => {
+  const listeners = new Map();
+  const calls = [];
+  const shown = [];
+  let finishProfile;
+  const responses = {
+    profile: { permissions: ['own_fee', 'board_view'], name: 'Anna' },
+    own_fee: { memberId: 'M1', name: 'Anna' },
+    board_summary: { result: 1 },
+    calendar: { events: [], links: {} },
+    information: { message: null },
+    chat: { messages: [] },
+    tasks: { tasks: [] },
+    contacts: { contacts: [] },
+    app_versions: { eko: 'e1', store: 's1', calendar: {}, online: 1 },
+  };
+  const document = {
+    addEventListener(type, callback) {
+      const callbacks = listeners.get(type) || [];
+      callbacks.push(callback);
+      listeners.set(type, callbacks);
+    },
+    querySelector() { return { textContent: '' }; },
+  };
+  const run = {
+    withSuccessHandler(success) {
+      return { withFailureHandler() {
+        return { readDashboardData(action) {
+          calls.push(action);
+          if (action === 'profile') finishProfile = () => success({ allowed: true, data: responses.profile });
+          else queueMicrotask(() => success({ allowed: true, data: responses[action] }));
+        } };
+      } };
+    },
+  };
+  const window = { google: { script: { run } }, VFDashboard: {
+    startStartup() { calls.push('film'); },
+    setData(data) { shown.push({ connection: data.connection, user: data.user }); },
+  } };
+  runInNewContext(readFileSync(new URL('../experiments/apps-script-private-sheet-read/identity/DashboardClient.js', import.meta.url), 'utf8'),
+    { window, document, google: window.google, setInterval() {}, CustomEvent: class {} });
+
+  for (const callback of listeners.get('vf:dashboard-ready')) callback();
+  assert.equal(calls[0], 'film');
+  for (const action of ['profile', 'own_fee', 'calendar', 'information', 'chat',
+    'tasks', 'contacts', 'app_versions']) assert.ok(calls.includes(action));
+  assert.equal(shown.length, 0);
+  finishProfile();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(calls.includes('board_summary'));
+  assert.equal(shown.at(-1).connection, 'google_test');
+  assert.equal(shown.at(-1).user.name, 'Anna');
+});
+
 test('växling mellan Start och Kalender hämtar inte om oförändrad profil och kalender', async () => {
   const listeners = new Map();
   const calls = [];

@@ -889,16 +889,23 @@
   }
   async function start() {
     try {
-      const [profile, fee] = await Promise.all([read('profile'), read('own_fee')]);
+      // Starta alla tillåtna grundläsningar direkt medan startfilmen spelas.
+      // Varje anrop behörighetskontrolleras fortfarande av dataskriptet.
+      const actions = ['profile', 'own_fee', 'calendar', 'information', 'chat',
+        'tasks', 'contacts', 'app_versions'];
+      const pending = Object.fromEntries(actions.map(action => [action, read(action)]));
+      const boardSummary = pending.profile.then(profile =>
+        Array.isArray(profile?.permissions) && profile.permissions.includes('board_view')
+          ? read('board_summary') : null);
+      const loaded = await Promise.all([...actions.map(action => pending[action]), boardSummary]);
+      const snapshot = Object.fromEntries([...actions, 'board_summary']
+        .map((action, index) => [action, loaded[index]]));
+      const profile = snapshot.profile;
+      const fee = snapshot.own_fee;
       if (!Array.isArray(profile.permissions) || !profile.permissions.includes('own_fee') ||
           typeof fee.memberId !== 'string' || !fee.memberId) {
         throw new Error('Ogiltig medlemsprofil');
       }
-      const boardAllowed = profile.permissions.includes('board_view');
-      const actions = ['calendar', 'information', 'chat', 'tasks', 'contacts', 'app_versions'];
-      if (boardAllowed) actions.push('board_summary');
-      const loaded = await Promise.all(actions.map(read));
-      const snapshot = Object.fromEntries(actions.map((action, index) => [action, loaded[index]]));
       state.user = profile;
       state.fee = fee;
       state.calendar = snapshot.calendar;
