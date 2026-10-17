@@ -42,7 +42,7 @@ function memberRow({ sub, role = 'Medlem', status = 'Aktiv', name, id,
 
 function utilities() {
   return {
-    base64Decode: value => Array.from(Buffer.from(value, 'base64')),
+    base64Decode: value => Array.from(Buffer.from(value, 'base64'), byte => byte > 127 ? byte - 256 : byte),
     base64DecodeWebSafe: value => Array.from(Buffer.from(value, 'base64url')),
     base64EncodeWebSafe: value => Buffer.from(value.map(item => item & 255)).toString('base64url'),
     computeHmacSha256Signature: (body, secret) => {

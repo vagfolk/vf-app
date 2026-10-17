@@ -679,7 +679,8 @@ function contactInput_(content, action) {
     const bytes = Utilities.base64Decode(input.photo);
     const avatar = Utilities.base64Decode(input.avatar);
     if (bytes.length > 90000 || avatar.length > 12000 ||
-        bytes[0] !== 255 || bytes[1] !== 216 || avatar[0] !== 255 || avatar[1] !== 216) {
+        (bytes[0] & 255) !== 255 || (bytes[1] & 255) !== 216 ||
+        (avatar[0] & 255) !== 255 || (avatar[1] & 255) !== 216) {
       throw new Error('invalid_photo');
     }
   }
