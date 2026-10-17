@@ -271,8 +271,9 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   Mittdisplayens vanliga bakgrund är helt svart i stället för vägmotivet.
   Vid en ny inloggnings första inläsning från EKO får den visa animationen
   `vf26_engine_startup_with_logo` (WebM med MP4 som reserv). Animationen
-  stannar när den första inläsningen är klar och startar inte om vid senare
-  ändringskontroller mot EKO. Svart yta och video ska klippas innanför
+  spelas färdigt innan några uppgifter från EKO visas. Om EKO tar längre tid
+  ligger filmens sista bild kvar tills inläsningen är klar. Den startar inte om
+  vid senare ändringskontroller mot EKO. Svart yta och video ska klippas innanför
   originalramens inre kontur utan en extra ram eller övertäckta kanter.
   Den vänstra sidoytans kontur och klickyta får inte gå ut över menyknapparna.
   Medlemsavgiftens status får bara visas som verklig när den kommer från en

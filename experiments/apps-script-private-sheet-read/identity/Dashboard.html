@@ -1195,6 +1195,8 @@
     let startupActive = false;
     let startupStarted = false;
     let startupSourcesReady = false;
+    let startupFinished = false;
+    let startupPendingData = null;
     let panels = [];
     let iconVariants = [];
     const iconCrops = [
@@ -1514,13 +1516,25 @@
         (activeLayoutView === 'cards' && selectedCard));
     }
 
+    function finishStartupVideo() {
+      if (!startupActive || startupFinished) return;
+      startupFinished = true;
+      if (startupPendingData) {
+        const data = startupPendingData;
+        startupPendingData = null;
+        window.VFDashboard.setData(data);
+      }
+    }
+
     function positionStartup() {
       if (!startupActive) return;
       const compact = matchMedia('(max-width:1199px)').matches;
       const host = compact ? compactStartupHost : screenViewport;
       if (startupLayer.parentElement !== host) host.append(startupLayer);
       compactStartupHost.hidden = !compact;
-      if (compact || stage.dataset.ready === 'true') startupVideo.play().catch(() => {});
+      if (!startupFinished && (compact || stage.dataset.ready === 'true')) {
+        startupVideo.play().catch(finishStartupVideo);
+      }
     }
 
     function startStartup() {
@@ -1528,6 +1542,7 @@
       if (startupStarted || !document.body.classList.contains('app-mode')) return;
       startupStarted = true;
       startupActive = true;
+      startupFinished = false;
       if (!startupSourcesReady) {
         for (const [file, type] of [
           ['vf26_engine_startup_with_logo.webm', 'video/webm'],
@@ -1549,6 +1564,7 @@
     function endStartup() {
       if (!startupActive) return;
       startupActive = false;
+      startupPendingData = null;
       startupLayer.hidden = true;
       compactStartupHost.hidden = true;
       startupVideo.pause();
@@ -1744,6 +1760,8 @@
       screenViewport = document.querySelector('#screen-viewport');
       startupLayer = document.querySelector('#screen-startup');
       startupVideo = document.querySelector('#screen-startup-video');
+      startupVideo.addEventListener('ended', finishStartupVideo);
+      startupVideo.addEventListener('error', finishStartupVideo);
       compactStartupHost = document.querySelector('#compact-startup-host');
       menuStartNeutral.querySelector('img').src = activeButtonSource.href;
       screenContent = document.querySelector('#screen-content');
@@ -1756,6 +1774,10 @@
       window.VFDashboard = {
         startStartup,
         setData(data) {
+          if (startupActive && data.connection !== 'checking' && !startupFinished) {
+            startupPendingData = data;
+            return;
+          }
           if (data.connection !== 'checking') endStartup();
           screenContent.hidden = true;
           window.VFAppData = data;
@@ -1790,6 +1812,7 @@
           compactFee.dataset.status = sampleMemberStatus;
         },
         setOnlineCount(count) {
+          if (startupActive) return;
           if (!Number.isSafeInteger(count)) return;
           previewOnlineCount = count;
           document.querySelector('#compact-online').textContent = `${count} online`;
@@ -1918,7 +1941,7 @@
     <div class="surface-hits" id="surface-hits" role="group" aria-label="Välj skärmyta" hidden><button type="button" data-surface="main" aria-label="Huvudskärmen"></button><button type="button" data-surface="left" aria-label="Vänster tomma panel"></button><button type="button" data-surface="right" aria-label="Höger tomma panel"></button></div>
     <div class="screen-viewport" id="screen-viewport" hidden>
       <section class="screen-content" id="screen-content" aria-live="polite" hidden></section>
-      <div class="screen-startup" id="screen-startup" role="status" aria-label="Ansluter till EKO" hidden><video id="screen-startup-video" muted playsinline loop preload="auto" aria-hidden="true"></video></div>
+      <div class="screen-startup" id="screen-startup" role="status" aria-label="Ansluter till EKO" hidden><video id="screen-startup-video" muted playsinline preload="auto" aria-hidden="true"></video></div>
     </div>
   </div>
   <div class="preview-inputs" aria-label="Förhandsvisa personliga uppgifter">
