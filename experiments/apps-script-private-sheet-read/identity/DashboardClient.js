@@ -357,6 +357,7 @@
     notice('Vyn är stängd. Google-kontot är fortfarande inloggat i webbläsaren.');
   });
   document.addEventListener('vf:dashboard-ready', () => {
+    window.VFDashboard.startStartup?.();
     window.VFDashboard.authorizeView = async view => {
       const result = await call('authorizeDashboardView', view);
       if (!result || typeof result.allowed !== 'boolean') throw new Error('Ogiltigt behörighetssvar');

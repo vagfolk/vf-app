@@ -26,7 +26,7 @@
     @media(prefers-reduced-motion:reduce){.stage .icon-variant{animation:none}}
     .stage .original[hidden],.stage .panel[hidden]{display:none}
     .stage .icon-variant[hidden]{display:none}
-    .stage .menu-start-neutral,.stage .menu-label-art,.stage .menu-active-art,.stage .menu-hits,.stage .mode-art,.stage .mode-hits,.stage .card-art,.stage .card-hits,.stage .member-art,.stage .dashboard-art,.stage .surface-art,.stage .surface-hits,.stage .screen-content{position:absolute;z-index:3}
+    .stage .menu-start-neutral,.stage .menu-label-art,.stage .menu-active-art,.stage .menu-hits,.stage .mode-art,.stage .mode-hits,.stage .card-art,.stage .card-hits,.stage .member-art,.stage .dashboard-art,.stage .surface-art,.stage .surface-hits,.stage .screen-viewport{position:absolute;z-index:3}
     .stage .dashboard-art{inset:0;width:100%;height:100%;pointer-events:none}
     .stage .surface-art,.stage .surface-hits{inset:0;width:100%;height:100%;pointer-events:none}
     .surface-hits button{position:absolute;padding:0;border:0;background:transparent;color:transparent;pointer-events:auto}
@@ -64,10 +64,15 @@
     .stage .card-art{inset:0;width:100%;height:100%;overflow:visible;pointer-events:none}
     .stage[data-card-lit="meeting"] .panel-06,.stage[data-card-lit="board"] .panel-09{filter:brightness(1.025)}
     .stage .member-art{inset:0;width:100%;height:100%;pointer-events:none}
-    .stage .screen-content{left:34.05%;top:23.7%;width:45.25%;height:58.1%;overflow:auto;padding:clamp(18px,3vw,50px);border:0;background:linear-gradient(135deg,#071018ef,#10151ce5);clip-path:url(#central-screen-clip);pointer-events:auto}
+    /* Panel 07 ligger vid (520,180). Glasets insida börjar 48 px in och 43 px ned. */
+    .stage .screen-viewport{left:33.971292%;top:23.698193%;width:45.155502%;height:57.917110%;overflow:hidden;border:0;background:#000;clip-path:url(#central-screen-clip);pointer-events:none}
+    .stage .screen-content{position:absolute;inset:0;width:100%;height:100%;z-index:1;overflow:auto;padding:clamp(18px,3vw,50px);border:0;background:transparent;pointer-events:auto}
+    .screen-startup{position:absolute;inset:0;z-index:2;display:grid;place-items:center;overflow:hidden;background:#000;pointer-events:none}
+    .screen-startup video{display:block;width:100%;height:100%;object-fit:contain;background:#000}
+    .screen-startup[hidden],.compact-startup-host[hidden]{display:none}
     .screen-content h2{margin:0 0 .45em;color:#fff;font-size:clamp(16px,2.2vw,34px)}
     .screen-content p{margin:0;color:#d7e1e8;font-size:clamp(11px,1.25vw,18px);line-height:1.4}
-    .stage .menu-start-neutral[hidden],.stage .menu-label-art[hidden],.stage .menu-active-art[hidden],.stage .menu-hits[hidden],.stage .mode-art[hidden],.stage .mode-hits[hidden],.stage .card-art[hidden],.stage .card-hits[hidden],.stage .member-art[hidden],.stage .dashboard-art[hidden],.stage .surface-art[hidden],.stage .surface-hits[hidden],.stage .screen-content[hidden]{display:none}
+    .stage .menu-start-neutral[hidden],.stage .menu-label-art[hidden],.stage .menu-active-art[hidden],.stage .menu-hits[hidden],.stage .mode-art[hidden],.stage .mode-hits[hidden],.stage .card-art[hidden],.stage .card-hits[hidden],.stage .member-art[hidden],.stage .dashboard-art[hidden],.stage .surface-art[hidden],.stage .surface-hits[hidden],.stage .screen-viewport[hidden],.stage .screen-content[hidden]{display:none}
     .status-options{width:min(100%,160vh,1672px);margin:10px auto 0;display:none;gap:8px;align-items:center;flex-wrap:wrap}
     .status-options[data-visible="true"]{display:flex}
     .status-options span{color:#b7c4cc;font-size:13px}
@@ -88,7 +93,10 @@
   <script defer>
     const source = new URL('dashboard-assets/', document.baseURI);
     const activeButtonSource = new URL('dashboard-assets/assets/menu-experiments/aktiv-knapp-utan-text.png', document.baseURI);
-    let stage, status, list, original, menuHits, menuStartNeutral, menuLabelArt, menuActiveArt, modeArt, modeHits, cardArt, cardHits, memberArt, dashboardArt, surfaceArt, surfaceHits, screenContent, compactContent, compactNav;
+    let stage, status, list, original, menuHits, menuStartNeutral, menuLabelArt, menuActiveArt, modeArt, modeHits, cardArt, cardHits, memberArt, dashboardArt, surfaceArt, surfaceHits, screenViewport, screenContent, compactContent, compactNav, compactStartupHost, startupLayer, startupVideo;
+    let startupActive = false;
+    let startupStarted = false;
+    let startupSourcesReady = false;
     let panels = [];
     let iconVariants = [];
     const iconCrops = [
@@ -408,6 +416,46 @@
         (activeLayoutView === 'cards' && selectedCard));
     }
 
+    function positionStartup() {
+      if (!startupActive) return;
+      const compact = matchMedia('(max-width:1199px)').matches;
+      const host = compact ? compactStartupHost : screenViewport;
+      if (startupLayer.parentElement !== host) host.append(startupLayer);
+      compactStartupHost.hidden = !compact;
+      if (compact || stage.dataset.ready === 'true') startupVideo.play().catch(() => {});
+    }
+
+    function startStartup() {
+      // En ny fullständig inloggning får en animation; ändringskontrollerna anropar aldrig detta.
+      if (startupStarted || !document.body.classList.contains('app-mode')) return;
+      startupStarted = true;
+      startupActive = true;
+      if (!startupSourcesReady) {
+        for (const [file, type] of [
+          ['vf26_engine_startup_with_logo.webm', 'video/webm'],
+          ['vf26_engine_startup_with_logo.mp4', 'video/mp4'],
+        ]) {
+          const mediaSource = document.createElement('source');
+          mediaSource.src = new URL('loading/' + file, source).href;
+          mediaSource.type = type;
+          startupVideo.append(mediaSource);
+        }
+        startupSourcesReady = true;
+        startupVideo.load();
+      }
+      startupLayer.hidden = false;
+      startupVideo.currentTime = 0;
+      positionStartup();
+    }
+
+    function endStartup() {
+      if (!startupActive) return;
+      startupActive = false;
+      startupLayer.hidden = true;
+      compactStartupHost.hidden = true;
+      startupVideo.pause();
+    }
+
     async function selectMenu(id) {
       if (!menu.some(entry => entry.id === id) &&
           !['information', 'medlemmar'].includes(id) && !Object.hasOwn(restrictedViews,id)) return;
@@ -479,6 +527,7 @@
       for (const {image, info} of panels) image.hidden = view === 'original' || view === 'frame' || (view === 'single' && info.id !== onlyId);
       for (const {image, panelId} of iconVariants) image.hidden = view === 'original' || view === 'frame' || (view === 'single' && panelId !== onlyId);
       const interactive = view === 'interactive' || view === 'all';
+      screenViewport.hidden = !(interactive || view === 'cards');
       menuHits.hidden = !interactive;
       menuLabelArt.hidden = view === 'original' || view === 'frame' || view === 'single' && onlyId !== '04';
       modeHits.hidden = view !== 'mode' && view !== 'interactive';
@@ -570,6 +619,7 @@
         if (frame.naturalWidth !== layout.width || frame.naturalHeight !== layout.height || mismatch || menuImages.some(image => image.naturalWidth !== 852 || image.naturalHeight !== 1846)) throw new Error('En bild har andra mått än layoutfilen');
         setView('interactive');
         stage.dataset.ready = 'true';
+        positionStartup();
       } catch(error) {
         status.textContent = `Kunde inte visa alla bilddelar: ${error.message}`;
         document.querySelector('.app-notice').textContent = 'Instrumentpanelen kunde inte laddas. Ladda om sidan eller försök senare.';
@@ -593,6 +643,10 @@
       dashboardArt = document.querySelector('#dashboard-art');
       surfaceArt = document.querySelector('#surface-art');
       surfaceHits = document.querySelector('#surface-hits');
+      screenViewport = document.querySelector('#screen-viewport');
+      startupLayer = document.querySelector('#screen-startup');
+      startupVideo = document.querySelector('#screen-startup-video');
+      compactStartupHost = document.querySelector('#compact-startup-host');
       menuStartNeutral.querySelector('img').src = activeButtonSource.href;
       screenContent = document.querySelector('#screen-content');
       compactContent = document.querySelector('#compact-content');
@@ -602,7 +656,9 @@
       document.addEventListener('vf:navigate', event => selectMenu(event.detail.id));
       buildMenu();
       window.VFDashboard = {
+        startStartup,
         setData(data) {
+          if (data.connection !== 'checking') endStartup();
           screenContent.hidden = true;
           window.VFAppData = data;
           if ((restrictedViews[selectedMenu] && !data.user?.permissions?.includes(restrictedViews[selectedMenu])) ||
@@ -709,6 +765,7 @@
       setInterval(cycleRoadIndicator, 2200);
       setInterval(() => { if (!document.hidden && !forecastPermissionDenied) loadLocalForecast(); }, 30 * 60 * 1000);
       document.addEventListener('visibilitychange', () => { if (!document.hidden) { showMemberPanel(); showLocalDate(); } });
+      window.addEventListener('resize', positionStartup);
       initialize();
       loadLocalForecast();
     });
@@ -731,7 +788,7 @@
   <div class="compact-shell" aria-label="Vägfölk 26 på mindre skärm">
     <div class="compact-rotate" hidden><strong>Vrid telefonen till liggande läge</strong>Alla funktioner finns kvar när skärmen är bredare.</div>
     <div class="compact-top"><span class="compact-brand">VÄGFÖLK <em>26</em></span><div class="compact-top-right"><span id="compact-online" class="compact-online">– online</span><time id="compact-time" class="compact-time"></time></div></div>
-    <div class="compact-body"><nav class="compact-nav" id="compact-nav" aria-label="Huvudmeny"></nav><main class="compact-display" id="compact-content" aria-live="polite" data-start="true"></main></div>
+    <div class="compact-body"><nav class="compact-nav" id="compact-nav" aria-label="Huvudmeny"></nav><main class="compact-display" id="compact-content" aria-live="polite" data-start="true"></main><div class="compact-startup-host" id="compact-startup-host" hidden></div></div>
     <div class="compact-bottom"><span>Vägfölk 26</span><span class="compact-fee"></span></div>
   </div>
   <div class="stage" id="stage" role="group" aria-label="Vägfölk 26 instrumentpanel uppbyggd av separata bilddelar">
@@ -761,7 +818,10 @@
     <div class="unconnected-card unconnected-board" aria-hidden="true"><strong>Information</strong><span></span></div>
     <svg class="surface-art" id="surface-art" viewBox="0 0 1672 941" preserveAspectRatio="none" hidden aria-hidden="true"></svg>
     <div class="surface-hits" id="surface-hits" role="group" aria-label="Välj skärmyta" hidden><button type="button" data-surface="main" aria-label="Huvudskärmen"></button><button type="button" data-surface="left" aria-label="Vänster tomma panel"></button><button type="button" data-surface="right" aria-label="Höger tomma panel"></button></div>
-    <section class="screen-content" id="screen-content" aria-live="polite" hidden></section>
+    <div class="screen-viewport" id="screen-viewport" hidden>
+      <section class="screen-content" id="screen-content" aria-live="polite" hidden></section>
+      <div class="screen-startup" id="screen-startup" role="status" aria-label="Ansluter till EKO" hidden><video id="screen-startup-video" muted playsinline loop preload="auto" aria-hidden="true"></video></div>
+    </div>
   </div>
   <div class="preview-inputs" aria-label="Förhandsvisa personliga uppgifter">
     <label for="preview-name">Förhandsvisa namn</label><input id="preview-name" type="text" autocomplete="off" maxlength="36" placeholder="Namn från inloggning">

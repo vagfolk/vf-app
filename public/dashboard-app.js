@@ -68,6 +68,7 @@ document.addEventListener('vf:signout', async () => {
 });
 
 document.addEventListener('vf:dashboard-ready', async () => {
+  window.VFDashboard.startStartup?.();
   window.VFDashboard.authorizeView = async view => {
     const result = await readApi(`/api/view-access?view=${encodeURIComponent(view)}`);
     if (typeof result.allowed !== 'boolean' || !result.profile) throw new Error('Ogiltigt behörighetssvar');
