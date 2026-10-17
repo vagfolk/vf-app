@@ -53,6 +53,13 @@ test('Start visar inga medlemskort före inloggning eller för styrelseroll', ()
   display.listeners.click({ target: { closest() { return createButton; } } });
   assert.equal(descendants(display).some(item => item.dataset.form === 'task'), true);
   assert.match(textOf(display), /Medlem Styrelse Prioriterad/);
+  window.VFPreviewViews.show('medlemsarbete', {
+    connection: 'google_test', user: { permissions: ['board_view'] }, tasks: { tasks: [] },
+  });
+  window.VFPreviewViews.show('start', {
+    connection: 'google_test', user: { permissions: ['board_view'] },
+  });
+  assert.equal(descendants(display).some(item => item.dataset.form === 'task'), false);
 
   window.VFPreviewViews.show('start', {
     connection: 'google_test', user: { permissions: ['own_fee'] },

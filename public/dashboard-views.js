@@ -556,7 +556,15 @@
       return `Medlem: ${member ? formatEvent(member) : 'Inget möte inlagt'}\nStyrelse: ${board ? formatEvent(board) : 'Inget möte inlagt'}`;
     },
     attach,
-    show(id,options = {}) {currentView=id;this.options=options;draw(options);},
+    show(id,options = {}) {
+      if (id !== 'start' || !options.user?.permissions?.includes('board_view')) {
+        state.taskFormOpen = false;
+      }
+      if (id !== 'kontakt') state.editingCard = null;
+      currentView=id;
+      this.options=options;
+      draw(options);
+    },
     refresh(options = {}) {this.options=options;draw(options);},
   };
 })();
