@@ -9,12 +9,18 @@ function node(tag = 'div') {
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; },
     setAttribute() {},
-    addEventListener() {},
+    addEventListener(type, callback) { (this.listeners ||= {})[type] = callback; },
+    contains() { return true; },
+    querySelector() { return { focus() {} }; },
   };
 }
 
 function textOf(current) {
   return [current.textContent, ...current.children.map(textOf)].join(' ');
+}
+
+function descendants(current) {
+  return [current, ...current.children.flatMap(descendants)];
 }
 
 test('Start visar inga medlemskort före inloggning eller för styrelseroll', () => {
@@ -38,6 +44,15 @@ test('Start visar inga medlemskort före inloggning eller för styrelseroll', ()
   });
   assert.doesNotMatch(textOf(display), /Öppna kalender|Öppna information/);
   assert.match(textOf(display), /Ekonomi/);
+  assert.doesNotMatch(textOf(display), /Stäng vyn/);
+  const createButton = descendants(display).find(item => item.dataset.action === 'open-task-form');
+  assert.equal(createButton?.textContent, 'Att göra');
+  assert.equal(descendants(display).some(item => item.dataset.form === 'task'), false);
+
+  window.VFAppData = { user: { permissions: ['board_view'] } };
+  display.listeners.click({ target: { closest() { return createButton; } } });
+  assert.equal(descendants(display).some(item => item.dataset.form === 'task'), true);
+  assert.match(textOf(display), /Medlem Styrelse Prioriterad/);
 
   window.VFPreviewViews.show('start', {
     connection: 'google_test', user: { permissions: ['own_fee'] },

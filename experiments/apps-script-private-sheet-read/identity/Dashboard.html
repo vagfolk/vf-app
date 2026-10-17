@@ -234,6 +234,7 @@
     messages: [],
     information: null,
     editingCard: null,
+    taskFormOpen: false,
   };
   const targets = new Set();
   let currentView = 'start';
@@ -311,11 +312,13 @@
         actions.append(link);
       }
     }
-    actions.append(button('Att göra', 'navigate', 'medlemsarbete'));
+    actions.append(isBoard
+      ? button('Att göra', 'open-task-form')
+      : button('Att göra', 'navigate', 'medlemsarbete'));
     if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
-    if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng vyn' : 'Logga ut','signout'));
+    if (options.user && options.connection !== 'google_test') actions.append(button('Logga ut','signout'));
     root.append(actions, notice());
-    if (permissions.has('board_view') && options.connection === 'google_test') {
+    if (isBoard && options.connection === 'google_test' && state.taskFormOpen) {
       const form = element('form', 'view-task-form');
       form.dataset.form = 'task';
       const label = element('label', 'view-screen-reader-only', 'Lägg till uppgift');
@@ -596,13 +599,16 @@
       }
       item.append(avatar, details);
       if (options.user?.permissions?.includes('board_view')) {
+        const cardKey = contact.cardId || `eko:${contact.memberId}`;
+        const editing = state.editingCard === cardKey;
         const controls = group(button('Redigera', 'edit-contact',
-          contact.cardId || `eko:${contact.memberId}`),
+          cardKey),
         button('Ta bort', 'delete-contact',
-          contact.cardId || `eko:${contact.memberId}`));
+          cardKey),
+        ...(editing ? [button('Stäng', 'close-contact-editor')] : []));
         controls.classList.add('view-contact-controls');
         item.append(controls);
-        if (state.editingCard === (contact.cardId || `eko:${contact.memberId}`)) {
+        if (editing) {
           item.append(contactForm(contact));
         }
       }
@@ -662,6 +668,18 @@
       const {action,value} = control.dataset;
       if (action === 'navigate') {
         document.dispatchEvent(new CustomEvent('vf:navigate',{detail:{id:value}}));
+        return;
+      }
+      if (action === 'open-task-form') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
+        state.taskFormOpen = true;
+        draw(window.VFPreviewViews.options);
+        target.querySelector('.view-task-form textarea')?.focus();
+        return;
+      }
+      if (action === 'close-contact-editor') {
+        state.editingCard = null;
+        draw(window.VFPreviewViews.options);
         return;
       }
       if (action === 'signout') {
@@ -918,7 +936,7 @@
         state.online = latest.online;
         if (!ekoChanged && !storeChanged && !calendarChanged && !contactsChanged) {
           state.versions = latest;
-          show();
+          window.VFDashboard?.setOnlineCount?.(state.online);
           return;
         }
         const actions = [];
@@ -1137,20 +1155,17 @@
     window.VFDashboard.authorizeView = async view => {
       const result = await call('authorizeDashboardView', view);
       if (!result || typeof result.allowed !== 'boolean') throw new Error('Ogiltigt behörighetssvar');
-      state.user = result.profile || null;
-      if (!state.user) {
-        state.fee = null;
-        state.boardSummary = null;
-        state.calendar = null;
-        state.information = null;
-        state.chat = null;
-        state.tasks = null;
-        state.contacts = null;
-        state.versions = null;
-        state.online = null;
+      if (!result.allowed) {
+        if (accessRevoked(result) || result.reason === 'insufficient_role') {
+          closePrivateView();
+        }
+        return false;
       }
-      show();
-      return result.allowed;
+      if (!result.profile || !Array.isArray(result.profile.permissions)) {
+        throw new Error('Ogiltig medlemsprofil');
+      }
+      state.user = result.profile;
+      return true;
     };
     start();
   });
@@ -1194,6 +1209,7 @@
     let selectedCard = null;
     let hoveredCard = null;
     let sampleMemberStatus = 'unknown';
+    let lastMemberPanelKey = '';
     let previewName = '';
     let previewOnlineCount = null;
     let signalLevel = 1;
@@ -1352,6 +1368,9 @@
       const edge = unknown ? 'member-neutral-edge' : paid ? 'member-green-edge' : 'member-red-edge';
       const face = unknown ? 'member-neutral-face' : paid ? 'member-green-face' : 'member-red-face';
       const time = new Intl.DateTimeFormat('sv-SE', {hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
+      const panelKey = `${time}:${sampleMemberStatus}`;
+      if (panelKey === lastMemberPanelKey) return;
+      lastMemberPanelKey = panelKey;
       memberArt.innerHTML = `<defs>
         <linearGradient id="member-back" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#080e11"/><stop offset=".55" stop-color="#070b0e"/><stop offset="1" stop-color="#0a0c0e"/></linearGradient>
         <linearGradient id="member-green-face" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#075526"/><stop offset=".4" stop-color="#091e13"/><stop offset="1" stop-color="#0b6931"/></linearGradient>
@@ -1703,6 +1722,15 @@
           compactFee.textContent = sampleMemberStatus === 'paid' ? 'Medlemsavgift betald' : sampleMemberStatus === 'unpaid' ? 'Medlemsavgift inte betald' : 'Medlemsstatus saknas';
           compactFee.dataset.status = sampleMemberStatus;
         },
+        setOnlineCount(count) {
+          if (!Number.isSafeInteger(count)) return;
+          previewOnlineCount = count;
+          document.querySelector('#compact-online').textContent = `${count} online`;
+          const value = dashboardArt.querySelector('#online-value');
+          if (value) value.textContent = String(count);
+          const label = dashboardArt.querySelector('#online-label');
+          if (label) label.setAttribute('x', String(count > 99 ? 370 : count > 9 ? 360 : 350));
+        },
         refresh() { renderMenuContent(); updateScreenContentVisibility(); },
       };
       document.dispatchEvent(new Event('vf:dashboard-ready'));
@@ -1761,8 +1789,8 @@
       renderMenuContent();
       const updateCompactClock = () => { document.querySelector('#compact-time').textContent = new Intl.DateTimeFormat('sv-SE',{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date()); };
       updateCompactClock();
-      setInterval(updateCompactClock, 1000);
-      setInterval(showMemberPanel, 1000);
+      setInterval(updateCompactClock, 10000);
+      setInterval(showMemberPanel, 10000);
       setInterval(showSignalBars, 1600);
       setInterval(showLocalDate, 60 * 1000);
       setInterval(cycleRoadIndicator, 2200);

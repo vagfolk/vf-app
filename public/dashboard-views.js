@@ -4,6 +4,7 @@
     messages: [],
     information: null,
     editingCard: null,
+    taskFormOpen: false,
   };
   const targets = new Set();
   let currentView = 'start';
@@ -81,11 +82,13 @@
         actions.append(link);
       }
     }
-    actions.append(button('Att göra', 'navigate', 'medlemsarbete'));
+    actions.append(isBoard
+      ? button('Att göra', 'open-task-form')
+      : button('Att göra', 'navigate', 'medlemsarbete'));
     if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
-    if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng vyn' : 'Logga ut','signout'));
+    if (options.user && options.connection !== 'google_test') actions.append(button('Logga ut','signout'));
     root.append(actions, notice());
-    if (permissions.has('board_view') && options.connection === 'google_test') {
+    if (isBoard && options.connection === 'google_test' && state.taskFormOpen) {
       const form = element('form', 'view-task-form');
       form.dataset.form = 'task';
       const label = element('label', 'view-screen-reader-only', 'Lägg till uppgift');
@@ -366,13 +369,16 @@
       }
       item.append(avatar, details);
       if (options.user?.permissions?.includes('board_view')) {
+        const cardKey = contact.cardId || `eko:${contact.memberId}`;
+        const editing = state.editingCard === cardKey;
         const controls = group(button('Redigera', 'edit-contact',
-          contact.cardId || `eko:${contact.memberId}`),
+          cardKey),
         button('Ta bort', 'delete-contact',
-          contact.cardId || `eko:${contact.memberId}`));
+          cardKey),
+        ...(editing ? [button('Stäng', 'close-contact-editor')] : []));
         controls.classList.add('view-contact-controls');
         item.append(controls);
-        if (state.editingCard === (contact.cardId || `eko:${contact.memberId}`)) {
+        if (editing) {
           item.append(contactForm(contact));
         }
       }
@@ -432,6 +438,18 @@
       const {action,value} = control.dataset;
       if (action === 'navigate') {
         document.dispatchEvent(new CustomEvent('vf:navigate',{detail:{id:value}}));
+        return;
+      }
+      if (action === 'open-task-form') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
+        state.taskFormOpen = true;
+        draw(window.VFPreviewViews.options);
+        target.querySelector('.view-task-form textarea')?.focus();
+        return;
+      }
+      if (action === 'close-contact-editor') {
+        state.editingCard = null;
+        draw(window.VFPreviewViews.options);
         return;
       }
       if (action === 'signout') {

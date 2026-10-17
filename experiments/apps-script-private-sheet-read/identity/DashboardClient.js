@@ -141,7 +141,7 @@
         state.online = latest.online;
         if (!ekoChanged && !storeChanged && !calendarChanged && !contactsChanged) {
           state.versions = latest;
-          show();
+          window.VFDashboard?.setOnlineCount?.(state.online);
           return;
         }
         const actions = [];
@@ -360,20 +360,17 @@
     window.VFDashboard.authorizeView = async view => {
       const result = await call('authorizeDashboardView', view);
       if (!result || typeof result.allowed !== 'boolean') throw new Error('Ogiltigt behörighetssvar');
-      state.user = result.profile || null;
-      if (!state.user) {
-        state.fee = null;
-        state.boardSummary = null;
-        state.calendar = null;
-        state.information = null;
-        state.chat = null;
-        state.tasks = null;
-        state.contacts = null;
-        state.versions = null;
-        state.online = null;
+      if (!result.allowed) {
+        if (accessRevoked(result) || result.reason === 'insufficient_role') {
+          closePrivateView();
+        }
+        return false;
       }
-      show();
-      return result.allowed;
+      if (!result.profile || !Array.isArray(result.profile.permissions)) {
+        throw new Error('Ogiltig medlemsprofil');
+      }
+      state.user = result.profile;
+      return true;
     };
     start();
   });

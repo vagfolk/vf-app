@@ -122,6 +122,7 @@
     let selectedCard = null;
     let hoveredCard = null;
     let sampleMemberStatus = 'unknown';
+    let lastMemberPanelKey = '';
     let previewName = '';
     let previewOnlineCount = null;
     let signalLevel = 1;
@@ -280,6 +281,9 @@
       const edge = unknown ? 'member-neutral-edge' : paid ? 'member-green-edge' : 'member-red-edge';
       const face = unknown ? 'member-neutral-face' : paid ? 'member-green-face' : 'member-red-face';
       const time = new Intl.DateTimeFormat('sv-SE', {hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
+      const panelKey = `${time}:${sampleMemberStatus}`;
+      if (panelKey === lastMemberPanelKey) return;
+      lastMemberPanelKey = panelKey;
       memberArt.innerHTML = `<defs>
         <linearGradient id="member-back" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#080e11"/><stop offset=".55" stop-color="#070b0e"/><stop offset="1" stop-color="#0a0c0e"/></linearGradient>
         <linearGradient id="member-green-face" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#075526"/><stop offset=".4" stop-color="#091e13"/><stop offset="1" stop-color="#0b6931"/></linearGradient>
@@ -631,6 +635,15 @@
           compactFee.textContent = sampleMemberStatus === 'paid' ? 'Medlemsavgift betald' : sampleMemberStatus === 'unpaid' ? 'Medlemsavgift inte betald' : 'Medlemsstatus saknas';
           compactFee.dataset.status = sampleMemberStatus;
         },
+        setOnlineCount(count) {
+          if (!Number.isSafeInteger(count)) return;
+          previewOnlineCount = count;
+          document.querySelector('#compact-online').textContent = `${count} online`;
+          const value = dashboardArt.querySelector('#online-value');
+          if (value) value.textContent = String(count);
+          const label = dashboardArt.querySelector('#online-label');
+          if (label) label.setAttribute('x', String(count > 99 ? 370 : count > 9 ? 360 : 350));
+        },
         refresh() { renderMenuContent(); updateScreenContentVisibility(); },
       };
       document.dispatchEvent(new Event('vf:dashboard-ready'));
@@ -689,8 +702,8 @@
       renderMenuContent();
       const updateCompactClock = () => { document.querySelector('#compact-time').textContent = new Intl.DateTimeFormat('sv-SE',{hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date()); };
       updateCompactClock();
-      setInterval(updateCompactClock, 1000);
-      setInterval(showMemberPanel, 1000);
+      setInterval(updateCompactClock, 10000);
+      setInterval(showMemberPanel, 10000);
       setInterval(showSignalBars, 1600);
       setInterval(showLocalDate, 60 * 1000);
       setInterval(cycleRoadIndicator, 2200);

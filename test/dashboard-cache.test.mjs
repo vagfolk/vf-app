@@ -7,6 +7,7 @@ test('växling mellan Start och Kalender hämtar inte om oförändrad profil och
   const listeners = new Map();
   const calls = [];
   const snapshots = [];
+  const onlineCounts = [];
   const responses = {
     profile: { permissions: ['own_fee', 'board_view'], name: 'Anna' },
     own_fee: { memberId: 'M1', name: 'Anna' },
@@ -38,8 +39,10 @@ test('växling mellan Start och Kalender hämtar inte om oförändrad profil och
             get(_target, name) {
               return (action) => {
                 calls.push(action || String(name));
-                queueMicrotask(() => success(responses[action]?.allowed === false
-                  ? responses[action] : { allowed: true, data: responses[action] }));
+                queueMicrotask(() => success(name === 'authorizeDashboardView'
+                  ? responses.authorizeDashboardView
+                  : responses[action]?.allowed === false
+                    ? responses[action] : { allowed: true, data: responses[action] }));
               };
             },
           });
@@ -49,7 +52,8 @@ test('växling mellan Start och Kalender hämtar inte om oförändrad profil och
   };
   const window = { google: { script: { run } }, VFDashboard: {
     setData(data) { snapshots.push({ user: data.user, connection: data.connection,
-      calendar: data.calendar, tasks: data.tasks }); }, refresh() {} } };
+      calendar: data.calendar, tasks: data.tasks }); },
+    setOnlineCount(count) { onlineCounts.push(count); }, refresh() {} } };
   runInNewContext(readFileSync(new URL('../experiments/apps-script-private-sheet-read/identity/DashboardClient.js', import.meta.url), 'utf8'),
     { window, document, google: window.google, setInterval() {}, CustomEvent: class {
       constructor(type, options) { this.type = type; this.detail = options.detail; }
@@ -59,6 +63,12 @@ test('växling mellan Start och Kalender hämtar inte om oförändrad profil och
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.filter(action => action === 'profile').length, 1);
   assert.equal(calls.filter(action => action === 'calendar').length, 1);
+  const renderCount = snapshots.length;
+
+  responses.authorizeDashboardView = { allowed: false, reason: 'data_unavailable' };
+  assert.equal(await window.VFDashboard.authorizeView('board'), false);
+  assert.equal(snapshots.at(-1).connection, 'google_test');
+  assert.equal(snapshots.at(-1).user.name, 'Anna');
 
   document.dispatchEvent({ type: 'vf:view-selected', detail: { id: 'kalender' } });
   document.dispatchEvent({ type: 'vf:view-selected', detail: { id: 'start' } });
@@ -67,6 +77,8 @@ test('växling mellan Start och Kalender hämtar inte om oförändrad profil och
   assert.equal(calls.filter(action => action === 'profile').length, 1);
   assert.equal(calls.filter(action => action === 'calendar').length, 1);
   assert.equal(calls.filter(action => action === 'app_versions').length, 2);
+  assert.equal(snapshots.length, renderCount);
+  assert.equal(onlineCounts.length, 1);
 
   responses.app_versions = { eko: 'e1', store: 's1', calendar: { member: 'v2' } };
   responses.calendar = { events: [], links: {}, version: { member: 'v2' } };
