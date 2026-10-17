@@ -146,7 +146,9 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   senare när posten skapats manuellt i EKO. Namn ensamt får inte användas för
   automatisk koppling. För kopplade kort hämtas telefon och e-post från EKO.
   Diskreta knappar **Redigera** och **Ta bort** finns inne i varje kort och
-  visas bara för styrelsen. Ta bort avser kontaktkortet, inte EKO-posten.
+  visas bara för styrelsen. Under redigering finns också **Stäng**, som
+  återgår till Kontakt utan att spara. Ta bort avser kontaktkortet, inte
+  EKO-posten.
   Ett borttaget kopplat kort ska inte automatiskt återskapas ur EKO;
   styrelsen får skapa ett nytt kort om personen ska visas i Kontakt igen.
   För att hindra återskapande sparas endast en intern markering av det
@@ -178,6 +180,9 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   uppgifter syns överst för alla medlemmar. Varje uppgift visas i en egen
   mörkgrå ruta. Skrivfältet på startsidan är kompakt, kan växa nedåt vid
   längre text och har listvalet och knappen **Lägg till uppgift** intill sig.
+  På styrelsens startsida öppnar knappen **Att göra** detta formulär;
+  formuläret visas inte innan knappen trycks. Vänstermenyns **Att göra**
+  öppnar listan. Knappen **Stäng vyn** används inte på startsidan.
   Själva Att göra-vyn ska enbart
   visa uppgifterna och låta behöriga användare bocka av eller återkalla en
   egen felmarkering. En
