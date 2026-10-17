@@ -7,6 +7,8 @@ const MEMBER_CALENDAR_PROPERTY = 'VF_MEMBER_CALENDAR_ID';
 const BOARD_CALENDAR_PROPERTY = 'VF_BOARD_CALENDAR_ID';
 const MESSAGES_SHEET_PROPERTY = 'VF_TEST_MESSAGES_SHEET_ID';
 const MESSAGES_FOLDER_PROPERTY = 'VF_TEST_MESSAGES_FOLDER_ID';
+const CONTACT_FOLDER_PROPERTY = 'VF_TEST_CONTACT_FOLDER_ID';
+const CONTACT_VERSION_PROPERTY = 'VF_TEST_CONTACTS_VERSION';
 const MAX_AGE_MS = 120000;
 
 function doGet() {
@@ -77,10 +79,10 @@ function sheetsRequest_(url, method, payload, token) {
 function doPost(event) {
   try {
     const raw = event && event.postData && event.postData.contents;
-    if (typeof raw !== 'string' || raw.length > 4096) return reply_(false, 'invalid_request');
+    if (typeof raw !== 'string' || raw.length > 180000) return reply_(false, 'invalid_request');
     const envelope = JSON.parse(raw);
     if (!envelope || typeof envelope.body !== 'string' || typeof envelope.mac !== 'string' ||
-        envelope.body.length > 4096 || !/^[A-Za-z0-9_-]{43}$/.test(envelope.mac)) {
+        envelope.body.length > 180000 || !/^[A-Za-z0-9_-]{43}$/.test(envelope.mac)) {
       return reply_(false, 'invalid_request');
     }
     const properties = PropertiesService.getScriptProperties();
@@ -102,7 +104,7 @@ function doPost(event) {
     }
     const hasContent = Object.prototype.hasOwnProperty.call(body, 'content');
     const writeAction = ['publish_information', 'post_chat', 'create_task',
-      'complete_task', 'recall_task'].includes(body.action);
+      'complete_task', 'recall_task', 'save_contact', 'delete_contact'].includes(body.action);
     const expectedKeys = hasContent
       ? 'action,associationId,content,nonce,subject,ts,v'
       : 'action,associationId,nonce,subject,ts,v';
@@ -110,12 +112,14 @@ function doPost(event) {
     if (body.v !== 1 || body.associationId !== associationId) return reply_(false, 'wrong_association_or_action');
     if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
           'publish_information', 'post_chat', 'tasks', 'contacts',
-          'create_task', 'complete_task', 'recall_task'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
+          'create_task', 'complete_task', 'recall_task', 'save_contact',
+          'delete_contact', 'leave_app'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
     if (typeof body.subject !== 'string' || !body.subject || body.subject.length > 255) return reply_(false, 'wrong_association_or_action');
     if (typeof body.nonce !== 'string' ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.nonce)) return reply_(false, 'wrong_association_or_action');
     if (writeAction !== hasContent ||
-        (hasContent && (typeof body.content !== 'string' || body.content.length > 600))) {
+        (hasContent && (typeof body.content !== 'string' ||
+          body.content.length > (body.action === 'save_contact' ? 170000 : 600)))) {
       return reply_(false, 'wrong_association_or_action');
     }
     if (!Number.isSafeInteger(body.ts) || Math.abs(Date.now() - body.ts) > MAX_AGE_MS) {
@@ -147,9 +151,13 @@ function doPost(event) {
     if (row[20] !== 'Aktiv') return reply_(false, 'inactive_user');
     const roles = [row[18] || 'Medlem', row[19]].filter(Boolean);
     if (roles.some(role => !['Medlem', 'Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role)) ||
-        typeof row[16] !== 'string' || !row[16] ||
+        typeof row[16] !== 'string' || !row[16] || row[16].length > 80 ||
         typeof row[1] !== 'string' || !row[1]) {
       return reply_(false, 'test_sheet_invalid');
+    }
+    if (body.action === 'leave_app') {
+      CacheService.getScriptCache().remove('online:' + associationId + ':' + row[16]);
+      return reply_(true, null, { saved: true });
     }
     if (body.action === 'app_versions') {
       const boardAllowed = roles.some(role =>
@@ -167,6 +175,8 @@ function doPost(event) {
       return reply_(true, null, {
         eko: readDriveModified_(spreadsheetId),
         store: readDriveModified_(messagesId),
+        contacts: properties.getProperty(CONTACT_VERSION_PROPERTY) || '1970-01-01T00:00:00.000Z',
+        online: touchPresence_(members, associationId, row[16]),
         calendar: calendar
       });
     }
@@ -190,17 +200,14 @@ function doPost(event) {
         content, row[16], row[1]);
       return reply_(true, null, { saved: true });
     }
-    if (body.action === 'contacts') {
-      const contacts = members.slice(1).filter(member => member[20] === 'Aktiv' &&
-        typeof member[16] === 'string' && member[16] &&
-        typeof member[1] === 'string' && member[1]).map(member => ({
-          memberId: member[16], name: member[1].slice(0, 80),
-          phone: String(member[2] || '').slice(0, 40),
-          email: String(member[3] || '').slice(0, 120)
-        }));
-      if (contacts.length > 1000) return reply_(false, 'too_many_contacts');
-      contacts.sort((a, b) => a.name.localeCompare(b.name, 'sv'));
-      return reply_(true, null, { contacts: contacts });
+    if (body.action === 'contacts') return reply_(true, null,
+      { contacts: visibleContacts_(members, properties) });
+    if (body.action === 'save_contact' || body.action === 'delete_contact') {
+      if (!roles.some(role => ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
+        return reply_(false, 'insufficient_role');
+      }
+      return writeContact_(body.action, body.content, members, spreadsheetId,
+        properties);
     }
     if (['tasks', 'create_task', 'complete_task', 'recall_task'].includes(body.action)) {
       const storeId = properties.getProperty(MESSAGES_SHEET_PROPERTY);
@@ -219,7 +226,8 @@ function doPost(event) {
     if (body.action === 'profile') {
       return reply_(true, null, {
         associationId: associationId, memberId: row[16],
-        name: row[1], roles: roles
+        name: row[1], roles: roles,
+        online: touchPresence_(members, associationId, row[16])
       });
     }
     if (body.action === 'own_fee') {
@@ -459,6 +467,302 @@ function driveRequest_(url, method, payload, token) {
     throw new Error('Drive-begäran misslyckades: HTTP ' + response.getResponseCode());
   }
   return JSON.parse(response.getContentText());
+}
+
+// Kontaktkort och foton är privata Drive-filer som enbart ägarskriptet läser.
+// Besökaren får aldrig ett Drive-ID eller en direktlänk till fotofilen.
+function contactFolder_(properties) {
+  let id = properties.getProperty(CONTACT_FOLDER_PROPERTY);
+  if (id) {
+    if (!/^[A-Za-z0-9_-]{20,128}$/.test(id)) throw new Error('Ogiltig kontaktmapp');
+    return id;
+  }
+  const parent = properties.getProperty(MESSAGES_FOLDER_PROPERTY);
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(parent || '')) throw new Error('Privat huvudmapp saknas');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) throw new Error('Kontaktmappen är upptagen');
+  try {
+    id = properties.getProperty(CONTACT_FOLDER_PROPERTY);
+    if (!id) {
+      const created = driveRequest_('https://www.googleapis.com/drive/v3/files?fields=id',
+        'post', { name: 'Kontakter', mimeType: 'application/vnd.google-apps.folder',
+          parents: [parent] }, ScriptApp.getOAuthToken());
+      id = created.id;
+      if (!/^[A-Za-z0-9_-]{20,128}$/.test(id || '')) throw new Error('Kontaktmappens ID saknas');
+      properties.setProperty(CONTACT_FOLDER_PROPERTY, id);
+      properties.setProperty(CONTACT_VERSION_PROPERTY, new Date().toISOString());
+    }
+  } finally { lock.releaseLock(); }
+  return id;
+}
+
+function contactFiles_(folderId) {
+  const all = [];
+  let page = '';
+  for (let index = 0; index < 10; index++) {
+    const query = "'" + folderId + "' in parents and trashed = false";
+    const url = 'https://www.googleapis.com/drive/v3/files?q=' +
+      encodeURIComponent(query) + '&fields=' +
+      encodeURIComponent('nextPageToken,files(id,name,mimeType)') +
+      '&pageSize=100' + (page ? '&pageToken=' + encodeURIComponent(page) : '');
+    const result = driveRequest_(url, 'get', null, ScriptApp.getOAuthToken());
+    if (!Array.isArray(result.files)) throw new Error('Ogiltig kontaktlista');
+    all.push(...result.files);
+    if (all.length > 1000) throw new Error('För många kontaktfiler');
+    page = result.nextPageToken || '';
+    if (!page) return all;
+  }
+  throw new Error('Kontaktlistan är för stor');
+}
+
+function contactFileContent_(fileId) {
+  const response = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' +
+    encodeURIComponent(fileId) + '?alt=media', {
+      method: 'get', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+      muteHttpExceptions: true
+    });
+  if (response.getResponseCode() !== 200) throw new Error('Kontaktfil kunde inte läsas');
+  const text = response.getContentText('UTF-8');
+  if (text.length > 60000) throw new Error('Kontaktfilen är för stor');
+  return JSON.parse(text);
+}
+
+function contactRecords_(properties) {
+  const association = properties.getProperty(ASSOCIATION_PROPERTY);
+  const cards = [];
+  const removed = new Map();
+  for (const file of contactFiles_(contactFolder_(properties))) {
+    if (file.mimeType !== 'application/json' ||
+        !/^[A-Za-z0-9_-]{20,128}$/.test(file.id || '')) continue;
+    const data = contactFileContent_(file.id);
+    if (!data || data.associationId !== association) throw new Error('Fel förening i kontaktfil');
+    if (data.kind === 'removed') {
+      if (typeof data.memberId !== 'string' || !data.memberId ||
+          removed.has(data.memberId)) throw new Error('Ogiltig borttagningsmarkering');
+      removed.set(data.memberId, file.id);
+    } else if (data.kind === 'card') {
+      if (!/^[0-9a-f-]{36}$/i.test(data.id || '') ||
+          typeof data.name !== 'string' || !data.name || data.name.length > 80 ||
+          typeof data.description !== 'string' || data.description.length > 400 ||
+          typeof data.memberId !== 'string' || data.memberId.length > 80 ||
+          typeof data.phone !== 'string' || data.phone.length > 40 ||
+          typeof data.email !== 'string' || data.email.length > 120 ||
+          typeof data.avatar !== 'string' || data.avatar.length > 18000 ||
+          (data.photoId && !/^[A-Za-z0-9_-]{20,128}$/.test(data.photoId))) {
+        throw new Error('Ogiltigt kontaktkort');
+      }
+      cards.push({ ...data, fileId: file.id });
+    }
+  }
+  return { cards: cards, removed: removed };
+}
+
+function activeContactMembers_(members) {
+  const active = new Map();
+  for (const member of members.slice(1)) {
+    if (member[20] !== 'Aktiv' || typeof member[16] !== 'string' ||
+        !member[16] || typeof member[1] !== 'string' || !member[1]) continue;
+    if (active.has(member[16])) throw new Error('Dubblerat medlems-ID');
+    active.set(member[16], member);
+  }
+  return active;
+}
+
+function visibleContacts_(members, properties) {
+  const active = activeContactMembers_(members);
+  const records = contactRecords_(properties);
+  const linked = new Set();
+  const contacts = [];
+  for (const card of records.cards) {
+    if (card.memberId && records.removed.has(card.memberId)) continue;
+    const member = card.memberId ? active.get(card.memberId) : null;
+    if (card.memberId && !member) continue;
+    if (card.memberId) {
+      if (linked.has(card.memberId)) throw new Error('Dubblerat kontaktkort');
+      linked.add(card.memberId);
+    }
+    contacts.push({ cardId: card.id, memberId: card.memberId,
+      name: member ? String(member[1]).slice(0, 80) : card.name,
+      phone: member ? String(member[2] || '').slice(0, 40) : card.phone,
+      email: member ? String(member[3] || '').slice(0, 120) : card.email,
+      description: card.description, avatar: card.avatar });
+  }
+  for (const [memberId, member] of active) {
+    if (linked.has(memberId) || records.removed.has(memberId)) continue;
+    contacts.push({ cardId: '', memberId: memberId,
+      name: String(member[1]).slice(0, 80),
+      phone: String(member[2] || '').slice(0, 40),
+      email: String(member[3] || '').slice(0, 120),
+      description: '', avatar: '' });
+  }
+  if (contacts.length > 1000) throw new Error('För många kontakter');
+  contacts.sort((left, right) => left.name.localeCompare(right.name, 'sv'));
+  return contacts;
+}
+
+function touchPresence_(members, associationId, memberId) {
+  const cache = CacheService.getScriptCache();
+  const activeIds = Array.from(activeContactMembers_(members).keys());
+  const keys = activeIds.map(id => 'online:' + associationId + ':' + id);
+  cache.put('online:' + associationId + ':' + memberId, '1', 180);
+  const values = cache.getAll(keys);
+  return keys.filter(key => values[key] === '1').length;
+}
+
+function contactFilename_(name, id, extension) {
+  const clean = name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').trim().slice(0, 65);
+  return clean + ' - ' + id.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 80) + extension;
+}
+
+function saveContactFile_(folderId, name, mimeType, bytes, existingId) {
+  const token = ScriptApp.getOAuthToken();
+  let id = existingId;
+  if (!id) {
+    const created = driveRequest_('https://www.googleapis.com/drive/v3/files?fields=id',
+      'post', { name: name, mimeType: mimeType, parents: [folderId] }, token);
+    id = created.id;
+  } else {
+    driveRequest_('https://www.googleapis.com/drive/v3/files/' +
+      encodeURIComponent(id) + '?fields=id', 'patch', { name: name }, token);
+  }
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(id || '')) throw new Error('Kontaktfilens ID saknas');
+  const result = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' +
+    encodeURIComponent(id) + '?uploadType=media&fields=id', {
+      method: 'patch', headers: { Authorization: 'Bearer ' + token },
+      contentType: mimeType, payload: bytes, muteHttpExceptions: true
+    });
+  if (result.getResponseCode() < 200 || result.getResponseCode() >= 300) {
+    throw new Error('Kontaktfilen kunde inte sparas');
+  }
+  return id;
+}
+
+function trashContactFile_(id) {
+  if (!id) return;
+  driveRequest_('https://www.googleapis.com/drive/v3/files/' +
+    encodeURIComponent(id) + '?fields=id', 'patch', { trashed: true },
+    ScriptApp.getOAuthToken());
+}
+
+function contactInput_(content, action) {
+  let input;
+  try { input = JSON.parse(content); } catch (_error) { throw new Error('invalid_content'); }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('invalid_content');
+  const allowed = action === 'delete_contact'
+    ? ['cardId', 'memberId']
+    : ['cardId', 'memberId', 'name', 'description', 'phone', 'email',
+      'photo', 'avatar', 'removePhoto', 'updateEko'];
+  if (Object.keys(input).some(key => !allowed.includes(key)) ||
+      typeof input.cardId !== 'string' ||
+      (input.cardId && !/^[0-9a-f-]{36}$/i.test(input.cardId)) ||
+      typeof input.memberId !== 'string' || input.memberId.length > 80) {
+    throw new Error('invalid_content');
+  }
+  if (action === 'delete_contact') return input;
+  if (typeof input.name !== 'string' || !input.name.trim() || input.name.length > 80 ||
+      typeof input.description !== 'string' || input.description.length > 400 ||
+      typeof input.phone !== 'string' || input.phone.length > 40 ||
+      typeof input.email !== 'string' || input.email.length > 120 ||
+      typeof input.photo !== 'string' || input.photo.length > 125000 ||
+      typeof input.avatar !== 'string' || input.avatar.length > 16000 ||
+      typeof input.removePhoto !== 'boolean' || typeof input.updateEko !== 'boolean' ||
+      (input.photo && (input.removePhoto || !input.avatar)) ||
+      (!input.photo && input.avatar) ||
+      /[\u0000-\u001f\u007f]/.test(input.name + input.phone + input.email) ||
+      !/^[+0-9() .-]*$/.test(input.phone) ||
+      (input.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email))) {
+    throw new Error('invalid_content');
+  }
+  if (input.photo) {
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(input.photo) ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(input.avatar)) throw new Error('invalid_photo');
+    const bytes = Utilities.base64Decode(input.photo);
+    const avatar = Utilities.base64Decode(input.avatar);
+    if (bytes.length > 90000 || avatar.length > 12000 ||
+        bytes[0] !== 255 || bytes[1] !== 216 || avatar[0] !== 255 || avatar[1] !== 216) {
+      throw new Error('invalid_photo');
+    }
+  }
+  return input;
+}
+
+function writeContact_(action, content, members, spreadsheetId, properties) {
+  let input;
+  try { input = contactInput_(content, action); }
+  catch (error) { return reply_(false, error.message === 'invalid_photo' ? 'invalid_photo' : 'invalid_content'); }
+  const folder = contactFolder_(properties);
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return reply_(false, 'busy');
+  try {
+    const records = contactRecords_(properties);
+    const active = activeContactMembers_(members);
+    const existing = input.cardId
+      ? records.cards.find(card => card.id === input.cardId) : null;
+    if (input.cardId && !existing) return reply_(false, 'contact_not_found');
+    if (existing && existing.memberId && input.memberId !== existing.memberId &&
+        action === 'delete_contact') return reply_(false, 'invalid_content');
+    if (action === 'delete_contact') {
+      const memberId = existing ? existing.memberId : input.memberId;
+      if (!existing && (!memberId || !active.has(memberId))) {
+        return reply_(false, 'contact_not_found');
+      }
+      if (memberId && !records.removed.has(memberId)) {
+        const marker = { kind: 'removed', associationId: properties.getProperty(ASSOCIATION_PROPERTY),
+          memberId: memberId };
+        saveContactFile_(folder, contactFilename_('Borttagen', memberId, '.json'),
+          'application/json', Utilities.newBlob(JSON.stringify(marker)).getBytes());
+      }
+      if (existing) {
+        trashContactFile_(existing.fileId);
+        trashContactFile_(existing.photoId);
+      }
+      properties.setProperty(CONTACT_VERSION_PROPERTY, new Date().toISOString());
+      return reply_(true, null, { saved: true });
+    }
+    if (input.memberId && !active.has(input.memberId)) return reply_(false, 'member_not_found');
+    if (input.memberId && records.cards.some(card => card.memberId === input.memberId &&
+        card.id !== existing?.id)) return reply_(false, 'already_linked');
+    if (existing && existing.memberId && input.memberId !== existing.memberId) {
+      return reply_(false, 'cannot_relink');
+    }
+    const newlyLinked = !!input.memberId && (!existing || !existing.memberId);
+    const member = input.memberId ? active.get(input.memberId) : null;
+    const name = member ? String(member[1]).slice(0, 80) : input.name.trim();
+    const id = existing?.id || Utilities.getUuid();
+    const photoId = input.photo
+      ? saveContactFile_(folder, contactFilename_(name, input.memberId || id, '.jpg'),
+        'image/jpeg', Utilities.base64Decode(input.photo))
+      : input.removePhoto ? '' : existing?.photoId || '';
+    const card = { kind: 'card', associationId: properties.getProperty(ASSOCIATION_PROPERTY),
+      id: id, memberId: input.memberId, name: name,
+      description: input.description.trim(),
+      phone: member ? '' : input.phone.trim(), email: member ? '' : input.email.trim(),
+      photoId: photoId,
+      avatar: input.photo ? input.avatar : input.removePhoto ? '' : existing?.avatar || '' };
+    if (member && (!newlyLinked || input.updateEko) &&
+        (input.phone !== String(member[2] || '') ||
+          input.email !== String(member[3] || ''))) {
+      const index = members.indexOf(member) + 11;
+      sheetsRequest_('https://sheets.googleapis.com/v4/spreadsheets/' +
+        encodeURIComponent(spreadsheetId) + '/values:batchUpdate', 'post', {
+          valueInputOption: 'RAW', data: [
+            { range: "'Medlemmar'!C" + index + ':D' + index,
+              values: [[input.phone.trim(), input.email.trim()]] }
+          ]
+        }, ScriptApp.getOAuthToken());
+    }
+    saveContactFile_(folder, contactFilename_(name, input.memberId || id, '.json'),
+      'application/json', Utilities.newBlob(JSON.stringify(card)).getBytes(),
+      existing?.fileId);
+    if (existing && existing.photoId && existing.photoId !== photoId) {
+      trashContactFile_(existing.photoId);
+    }
+    if (input.memberId && records.removed.has(input.memberId)) {
+      trashContactFile_(records.removed.get(input.memberId));
+    }
+    properties.setProperty(CONTACT_VERSION_PROPERTY, new Date().toISOString());
+    return reply_(true, null, { saved: true, cardId: id });
+  } finally { lock.releaseLock(); }
 }
 
 function readMessages_(id, sheet) {

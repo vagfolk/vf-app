@@ -405,7 +405,9 @@
     }
 
     async function selectMenu(id) {
-      if (!menu.some(entry => entry.id === id) && id !== 'information' && !Object.hasOwn(restrictedViews,id)) return;
+      if (!menu.some(entry => entry.id === id) &&
+          !['information', 'medlemmar'].includes(id) && !Object.hasOwn(restrictedViews,id)) return;
+      if (id === 'medlemmar' && !window.VFAppData?.user?.permissions?.includes('board_view')) return;
       const request = ++navigationRequest;
       const required = restrictedViews[id];
       if (required && !window.VFAppData?.user?.permissions?.includes(required)) {
@@ -599,12 +601,16 @@
         setData(data) {
           screenContent.hidden = true;
           window.VFAppData = data;
-          if (restrictedViews[selectedMenu] && !data.user?.permissions?.includes(restrictedViews[selectedMenu])) {
+          if ((restrictedViews[selectedMenu] && !data.user?.permissions?.includes(restrictedViews[selectedMenu])) ||
+              (selectedMenu === 'medlemmar' && !data.user?.permissions?.includes('board_view'))) {
             ++navigationRequest;
             selectedMenu = 'start';
             showMenuSelection();
           }
           previewName = String(data.fee?.name || '').trim().slice(0, 36);
+          previewOnlineCount = Number.isSafeInteger(data.online) ? data.online : null;
+          document.querySelector('#compact-online').textContent = previewOnlineCount === null
+            ? '– online' : `${previewOnlineCount} online`;
           sampleMemberStatus = data.fee?.status === 'paid' ? 'paid' : data.fee?.status === 'unpaid' ? 'unpaid' : 'unknown';
           showDashboardDetails();
           showMemberPanel();

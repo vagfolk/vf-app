@@ -57,14 +57,16 @@ function readTestData_(request) {
     ? request.action : null;
   if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
       'publish_information', 'post_chat', 'tasks', 'contacts',
-      'create_task', 'complete_task', 'recall_task'].includes(action)) {
+      'create_task', 'complete_task', 'recall_task', 'save_contact',
+      'delete_contact', 'leave_app'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
   const writeAction = ['publish_information', 'post_chat', 'create_task',
-    'complete_task', 'recall_task'].includes(action);
+    'complete_task', 'recall_task', 'save_contact', 'delete_contact'].includes(action);
   const content = request && request.content;
   if (writeAction && (typeof content !== 'string' ||
-      !content.trim() || content.length > (action === 'post_chat' ? 120 : 600))) {
+      !content.trim() || content.length > (action === 'save_contact' ? 170000 :
+        action === 'post_chat' ? 120 : 600))) {
     return { allowed: false, reason: 'invalid_content' };
   }
   const subject = currentGoogleSubject_();
@@ -153,7 +155,9 @@ function readDashboardData(action) {
     const permissions = [...new Set(roles.flatMap(function(role) { return rolePermissions[role]; }))].sort();
     return { allowed: true, data: {
       associationId: data.associationId, associationName: 'Vägfölk test',
-      name: data.name, roles: roles, permissions: permissions
+      name: data.name, roles: roles, permissions: permissions,
+      online: Number.isSafeInteger(data.online) && data.online >= 1 && data.online <= 1000
+        ? data.online : 1
     } };
   }
   if (action === 'own_fee') {
@@ -176,7 +180,8 @@ function readDashboardData(action) {
       return typeof value === 'string' && Number.isFinite(Date.parse(value));
     };
     const calendar = data.calendar;
-    if (!validTime(data.eko) || !validTime(data.store) || !calendar ||
+    if (!validTime(data.eko) || !validTime(data.store) || !validTime(data.contacts) ||
+        !Number.isSafeInteger(data.online) || data.online < 1 || data.online > 1000 || !calendar ||
         typeof calendar !== 'object' || Array.isArray(calendar) ||
         Object.keys(calendar).some(function(kind) { return !['member', 'board'].includes(kind); }) ||
         !validTime(calendar.member) ||
@@ -184,6 +189,7 @@ function readDashboardData(action) {
       return { allowed: false, reason: 'data_unavailable' };
     }
     return { allowed: true, data: { eko: data.eko, store: data.store,
+      contacts: data.contacts, online: data.online,
       calendar: calendar } };
   }
   if (action === 'calendar' || action === 'calendar_version') {
@@ -249,10 +255,15 @@ function readDashboardData(action) {
   if (action === 'contacts') {
     if (!Array.isArray(data.contacts) || data.contacts.length > 1000 ||
         data.contacts.some(function(contact) {
-          return !contact || typeof contact.memberId !== 'string' ||
+          return !contact || typeof contact.cardId !== 'string' ||
+            (contact.cardId && !/^[0-9a-f-]{36}$/i.test(contact.cardId)) ||
+            typeof contact.memberId !== 'string' ||
             typeof contact.name !== 'string' || typeof contact.phone !== 'string' ||
             typeof contact.email !== 'string' || contact.name.length > 80 ||
-            contact.phone.length > 40 || contact.email.length > 120;
+            contact.phone.length > 40 || contact.email.length > 120 ||
+            typeof contact.description !== 'string' || contact.description.length > 400 ||
+            typeof contact.avatar !== 'string' || contact.avatar.length > 18000 ||
+            (contact.avatar && !/^[A-Za-z0-9+/]+={0,2}$/.test(contact.avatar));
         })) return { allowed: false, reason: 'data_unavailable' };
     return { allowed: true, data: { contacts: data.contacts } };
   }
@@ -291,6 +302,29 @@ function createTask(input) {
 
 function completeTask(id) { return taskWrite_('complete_task', id); }
 function recallTask(id) { return taskWrite_('recall_task', id); }
+
+function saveContact(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return { allowed: false, reason: 'invalid_content' };
+  }
+  const result = readTestData_({ action: 'save_contact', content: JSON.stringify(input) });
+  return result.allowed && result.data?.saved === true
+    ? { allowed: true, cardId: result.data.cardId }
+    : { allowed: false, reason: result.reason || 'data_unavailable' };
+}
+
+function deleteContact(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return { allowed: false, reason: 'invalid_content' };
+  }
+  const result = readTestData_({ action: 'delete_contact', content: JSON.stringify(input) });
+  return result.allowed && result.data?.saved === true
+    ? { allowed: true } : { allowed: false, reason: result.reason || 'data_unavailable' };
+}
+
+function leaveApp() {
+  return readTestData_({ action: 'leave_app' });
+}
 
 function taskWrite_(action, content) {
   const result = readTestData_({ action: action, content: content });

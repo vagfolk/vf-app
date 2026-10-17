@@ -42,6 +42,7 @@ function memberRow({ sub, role = 'Medlem', status = 'Aktiv', name, id,
 
 function utilities() {
   return {
+    base64Decode: value => Array.from(Buffer.from(value, 'base64')),
     base64DecodeWebSafe: value => Array.from(Buffer.from(value, 'base64url')),
     base64EncodeWebSafe: value => Buffer.from(value.map(item => item & 255)).toString('base64url'),
     computeHmacSha256Signature: (body, secret) => {
@@ -58,7 +59,8 @@ function utilities() {
 }
 
 function properties(values) {
-  return { getScriptProperties: () => ({ getProperty: name => values.get(name) ?? null }) };
+  return { getScriptProperties: () => ({ getProperty: name => values.get(name) ?? null,
+    setProperty: (name, value) => values.set(name, value) }) };
 }
 
 function reply(value, status = 200, headers = {}) {
@@ -80,7 +82,9 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
     ['VF_TEST_BRIDGE_KEY', keyText],
     ['VF_TEST_SPREADSHEET_ID', fileId],
     ['VF_MEMBER_CALENDAR_ID', memberCalendarId],
-    ['VF_BOARD_CALENDAR_ID', boardCalendarId]
+    ['VF_BOARD_CALENDAR_ID', boardCalendarId],
+    ['VF_TEST_CONTACT_FOLDER_ID', 'contacts-test-folder-aaaaaaaaaaaa'],
+    ['VF_TEST_CONTACTS_VERSION', '2026-10-16T09:45:00.000Z']
   ]);
   const identityProperties = new Map([
     ['VF_TEST_ASSOCIATION_ID', association],
@@ -89,6 +93,7 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
   ]);
   let subject = 'google-member';
   const seenNonces = new Set();
+  const present = new Map();
   const sheetReads = [];
   const calendarReads = [];
   const calendarVersions = new Map([
@@ -103,6 +108,8 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
   const chatRows = [['ID','Medlems-ID','Namn','Text','Tid']];
   const taskRows = emptyTaskStore ? [] : [['Händelse-ID','Uppgift-ID','Lista','Händelse','Uppgift',
     'Medlems-ID','Namn','Tid','Orsak']];
+  const contactFiles = new Map();
+  let nextContactFile = 1;
   let taskSheetExists = !emptyTaskStore;
   dataProperties.set('VF_TEST_MESSAGES_SHEET_ID', 'messages-test-file-aaaaaaaaaaaaaa');
   let forwarded = 0;
@@ -113,8 +120,11 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
     PropertiesService: properties(dataProperties), Utilities: utilities(),
     LockService: { getScriptLock: () => ({ tryLock: () => true, releaseLock() {} }) },
     CacheService: { getScriptCache: () => ({
-      get: nonce => seenNonces.has(nonce) ? '1' : null,
-      put: nonce => seenNonces.add(nonce)
+      get: nonce => seenNonces.has(nonce) ? '1' : present.get(nonce) ?? null,
+      put: (key, value) => key.startsWith('nonce:') ? seenNonces.add(key) : present.set(key, value),
+      getAll: keys => Object.fromEntries(keys.filter(key => present.has(key))
+        .map(key => [key, present.get(key)])),
+      remove: key => present.delete(key)
     }) },
     ContentService: { MimeType: { JSON: 'JSON' },
       createTextOutput: value => ({ value, setMimeType() { return this; } }) },
@@ -136,11 +146,35 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
             start: { dateTime: '2026-11-02T18:00:00+01:00' },
             end: { dateTime: '2026-11-02T19:00:00+01:00' } }] : [])] });
       }
+      if (url.startsWith('https://www.googleapis.com/upload/drive/v3/files/')) {
+        const id = decodeURIComponent(new URL(url).pathname.split('/files/')[1]);
+        const file = contactFiles.get(id);
+        assert.ok(file);
+        file.content = Buffer.from(options.payload).toString('utf8');
+        return reply({ id });
+      }
       if (url.startsWith('https://www.googleapis.com/drive/v3/files/')) {
         assert.equal(options.headers.Authorization, 'Bearer fake-readonly-token');
         const id = decodeURIComponent(new URL(url).pathname.split('/files/')[1]);
+        const file = contactFiles.get(id);
+        if (file && new URL(url).searchParams.get('alt') === 'media') {
+          return { getResponseCode: () => 200, getContentText: () => file.content };
+        }
+        if (file && options.method === 'patch') {
+          Object.assign(file, JSON.parse(options.payload));
+          return reply({ id });
+        }
         assert.equal(new URL(url).searchParams.get('fields'), 'modifiedTime');
         return reply({ modifiedTime: driveVersions.get(id) });
+      }
+      if (url.startsWith('https://www.googleapis.com/drive/v3/files?')) {
+        if (options.method === 'post') {
+          const id = `contact_file_${String(nextContactFile++).padStart(20, '0')}`;
+          contactFiles.set(id, { id, ...JSON.parse(options.payload), content: '' });
+          return reply({ id });
+        }
+        return reply({ files: [...contactFiles.values()].filter(file => !file.trashed)
+          .map(({ id, name, mimeType }) => ({ id, name, mimeType })) });
       }
       assert.match(url, /^https:\/\/sheets\.googleapis\.com\/v4\/spreadsheets\//);
       assert.equal(options.headers.Authorization, 'Bearer fake-readonly-token');
@@ -154,6 +188,14 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
         ] });
       }
       if (url.includes(':batchUpdate')) {
+        if (url.includes('/values:batchUpdate')) {
+          for (const item of JSON.parse(options.payload).data) {
+            const rowNumber = Number(item.range.match(/C(\d+):D\d+$/)[1]);
+            rows[rowNumber - 11][2] = item.values[0][0];
+            rows[rowNumber - 11][3] = item.values[0][1];
+          }
+          return reply({ totalUpdatedRows: 1 });
+        }
         taskSheetExists = true;
         return reply({ replies: [{}] });
       }
@@ -230,7 +272,8 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
   runInNewContext(readFileSync(new URL('identity/Code.gs', root), 'utf8'), identity);
   return {
     data, identity, dataProperties, identityProperties, sheetReads, calendarReads,
-    informationRows, chatRows, taskRows, calendarVersions, driveVersions,
+    informationRows, chatRows, taskRows, contactFiles, rows,
+    calendarVersions, driveVersions,
     setSubject: value => { subject = value; },
     forwarded: () => forwarded, redirectFetches: () => redirectFetches,
     requiredScopeChecks: () => requiredScopeChecks
@@ -304,6 +347,8 @@ test('gemensam ändringskontroll skiljer EKO, appinnehåll och rollstyrd kalende
   assert.deepEqual(result(app.identity.readDashboardData('app_versions')).data, {
     eko: '2026-10-16T09:00:00.000Z',
     store: '2026-10-16T09:30:00.000Z',
+    contacts: '2026-10-16T09:45:00.000Z',
+    online: 1,
     calendar: { member: '2026-10-16T10:00:00.000Z' }
   });
   app.driveVersions.set(fileId, '2026-10-16T12:00:00.000Z');
@@ -311,6 +356,8 @@ test('gemensam ändringskontroll skiljer EKO, appinnehåll och rollstyrd kalende
   assert.deepEqual(result(app.identity.readDashboardData('app_versions')).data, {
     eko: '2026-10-16T12:00:00.000Z',
     store: '2026-10-16T09:30:00.000Z',
+    contacts: '2026-10-16T09:45:00.000Z',
+    online: 2,
     calendar: { member: '2026-10-16T10:00:00.000Z',
       board: '2026-10-16T11:00:00.000Z' }
   });
@@ -342,7 +389,7 @@ test('instrumentpanelen lämnar bara ut profil och avgiftsstatus för medlemmen'
   assert.deepEqual(result(app.identity.readDashboardData('profile')), {
     allowed: true,
     data: { associationId: association, associationName: 'Vägfölk test',
-      name: 'Testmedlem', roles: ['Medlem'], permissions: ['own_fee'] }
+      name: 'Testmedlem', roles: ['Medlem'], permissions: ['own_fee'], online: 1 }
   });
   assert.deepEqual(result(app.identity.readDashboardData('own_fee')), {
     allowed: true,
@@ -383,13 +430,13 @@ test('profilen hämtas från aktiv EKO-rad och lämnar bara ut ID, namn och roll
   const app = fixture();
   assert.deepEqual(result(post(app.data, signed({ action: 'profile' }))), {
     allowed: true,
-    data: { associationId: association, memberId: 'M-001', name: 'Testmedlem', roles: ['Medlem'] }
+    data: { associationId: association, memberId: 'M-001', name: 'Testmedlem', roles: ['Medlem'], online: 1 }
   });
   assert.equal(app.sheetReads.length, 1);
   app.setSubject('google-board');
   assert.deepEqual(result(post(app.data, signed({ action: 'profile', subject: 'google-board' }))), {
     allowed: true,
-    data: { associationId: association, memberId: 'M-002', name: 'Teststyrelse', roles: ['Styrelse'] }
+    data: { associationId: association, memberId: 'M-002', name: 'Teststyrelse', roles: ['Styrelse'], online: 2 }
   });
 });
 
@@ -605,4 +652,93 @@ test('styrelsens uppgifter och kontaktuppgifter avgränsas efter aktiv EKO-statu
   assert.equal(JSON.stringify(contacts).includes('999'), false);
   app.setSubject('inactive');
   assert.equal(app.identity.readDashboardData('contacts').reason, 'inactive_user');
+});
+
+test('kontaktkort hämtar EKO-fält, hanterar saknat ID och två privata foton', () => {
+  const members = [memberHead,
+    memberRow({ sub: 'google-board', role: 'Styrelse', name: 'Styrelseperson', id: 'BOARD-1' }),
+    memberRow({ sub: 'google-member', name: 'Vanlig medlem', id: 'MEMBER-1' }),
+    memberRow({ sub: '', name: 'Alva Testkort', id: 'KORT-ALVA',
+      phone: '+46701111111', email: 'alva@example.invalid' }),
+    memberRow({ sub: '', name: 'Bo Testkort', id: 'KORT-BO' }),
+    memberRow({ sub: '', name: 'Cecilia Testkort', id: '' })];
+  const f = fixture({ members });
+  f.setSubject('google-board');
+  const initial = result(f.identity.readDashboardData('contacts'));
+  assert.equal(initial.allowed, true);
+  assert.deepEqual(initial.data.contacts.map(item => item.name),
+    ['Alva Testkort', 'Bo Testkort', 'Styrelseperson', 'Vanlig medlem']);
+  assert.equal(initial.data.contacts[0].phone, '+46701111111');
+  assert.equal(initial.data.contacts[0].email, 'alva@example.invalid');
+  assert.equal(initial.data.contacts[1].phone, '');
+  assert.equal(initial.data.contacts[1].email, '');
+  assert.equal(initial.data.contacts.some(item => item.name === 'Cecilia Testkort'), false);
+
+  const picture = Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64');
+  const input = (memberId, name, withPhoto) => ({ cardId: '', memberId, name,
+    description: `${name} beskrivning`, phone: '', email: '',
+    photo: withPhoto ? picture : '', avatar: withPhoto ? picture : '',
+    removePhoto: false, updateEko: false });
+  for (const [id, name, image] of [
+    ['KORT-ALVA', 'Alva Testkort', true],
+    ['KORT-BO', 'Bo Testkort', true],
+    ['', 'Cecilia Testkort', false]
+  ]) assert.equal(result(f.identity.saveContact(input(id, name, image))).allowed, true);
+
+  const after = result(f.identity.readDashboardData('contacts')).data.contacts;
+  assert.deepEqual(after.map(item => item.name),
+    ['Alva Testkort', 'Bo Testkort', 'Cecilia Testkort', 'Styrelseperson', 'Vanlig medlem']);
+  assert.equal(after[0].phone, '+46701111111');
+  assert.equal(after[0].email, 'alva@example.invalid');
+  assert.equal(after[0].avatar, picture);
+  assert.equal(after[1].phone, '');
+  assert.equal(after[1].email, '');
+  assert.equal(after[1].avatar, picture);
+  assert.equal(after[2].memberId, '');
+  assert.equal(after[2].avatar, '');
+  assert.equal([...f.contactFiles.values()].filter(file => file.mimeType === 'image/jpeg').length, 2);
+  assert.equal(f.rows[3][2], '+46701111111');
+  assert.equal(f.rows[3][3], 'alva@example.invalid');
+
+  f.setSubject('google-member');
+  assert.equal(result(f.identity.saveContact(input('', 'Otillåten', false))).reason, 'insufficient_role');
+  assert.equal(result(f.identity.readDashboardData('contacts')).allowed, true);
+});
+
+test('redigering uppdaterar bara kopplad kontakt i EKO och borttagning bevarar medlemsposten', () => {
+  const f = fixture({ members: [memberHead,
+    memberRow({ sub: 'google-board', role: 'Styrelse', name: 'Styrelseperson', id: 'BOARD-1' }),
+    memberRow({ sub: '', name: 'Disa Testkort', id: 'KORT-DISA',
+      phone: '0701111111', email: 'disa@example.invalid' })] });
+  f.setSubject('google-board');
+  const before = result(f.identity.readDashboardData('contacts')).data.contacts;
+  const card = before.find(item => item.memberId === 'KORT-DISA');
+  assert.equal(card.phone, '0701111111');
+
+  const saved = result(f.identity.saveContact({ cardId: '', memberId: card.memberId,
+    name: card.name, description: 'Kort presentation', phone: '0702222222',
+    email: 'ny@example.invalid', photo: '', avatar: '', removePhoto: false,
+    updateEko: true }));
+  assert.equal(saved.allowed, true);
+  const changed = result(f.identity.readDashboardData('contacts')).data.contacts
+    .find(item => item.memberId === 'KORT-DISA');
+  assert.equal(changed.phone, '0702222222');
+  assert.equal(changed.email, 'ny@example.invalid');
+  assert.equal(changed.description, 'Kort presentation');
+  assert.equal(f.rows[2][2], '0702222222');
+  assert.equal(f.rows[2][3], 'ny@example.invalid');
+
+  assert.equal(result(f.identity.deleteContact({ cardId: saved.cardId,
+    memberId: 'KORT-DISA' })).allowed, true);
+  assert.equal(result(f.identity.readDashboardData('contacts')).data.contacts
+    .some(item => item.memberId === 'KORT-DISA'), false);
+  assert.equal(f.rows[2][1], 'Disa Testkort');
+  assert.equal(f.rows[2][16], 'KORT-DISA');
+  assert.equal(f.rows[2][2], '0702222222');
+
+  assert.equal(result(f.identity.saveContact({ cardId: '', memberId: 'KORT-DISA',
+    name: 'Disa Testkort', description: '', phone: '', email: '', photo: '', avatar: '',
+    removePhoto: false, updateEko: false })).allowed, true);
+  assert.equal(result(f.identity.readDashboardData('contacts')).data.contacts
+    .some(item => item.memberId === 'KORT-DISA'), true);
 });

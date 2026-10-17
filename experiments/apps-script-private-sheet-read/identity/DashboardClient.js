@@ -2,7 +2,7 @@
 (() => {
   const state = { user: null, fee: null, boardSummary: null, calendar: null,
     information: null, chat: null, tasks: null, contacts: null,
-    versions: null, connection: 'checking' };
+    versions: null, online: null, connection: 'checking' };
   let updateCheckPromise = null;
   let lastUpdateCheckAt = 0;
   let updateGeneration = 0;
@@ -34,9 +34,18 @@
     state.tasks = null;
     state.contacts = null;
     state.versions = null;
+    state.online = null;
     state.connection = 'error';
     show();
     notice('Åtkomsten kunde inte kontrolleras. Försök logga in på nytt.');
+  }
+  function accessRevoked(error) {
+    return ['unknown_user', 'inactive_user', 'duplicate_identity',
+      'wrong_association_or_action', 'insufficient_role'].includes(error?.reason);
+  }
+  function handleReadFailure(error) {
+    if (accessRevoked(error)) closePrivateView();
+    else notice('Uppdateringen misslyckades. Befintliga uppgifter visas medan appen försöker igen.');
   }
   function call(name, value) {
     return new Promise((resolve, reject) => {
@@ -89,6 +98,7 @@
       state.contacts = snapshot.contacts;
       state.boardSummary = snapshot.board_summary || null;
       state.versions = snapshot.app_versions;
+      state.online = snapshot.app_versions.online || profile.online || 1;
       calendarDay = new Date().toDateString();
       lastUpdateCheckAt = Date.now();
       state.connection = 'google_test';
@@ -104,6 +114,7 @@
       state.tasks = null;
       state.contacts = null;
       state.versions = null;
+      state.online = null;
       state.connection = 'error';
       show();
       notice(error && error.reason === 'unknown_user' || error && error.reason === 'inactive_user'
@@ -124,11 +135,18 @@
         if (generation !== updateGeneration || state.connection !== 'google_test') return;
         const ekoChanged = latest.eko !== state.versions.eko;
         const storeChanged = latest.store !== state.versions.store;
+        const contactsChanged = latest.contacts !== state.versions.contacts;
         const calendarChanged = calendarDay !== new Date().toDateString() ||
           JSON.stringify(latest.calendar) !== JSON.stringify(state.versions.calendar);
-        if (!ekoChanged && !storeChanged && !calendarChanged) return;
+        state.online = latest.online;
+        if (!ekoChanged && !storeChanged && !calendarChanged && !contactsChanged) {
+          state.versions = latest;
+          show();
+          return;
+        }
         const actions = [];
         if (ekoChanged) actions.push('profile', 'own_fee', 'contacts');
+        else if (contactsChanged) actions.push('contacts');
         if (storeChanged) actions.push('information', 'chat', 'tasks');
         if (calendarChanged) actions.push('calendar');
         const loaded = await Promise.all(actions.map(read));
@@ -143,6 +161,7 @@
             ? await read('board_summary') : null;
           if (generation !== updateGeneration || state.connection !== 'google_test') return;
         }
+        else if (contactsChanged) state.contacts = updated.contacts;
         if (storeChanged) {
           state.information = updated.information;
           state.chat = updated.chat;
@@ -154,9 +173,9 @@
         }
         state.versions = latest;
         show();
-      } catch {
+      } catch (error) {
         if (generation === updateGeneration && state.connection === 'google_test') {
-          closePrivateView();
+          handleReadFailure(error);
         }
       }
     })().finally(() => { updateCheckPromise = null; });
@@ -173,7 +192,7 @@
       state.information = information;
     } catch (error) {
       if (request !== informationRequest) return;
-      closePrivateView();
+      handleReadFailure(error);
       return;
     }
     show();
@@ -190,7 +209,7 @@
       state.chat = chat;
     } catch (error) {
       if (request !== chatRequest) return;
-      closePrivateView();
+      handleReadFailure(error);
       return;
     } finally {
       chatLoading = false;
@@ -207,8 +226,8 @@
       if (request !== tasksRequest) return;
       state.tasks = tasks;
       show();
-    } catch {
-      if (request === tasksRequest) closePrivateView();
+    } catch (error) {
+      if (request === tasksRequest) handleReadFailure(error);
     }
   }
 
@@ -221,8 +240,8 @@
       if (request !== contactsRequest) return;
       state.contacts = contacts;
       show();
-    } catch {
-      if (request === contactsRequest) closePrivateView();
+    } catch (error) {
+      if (request === contactsRequest) handleReadFailure(error);
     }
   }
 
@@ -248,6 +267,34 @@
         notice('Ändringen kunde inte bekräftas. Uppdatera listan innan du försöker igen.');
         await loadTasks(true);
       }
+    }
+  }
+
+  async function writeContact(method, input) {
+    if (state.connection !== 'google_test' ||
+        !state.user?.permissions?.includes('board_view')) return;
+    try {
+      const result = await call(method, input);
+      if (!result || result.allowed !== true) {
+        const error = new Error('Kontaktkortet sparades inte');
+        error.reason = result?.reason;
+        throw error;
+      }
+      await loadContacts(true);
+      if (state.connection !== 'google_test') return;
+      state.versions = await read('app_versions');
+      state.online = state.versions.online;
+      show();
+      document.dispatchEvent(new CustomEvent('vf:navigate', {
+        detail: { id: 'kontakt' }
+      }));
+      notice(method === 'deleteContact' ? 'Kontaktkortet togs bort.' :
+        'Kontaktkortet sparades.');
+    } catch (error) {
+      handleReadFailure(error);
+      if (!accessRevoked(error)) notice('Ändringen kunde inte bekräftas. Kontrollera kortet innan du försöker igen.');
+    } finally {
+      document.dispatchEvent(new Event('vf:contact-result'));
     }
   }
 
@@ -281,11 +328,18 @@
   document.addEventListener('vf:task-recall', event => {
     writeTask('recallTask', event.detail?.id);
   });
+  document.addEventListener('vf:contact-save', event => {
+    writeContact('saveContact', event.detail);
+  });
+  document.addEventListener('vf:contact-delete', event => {
+    writeContact('deleteContact', event.detail);
+  });
   setInterval(() => { if (!document.hidden) checkUpdates(); }, 60000);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) checkUpdates(true);
   });
   document.addEventListener('vf:signout', () => {
+    call('leaveApp').catch(() => {});
     ++updateGeneration;
     state.user = null;
     state.fee = null;
@@ -296,6 +350,7 @@
     state.tasks = null;
     state.contacts = null;
     state.versions = null;
+    state.online = null;
     state.connection = 'error';
     show();
     document.dispatchEvent(new CustomEvent('vf:navigate', { detail: { id: 'start' } }));
@@ -315,6 +370,7 @@
         state.tasks = null;
         state.contacts = null;
         state.versions = null;
+        state.online = null;
       }
       show();
       return result.allowed;

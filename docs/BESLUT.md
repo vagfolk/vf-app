@@ -165,6 +165,13 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   styrelsekalendern i Google. Kalenderlänkarna flyttas från kalendervyn.
   Google och EKO avgör
   fortfarande vilka uppgifter respektive roll får läsa eller ändra.
+- **Rollstyrning i hela appen:** användaren ska inte behöva välja mellan
+  ”För medlemmar” och ”För styrelsen” i Att göra, Dokument eller andra vyer.
+  EKO-rollen bestämmer automatiskt vilka listor, knappar och uppgifter som
+  visas. Medlemmar ska inte se styrelsens kontroller eller innehåll alls.
+  Styrelsebehöriga ser både medlems- och styrelseinnehåll där det är relevant.
+  Servern ska fortfarande kontrollera varje skyddat dataanrop och ändring;
+  att en knapp är dold är ingen behörighetskontroll.
 - **Att göra:** namnet avser en att-göra-lista, inte sekreterarens
   medlemsregister. Styrelsen ska lägga till uppgifter från startsidan med
   rullistan **Medlem**, **Styrelse** eller **Prioriterad**. Prioriterade

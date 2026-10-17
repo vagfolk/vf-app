@@ -1,10 +1,9 @@
 /* Vyerna visar bara uppgifter som den skyddade anslutningen tillåter. */
 (() => {
   const state = {
-    documentTab: 'medlem',
-    taskTab: 'medlem',
     messages: [],
     information: null,
+    editingCard: null,
   };
   const targets = new Set();
   let currentView = 'start';
@@ -71,7 +70,7 @@
     }
     const actions = element('div','view-actions');
     if (isBoard) {
-      actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','kontakt'));
+      actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','medlemmar'));
       for (const [kind, title] of [['member', 'Ändra medlemskalender'], ['board', 'Ändra styrelsekalender']]) {
         const url = options.calendar?.links?.[kind];
         if (typeof url !== 'string' || !/^https:\/\/calendar\.google\.com\/calendar\//.test(url)) continue;
@@ -82,6 +81,7 @@
         actions.append(link);
       }
     }
+    actions.append(button('Att göra', 'navigate', 'medlemsarbete'));
     if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
     if (options.user) actions.append(button(options.connection === 'google_test' ? 'Stäng vyn' : 'Logga ut','signout'));
     root.append(actions, notice());
@@ -149,12 +149,10 @@
   };
   const renderTasks = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
-    if (!boardAllowed) state.taskTab = 'medlem';
     root.append(heading('Att göra'));
-    root.append(group(button('För medlemmar','task-tab','medlem',state.taskTab==='medlem'), ...(boardAllowed ? [button('För styrelsen','task-tab','styrelse',state.taskTab==='styrelse')] : [])));
     const list = element('ul','view-list');
-    const tasks = (options.tasks?.tasks || []).filter(task => state.taskTab === 'styrelse'
-      ? task.kind === 'styrelse' : task.kind === 'medlem' || task.kind === 'prioriterad')
+    const tasks = (options.tasks?.tasks || [])
+      .filter(task => boardAllowed || task.kind !== 'styrelse')
       .sort((a, b) => Number(b.kind === 'prioriterad') - Number(a.kind === 'prioriterad'));
     if (!options.tasks && options.connection === 'google_test') list.append(element('li','','Hämtar uppgifter…'));
     else if (!tasks.length) list.append(element('li','','Inga uppgifter tillagda.'));
@@ -162,6 +160,7 @@
       const row = element('li','view-row view-task-row');
       const details = element('div');
       if (task.kind === 'prioriterad') details.append(element('span','view-priority','Prioriterad'));
+      else if (task.kind === 'styrelse') details.append(element('span','view-priority','Styrelse'));
       details.append(element('strong','',`${task.done ? '✓ ' : ''}${task.text}`));
       if (task.done && task.completedBy && task.completedAt) {
         details.append(paragraph(`Utförd av ${task.completedBy} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(new Date(task.completedAt))}`, 'view-muted'));
@@ -229,10 +228,9 @@
   };
   const renderDocuments = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
-    if (!boardAllowed) state.documentTab = 'medlem';
     root.append(heading('Dokument', 'Delade filer'));
-    root.append(group(button('För medlemmar','document-tab','medlem',state.documentTab==='medlem'),...(boardAllowed ? [button('För styrelsen','document-tab','styrelse',state.documentTab==='styrelse')] : [])));
-    root.append(card(state.documentTab === 'medlem' ? 'Medlemsdokument' : 'Styrelsedokument', 'Inga dokument att visa.'));
+    root.append(card('Medlemsdokument', 'Inga dokument att visa.'));
+    if (boardAllowed) root.append(card('Styrelsedokument', 'Inga dokument att visa.'));
     root.append(notice());
   };
   const renderFee = root => {
@@ -269,6 +267,73 @@
     if (!options.user?.permissions?.includes(permission)) return root.append(heading('Ingen åtkomst',title));
     return renderPlanned(root,title,description);
   };
+  const contactForm = (contact = null) => {
+    const form = element('form', 'view-contact-form');
+    form.dataset.form = 'contact';
+    form.dataset.cardId = contact?.cardId || '';
+    form.dataset.memberId = contact?.memberId || '';
+    form.dataset.updateEko = String(Boolean(contact?.memberId));
+    const fields = [
+      ['name', 'Namn', 80, contact?.name || ''],
+      ['memberId', 'Medlems-ID i EKO', 80, contact?.memberId || ''],
+      ['phone', 'Telefon', 40, contact?.phone || ''],
+      ['email', 'E-post', 120, contact?.email || '']
+    ];
+    for (const [key, title, max, value] of fields) {
+      const label = element('label', '', title);
+      const input = element('input');
+      input.name = key;
+      input.maxLength = max;
+      input.value = value;
+      input.id = `contact-${key}-${contact?.cardId || contact?.memberId || 'new'}`;
+      label.htmlFor = input.id;
+      if (key === 'name') input.required = true;
+      if (key === 'memberId' && contact?.memberId) input.readOnly = true;
+      if (key === 'name' && contact?.memberId) input.readOnly = true;
+      if (key === 'email') input.type = 'email';
+      if (key === 'phone') input.type = 'tel';
+      form.append(label, input);
+    }
+    const descriptionLabel = element('label', '', 'Kort beskrivning');
+    const description = element('textarea');
+    description.name = 'description';
+    description.maxLength = 400;
+    description.rows = 3;
+    description.value = contact?.description || '';
+    description.id = `contact-description-${contact?.cardId || contact?.memberId || 'new'}`;
+    descriptionLabel.htmlFor = description.id;
+    form.append(descriptionLabel, description);
+    const photoLabel = element('label', '', 'Välj foto från galleri');
+    const photo = element('input');
+    photo.type = 'file';
+    photo.name = 'gallery';
+    photo.accept = 'image/*';
+    photoLabel.append(photo);
+    const cameraLabel = element('label', '', 'Ta nytt foto');
+    const camera = element('input');
+    camera.type = 'file';
+    camera.name = 'camera';
+    camera.accept = 'image/*';
+    camera.setAttribute('capture', 'environment');
+    cameraLabel.append(camera);
+    form.append(photoLabel, cameraLabel);
+    if (contact?.avatar) {
+      const remove = element('label', 'view-contact-remove-photo', 'Ta bort nuvarande foto');
+      const checkbox = element('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'removePhoto';
+      remove.prepend(checkbox);
+      form.append(remove);
+    }
+    form.append(group(button('Spara medlemskort', 'submit-contact')));
+    return form;
+  };
+  const renderMemberCardCreate = (root, options) => {
+    if (!options.user?.permissions?.includes('board_view')) return;
+    root.append(heading('Medlemmar'));
+    root.append(paragraph('Skapa ett kontaktkort. Ange Medlems-ID om personen redan finns i EKO.'));
+    root.append(contactForm());
+  };
   const renderContact = (root, options) => {
     root.append(heading('Kontakt'));
     const contacts = options.contacts?.contacts;
@@ -279,10 +344,16 @@
       const item = element('li', 'view-contact');
       const initials = contact.name.trim().split(/\s+/).slice(0, 2)
         .map(part => part[0]?.toLocaleUpperCase('sv-SE') || '').join('');
-      const avatar = element('span', 'view-contact-avatar', initials);
+      const avatar = contact.avatar ? element('img', 'view-contact-avatar') :
+        element('span', 'view-contact-avatar', initials);
+      if (contact.avatar) {
+        avatar.src = 'data:image/jpeg;base64,' + contact.avatar;
+        avatar.alt = '';
+      }
       avatar.setAttribute('aria-hidden', 'true');
       const details = element('div');
       details.append(element('strong', '', contact.name));
+      if (contact.description) details.append(paragraph(contact.description, 'view-contact-description'));
       if (contact.phone && /^[+0-9() .-]{3,40}$/.test(contact.phone)) {
         const link = element('a', '', contact.phone);
         link.href = 'tel:' + contact.phone.replace(/[^+0-9]/g, '');
@@ -294,11 +365,27 @@
         details.append(link);
       }
       item.append(avatar, details);
+      if (options.user?.permissions?.includes('board_view')) {
+        const controls = group(button('Redigera', 'edit-contact',
+          contact.cardId || `eko:${contact.memberId}`),
+        button('Ta bort', 'delete-contact',
+          contact.cardId || `eko:${contact.memberId}`));
+        controls.classList.add('view-contact-controls');
+        item.append(controls);
+        if (state.editingCard === (contact.cardId || `eko:${contact.memberId}`)) {
+          item.append(contactForm(contact));
+        }
+      }
       list.append(item);
     }
     root.append(list);
   };
-  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
+  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,medlemmar:renderMemberCardCreate,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
+  document.addEventListener('vf:contact-result', () => {
+    for (const form of document.querySelectorAll('form[data-form="contact"]')) {
+      form.dataset.busy = 'false';
+    }
+  });
   function draw(options = {}) {
     for (const target of targets) {
       const surface = element('div','view-surface');
@@ -306,6 +393,36 @@
       renderers[currentView]?.(surface,options);
       target.replaceChildren(surface);
     }
+  }
+  async function contactPhoto_(file) {
+    if (!file || !file.type.startsWith('image/') || file.size > 10000000) {
+      throw new Error('Välj en bild på högst 10 MB.');
+    }
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    try {
+      await new Promise((resolve, reject) => {
+        image.onload = resolve;
+        image.onerror = reject;
+        image.src = url;
+      });
+      if (!image.naturalWidth || !image.naturalHeight) throw new Error('Bilden kunde inte öppnas.');
+      const jpeg = (limit, maxLength) => {
+        let size = limit;
+        for (let attempt = 0; attempt < 9; attempt++) {
+          const scale = Math.min(1, size / Math.max(image.naturalWidth, image.naturalHeight));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+          const base64 = canvas.toDataURL('image/jpeg', .82 - Math.min(4, attempt) * .08).split(',')[1];
+          if (base64 && base64.length <= maxLength) return base64;
+          size *= .78;
+        }
+        throw new Error('Bilden kunde inte göras tillräckligt liten.');
+      };
+      return { photo: jpeg(512, 120000), avatar: jpeg(160, 16000) };
+    } finally { URL.revokeObjectURL(url); }
   }
   function attach(target) {
     targets.add(target);
@@ -321,9 +438,22 @@
         document.dispatchEvent(new Event('vf:signout'));
         return;
       }
-      if (action === 'task-tab') state.taskTab = value;
-      else if (action === 'document-tab') state.documentTab = value;
-      else if (action === 'task-complete' || action === 'task-recall') {
+      if (action === 'edit-contact' || action === 'delete-contact') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view')) return;
+        const contact = window.VFAppData?.contacts?.contacts?.find(item =>
+          (item.cardId || `eko:${item.memberId}`) === value);
+        if (!contact) return;
+        if (action === 'edit-contact') {
+          state.editingCard = state.editingCard === value ? null : value;
+          draw(window.VFPreviewViews.options);
+        } else if (window.confirm(`Ta bort kontaktkortet för ${contact.name}?`)) {
+          document.dispatchEvent(new CustomEvent('vf:contact-delete', {
+            detail: {cardId: contact.cardId, memberId: contact.memberId}
+          }));
+        }
+        return;
+      }
+      if (action === 'task-complete' || action === 'task-recall') {
         const task = window.VFAppData?.tasks?.tasks?.find(item => item.id === value);
         if (!task) return;
         if (action === 'task-complete' && task.done) return;
@@ -337,17 +467,42 @@
         const form = control.closest('form');
         if (form) { form.querySelector('input').value = value; form.requestSubmit(); }
         return;
-      } else if (action === 'submit-task' || action === 'submit-message' || action === 'submit-information') {
+      } else if (action === 'submit-task' || action === 'submit-message' ||
+          action === 'submit-information' || action === 'submit-contact') {
         const form = control.closest('form');
         form?.requestSubmit();
         return;
       }
       draw(window.VFPreviewViews.options);
     });
-    target.addEventListener('submit', event => {
+    target.addEventListener('submit', async event => {
       const form = event.target.closest('form[data-form]');
       if (!form) return;
       event.preventDefault();
+      if (form.dataset.form === 'contact') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
+            form.dataset.busy === 'true') return;
+        form.dataset.busy = 'true';
+        try {
+          const files = Array.from(form.querySelectorAll('input[type=file]'))
+            .map(input => input.files?.[0]).filter(Boolean);
+          const image = files.length ? await contactPhoto_(files[files.length - 1]) :
+            { photo: '', avatar: '' };
+          const field = name => form.elements.namedItem(name)?.value?.trim() || '';
+          document.dispatchEvent(new CustomEvent('vf:contact-save', { detail: {
+            cardId: form.dataset.cardId || '', memberId: field('memberId'),
+            name: field('name'), description: field('description'),
+            phone: field('phone'), email: field('email'),
+            photo: image.photo, avatar: image.avatar,
+            removePhoto: Boolean(form.elements.namedItem('removePhoto')?.checked) && !files.length,
+            updateEko: form.dataset.updateEko === 'true'
+          }}));
+        } catch (error) {
+          form.dataset.busy = 'false';
+          window.alert(error.message || 'Bilden kunde inte läsas.');
+        }
+        return;
+      }
       const input = form.querySelector('input, textarea');
       const text = input.value.trim();
       if (!text) return;
