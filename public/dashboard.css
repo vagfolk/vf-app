@@ -51,6 +51,12 @@
 .view-surface .view-chat-compose input{flex:1 1 auto;min-width:0}
 .view-surface .view-chat-compose button{flex:none}
 .view-surface .view-chat-shortcuts{margin-top:8px}
+.view-surface .view-information-history{margin-top:18px;border-top:1px solid #82939775;padding-top:12px}
+.view-surface .view-information-list{list-style:none;margin:0;padding:0}
+.view-surface .view-information-item{padding:10px 0;border-bottom:1px solid #82939775;overflow-wrap:anywhere}
+.view-surface .view-information-item p{margin-bottom:6px;white-space:pre-wrap}
+.view-surface .view-information-item button{min-height:34px;padding:4px 9px;font-size:12px}
+.view-surface .view-information-empty{padding:8px 0;color:#b8c8cd;font-size:13px}
 .view-surface .view-row small{color:#afc0c6}
 .view-surface .view-task-layout{display:grid;gap:16px;margin-top:12px}
 .view-surface .view-task-section{min-width:0}

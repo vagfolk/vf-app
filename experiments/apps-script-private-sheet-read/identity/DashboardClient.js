@@ -323,6 +323,26 @@
   document.addEventListener('vf:information-publish', event => {
     writeMessage('publishInformation', event.detail?.text, loadInformation);
   });
+  document.addEventListener('vf:information-delete', async event => {
+    if (state.connection !== 'google_test' ||
+        !state.user?.permissions?.includes('board_view')) return;
+    try {
+      const result = await call('deleteInformation', event.detail?.id);
+      if (!result || result.allowed !== true) {
+        const error = new Error('Meddelandet togs inte bort');
+        error.reason = result?.reason;
+        throw error;
+      }
+      await loadInformation(true);
+      notice('Meddelandet togs bort.');
+    } catch (error) {
+      handleReadFailure(error);
+      if (!accessRevoked(error)) {
+        notice('Borttagningen kunde inte bekräftas. Kontrollera listan innan du försöker igen.');
+        await loadInformation(true);
+      }
+    }
+  });
   document.addEventListener('vf:chat-post', event => {
     writeMessage('postChatMessage', event.detail?.text, loadChat);
   });

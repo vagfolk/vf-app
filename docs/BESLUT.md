@@ -46,7 +46,11 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   administrationsreglage ska inte visas alls för en vanlig medlem. Dold
   användarvy ersätter aldrig behörighetskontroll på serversidan.
   Själva informationsvyn ska inte ha ett extra rubrikpar; styrelsens åtgärd
-  ska heta **Skicka viktigt meddelande**.
+  ska heta **Skicka viktigt meddelande**. I styrelsens skrivvy visas tidigare
+  publicerade viktiga meddelanden, vart och ett med en diskret **Ta bort**-knapp.
+  Borttagning kräver bekräftelse och kontrolleras mot aktuell styrelseroll på
+  servern. Ett borttaget meddelande försvinner ur appens visning, medan en
+  intern notering om vem som tog bort det och när bevaras i den privata filen.
 - **Chat:** alla inloggade får läsa och lämna korta meddelanden samt
   använda beslutade snabbval. Varje post ska knytas till den inloggade
   användarens beständiga medlems-ID, visningsnamn och tid. Användaren ska inte

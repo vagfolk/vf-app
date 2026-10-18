@@ -103,7 +103,7 @@ function doPost(event) {
       return reply_(false, 'wrong_association_or_action');
     }
     const hasContent = Object.prototype.hasOwnProperty.call(body, 'content');
-    const writeAction = ['publish_information', 'post_chat', 'create_task',
+    const writeAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
       'complete_task', 'recall_task', 'save_contact', 'delete_contact'].includes(body.action);
     const expectedKeys = hasContent
       ? 'action,associationId,content,nonce,subject,ts,v'
@@ -111,7 +111,7 @@ function doPost(event) {
     if (Object.keys(body).sort().join(',') !== expectedKeys) return reply_(false, 'wrong_association_or_action');
     if (body.v !== 1 || body.associationId !== associationId) return reply_(false, 'wrong_association_or_action');
     if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
-          'publish_information', 'post_chat', 'tasks', 'contacts',
+          'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
           'create_task', 'complete_task', 'recall_task', 'save_contact',
           'delete_contact', 'leave_app'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
     if (typeof body.subject !== 'string' || !body.subject || body.subject.length > 255) return reply_(false, 'wrong_association_or_action');
@@ -180,16 +180,21 @@ function doPost(event) {
         calendar: calendar
       });
     }
-    if (['information', 'chat', 'publish_information', 'post_chat'].includes(body.action)) {
+    if (['information', 'chat', 'publish_information', 'delete_information', 'post_chat'].includes(body.action)) {
       const messagesId = properties.getProperty(MESSAGES_SHEET_PROPERTY);
       if (!/^[A-Za-z0-9_-]{20,128}$/.test(messagesId || '')) {
         return reply_(false, 'messages_setup_missing');
       }
-      if (body.action === 'information') return reply_(true, null, readInformation_(messagesId));
+      const boardAllowed = roles.some(role =>
+        ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role));
+      if (body.action === 'information') return reply_(true, null,
+        readInformation_(messagesId, boardAllowed));
       if (body.action === 'chat') return reply_(true, null, readChat_(messagesId));
-      if (body.action === 'publish_information' &&
-          !roles.some(role => ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
+      if (['publish_information', 'delete_information'].includes(body.action) && !boardAllowed) {
         return reply_(false, 'insufficient_role');
+      }
+      if (body.action === 'delete_information') {
+        return deleteInformation_(messagesId, body.content, row[16]);
       }
       const maxLength = body.action === 'post_chat' ? 120 : 600;
       const content = body.content.trim();
@@ -807,9 +812,44 @@ function visibleMessage_(row) {
     text: String(row[3]), createdAt: String(row[4]) };
 }
 
-function readInformation_(id) {
-  const rows = readMessages_(id, 'Information');
-  return { message: rows.length ? visibleMessage_(rows[rows.length - 1]) : null };
+function readInformationRows_(id) {
+  const rows = readRange_(id, "'Information'!A1:F1001");
+  if (!rows[0] || rows[0].slice(0, 5).join('|') !== 'ID|Medlems-ID|Namn|Text|Tid' ||
+      (rows[0][5] && rows[0][5] !== 'Borttagen')) {
+    throw new Error('Informationsfilens format är fel');
+  }
+  return rows;
+}
+
+function readInformation_(id, includeHistory) {
+  const rows = readInformationRows_(id).slice(1).filter(row =>
+    row[0] && row[3] && row[4] && !row[5]);
+  const result = { message: rows.length ? visibleMessage_(rows[rows.length - 1]) : null };
+  if (includeHistory) result.messages = rows.map(visibleMessage_).reverse();
+  return result;
+}
+
+function deleteInformation_(id, messageId, memberId) {
+  if (!/^[0-9a-f-]{36}$/i.test(messageId)) return reply_(false, 'invalid_content');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return reply_(false, 'busy');
+  try {
+    const rows = readInformationRows_(id);
+    const matches = rows.map((row, index) => ({ row, index }))
+      .filter(item => item.index > 0 && item.row[0] === messageId);
+    if (matches.length !== 1) return reply_(false, 'message_not_found');
+    if (matches[0].row[5]) return reply_(false, 'already_deleted');
+    const rowNumber = matches[0].index + 1;
+    sheetsRequest_('https://sheets.googleapis.com/v4/spreadsheets/' +
+      encodeURIComponent(id) + '/values:batchUpdate', 'post', {
+        valueInputOption: 'RAW', data: [
+          { range: "'Information'!F1", values: [['Borttagen']] },
+          { range: "'Information'!F" + rowNumber,
+            values: [[memberId + ' · ' + new Date().toISOString()]] }
+        ]
+      }, ScriptApp.getOAuthToken());
+    return reply_(true, null, { saved: true });
+  } finally { lock.releaseLock(); }
 }
 
 function readChat_(id) {

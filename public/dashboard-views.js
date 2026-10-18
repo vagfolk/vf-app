@@ -190,14 +190,17 @@
   };
   const renderInformation = (root, options) => {
     root.append(heading('Information', 'Viktigt meddelande från styrelsen'));
-    if (options.information?.error) root.append(card('Kunde inte läsa information', 'Försök igen senare.', 'alert'));
-    else if (!options.information && options.connection === 'google_test') root.append(card('Hämtar information', 'Vänta ett ögonblick.'));
-    else {
-      const message = options.information?.message || state.information;
-      root.append(card(message ? 'Från styrelsen' : 'Ingen information publicerad', message?.text || 'Här visas viktiga meddelanden från styrelsen.'));
-      if (message?.createdAt) root.append(paragraph(`${message.name || 'Styrelsen'} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(message.createdAt))}`, 'view-muted'));
+    const boardAllowed = options.user?.permissions?.includes('board_view');
+    const message = options.information?.message || state.information;
+    if (options.information?.error) {
+      root.append(card('Kunde inte läsa information', 'Försök igen senare.', 'alert'));
+      return;
     }
-    if (options.user?.permissions?.includes('board_view')) {
+    if (!options.information && options.connection === 'google_test') {
+      root.append(card('Hämtar information', 'Vänta ett ögonblick.'));
+      return;
+    }
+    if (boardAllowed) {
       const form = element('form');
       form.dataset.form = 'information';
       const input = element('textarea');
@@ -209,6 +212,24 @@
       input.rows = 4;
       form.append(input,group(button('Skicka viktigt meddelande','submit-information')));
       root.append(form);
+      const history = element('section', 'view-information-history');
+      history.append(element('h3', '', 'Publicerade meddelanden'));
+      const list = element('ul', 'view-information-list');
+      const messages = options.information?.messages || (message ? [message] : []);
+      if (!messages.length) list.append(element('li', 'view-information-empty', 'Inga meddelanden publicerade.'));
+      for (const item of messages) {
+        const row = element('li', 'view-information-item');
+        row.append(paragraph(item.text));
+        if (item.createdAt) row.append(paragraph(`${item.name || 'Styrelsen'} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(item.createdAt))}`, 'view-muted'));
+        if (options.connection === 'google_test') row.append(button('Ta bort', 'delete-information', item.id));
+        list.append(row);
+      }
+      history.append(list);
+      root.append(history);
+    } else {
+      root.append(card(message ? 'Från styrelsen' : 'Ingen information publicerad',
+        message?.text || 'Här visas viktiga meddelanden från styrelsen.'));
+      if (message?.createdAt) root.append(paragraph(`${message.name || 'Styrelsen'} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'medium',timeStyle:'short'}).format(new Date(message.createdAt))}`, 'view-muted'));
     }
   };
   const renderChat = (root, options) => {
@@ -476,6 +497,14 @@
       }
       if (action === 'signout') {
         document.dispatchEvent(new Event('vf:signout'));
+        return;
+      }
+      if (action === 'delete-information') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
+            window.VFAppData.connection !== 'google_test' ||
+            !window.confirm('Ta bort det viktiga meddelandet? Det försvinner för alla medlemmar.')) return;
+        control.disabled = true;
+        document.dispatchEvent(new CustomEvent('vf:information-delete', {detail:{id:value}}));
         return;
       }
       if (action === 'edit-contact' || action === 'delete-contact') {

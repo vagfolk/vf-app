@@ -146,3 +146,34 @@ test('Chat har Skicka bredvid textrutan och snabbvalen för sig', () => {
   assert.equal(shortcuts.children.length, 3);
   assert.equal(shortcuts.children.some(item => item.textContent === 'Skicka'), false);
 });
+
+test('bara styrelsen ser borttagning vid varje publicerat viktigt meddelande', () => {
+  const window = {};
+  const document = {
+    createElement: node,
+    createDocumentFragment: () => node('fragment'),
+    addEventListener() {},
+  };
+  runInNewContext(readFileSync(new URL('../public/dashboard-views.js', import.meta.url), 'utf8'),
+    { window, document, Date, Intl, Set });
+  const display = node('main');
+  display.id = 'screen-content';
+  window.VFPreviewViews.attach(display);
+  const messages = [
+    { id: 'id-1', name: 'Styrelsen', text: 'Nytt besked', createdAt: '2026-10-18T09:00:00Z' },
+    { id: 'id-2', name: 'Styrelsen', text: 'Äldre besked', createdAt: '2026-10-17T09:00:00Z' },
+  ];
+  const information = { message: messages[0], messages };
+  window.VFPreviewViews.show('information', {
+    connection: 'google_test', user: { permissions: ['board_view'] }, information,
+  });
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'delete-information').length, 2);
+  assert.match(textOf(display), /Nytt besked/);
+  assert.match(textOf(display), /Äldre besked/);
+
+  window.VFPreviewViews.show('information', {
+    connection: 'google_test', user: { permissions: ['own_fee'] }, information,
+  });
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'delete-information').length, 0);
+  assert.doesNotMatch(textOf(display), /Äldre besked|Skicka viktigt meddelande/);
+});

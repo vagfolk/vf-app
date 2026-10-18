@@ -195,6 +195,11 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
         if (url.includes('/values:batchUpdate')) {
           if (failContactSheetsWrite) return reply({ error: 'unavailable' }, 503);
           for (const item of JSON.parse(options.payload).data) {
+            if (item.range.startsWith("'Information'!F")) {
+              const rowNumber = Number(item.range.match(/F(\d+)$/)[1]);
+              informationRows[rowNumber - 1][5] = item.values[0][0];
+              continue;
+            }
             const rowNumber = Number(item.range.match(/C(\d+):D\d+$/)[1]);
             rows[rowNumber - 11][2] = item.values[0][0];
             rows[rowNumber - 11][3] = item.values[0][1];
@@ -581,6 +586,31 @@ test('Information och Chat hålls åtskilda och endast styrelsen får publicera 
   assert.equal(app.identity.publishInformation('Viktigt besked').allowed, true);
   assert.equal(result(app.identity.readDashboardData('information')).data.message.text, 'Viktigt besked');
   assert.equal(result(app.identity.readDashboardData('chat')).data.messages.length, 1);
+});
+
+test('styrelsen ser historiken och kan ta bort ett visst viktigt meddelande', () => {
+  const app = fixture();
+  app.setSubject('google-board');
+  assert.equal(app.identity.publishInformation('Första beskedet').allowed, true);
+  assert.equal(app.identity.publishInformation('Andra beskedet').allowed, true);
+  const before = result(app.identity.readDashboardData('information')).data;
+  assert.equal(before.messages.length, 2);
+  assert.equal(before.message.text, 'Andra beskedet');
+  const firstId = before.messages[1].id;
+  assert.equal(app.identity.deleteInformation(firstId).allowed, true);
+  const after = result(app.identity.readDashboardData('information')).data;
+  assert.equal(after.messages.length, 1);
+  assert.equal(after.messages[0].text, 'Andra beskedet');
+  assert.match(app.informationRows[1][5], /M-002/);
+  assert.equal(app.identity.deleteInformation(firstId).reason, 'already_deleted');
+  assert.equal(app.identity.deleteInformation('fel-id').reason, 'invalid_content');
+  assert.equal(app.identity.deleteInformation(randomUUID()).reason, 'message_not_found');
+  app.setSubject('google-member');
+  const memberView = result(app.identity.readDashboardData('information')).data;
+  assert.equal(memberView.message.text, 'Andra beskedet');
+  assert.equal(memberView.messages, undefined);
+  assert.equal(app.identity.deleteInformation(after.messages[0].id).reason, 'insufficient_role');
+  assert.equal(app.informationRows[2][5], undefined);
 });
 
 test('okänt konto och ogiltigt innehåll får inte skriva meddelanden', () => {
