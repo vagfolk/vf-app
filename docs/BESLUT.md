@@ -163,7 +163,9 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   **Information** tas bort från mittdisplayens startvy för styrelseroller.
   De mindre sidodisplayerna behålls. På startsidan visas i stället knapparna
   **Ekonomi** (styrelsens begränsade översikt) och **Medlemmar**
-  (vyn för att skapa medlemskort), samt länkarna för att öppna medlems- och
+  (vyn för att skapa medlemskort) samt **Viktigt meddelande** som öppnar
+  styrelsens vy för att skicka ett viktigt meddelande. Den sistnämnda knappen
+  visas endast för styrelsebehöriga. Där finns också länkar för att öppna medlems- och
   styrelsekalendern i Google. Kalenderlänkarna flyttas från kalendervyn.
   Google och EKO avgör
   fortfarande vilka uppgifter respektive roll får läsa eller ändra.

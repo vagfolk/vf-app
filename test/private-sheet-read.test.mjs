@@ -69,7 +69,7 @@ function reply(value, status = 200, headers = {}) {
 }
 
 function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
-  failCalendar = false,
+  failCalendar = false, failContactUploadAt = 0, failContactSheetsWrite = false,
   authorizationMissing = false, bridgeStatus = 200,
   redirectCodes = null, redirectLocation =
     'https://script.googleusercontent.com/macros/echo?user_content_key=TEST' } = {}) {
@@ -110,6 +110,7 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
     'Medlems-ID','Namn','Tid','Orsak']];
   const contactFiles = new Map();
   let nextContactFile = 1;
+  let contactUploadCount = 0;
   let taskSheetExists = !emptyTaskStore;
   dataProperties.set('VF_TEST_MESSAGES_SHEET_ID', 'messages-test-file-aaaaaaaaaaaaaa');
   let forwarded = 0;
@@ -147,6 +148,9 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
             end: { dateTime: '2026-11-02T19:00:00+01:00' } }] : [])] });
       }
       if (url.startsWith('https://www.googleapis.com/upload/drive/v3/files/')) {
+        if (++contactUploadCount === failContactUploadAt) {
+          return reply({ error: 'unavailable' }, 503);
+        }
         const id = decodeURIComponent(new URL(url).pathname.split('/files/')[1]);
         const file = contactFiles.get(id);
         assert.ok(file);
@@ -189,6 +193,7 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
       }
       if (url.includes(':batchUpdate')) {
         if (url.includes('/values:batchUpdate')) {
+          if (failContactSheetsWrite) return reply({ error: 'unavailable' }, 503);
           for (const item of JSON.parse(options.payload).data) {
             const rowNumber = Number(item.range.match(/C(\d+):D\d+$/)[1]);
             rows[rowNumber - 11][2] = item.values[0][0];
@@ -741,4 +746,47 @@ test('redigering uppdaterar bara kopplad kontakt i EKO och borttagning bevarar m
     removePhoto: false, updateEko: false })).allowed, true);
   assert.equal(result(f.identity.readDashboardData('contacts')).data.contacts
     .some(item => item.memberId === 'KORT-DISA'), true);
+});
+
+test('fel vid Drive-sparande ändrar inte EKO och lämnar inget tomt kontaktkort', () => {
+  const f = fixture({ failContactUploadAt: 1, members: [memberHead,
+    memberRow({ sub: 'google-board', role: 'Styrelse', name: 'Styrelseperson', id: 'BOARD-1' }),
+    memberRow({ sub: '', name: 'Eva Testkort', id: 'KORT-EVA',
+      phone: '0701111111', email: 'eva@example.invalid' })] });
+  f.setSubject('google-board');
+  const saved = result(f.identity.saveContact({ cardId: '', memberId: 'KORT-EVA',
+    name: 'Eva Testkort', description: 'Ny beskrivning', phone: '0702222222',
+    email: 'ny@example.invalid', photo: '', avatar: '', removePhoto: false,
+    updateEko: true }));
+  assert.equal(saved.allowed, false);
+  assert.equal(f.rows[2][2], '0701111111');
+  assert.equal(f.rows[2][3], 'eva@example.invalid');
+  assert.equal([...f.contactFiles.values()].filter(file => !file.trashed).length, 0);
+  const contact = result(f.identity.readDashboardData('contacts')).data.contacts
+    .find(item => item.memberId === 'KORT-EVA');
+  assert.equal(contact.description, '');
+});
+
+test('fel vid EKO-sparande återställer det tidigare Drive-kortet', () => {
+  const f = fixture({ failContactSheetsWrite: true, members: [memberHead,
+    memberRow({ sub: 'google-board', role: 'Styrelse', name: 'Styrelseperson', id: 'BOARD-1' }),
+    memberRow({ sub: '', name: 'Eva Testkort', id: 'KORT-EVA',
+      phone: '0701111111', email: 'eva@example.invalid' })] });
+  f.setSubject('google-board');
+  const original = result(f.identity.saveContact({ cardId: '', memberId: 'KORT-EVA',
+    name: 'Eva Testkort', description: 'Gammal beskrivning', phone: '0701111111',
+    email: 'eva@example.invalid', photo: '', avatar: '', removePhoto: false,
+    updateEko: false }));
+  assert.equal(original.allowed, true);
+  const changed = result(f.identity.saveContact({ cardId: original.cardId,
+    memberId: 'KORT-EVA', name: 'Eva Testkort', description: 'Ny beskrivning',
+    phone: '0702222222', email: 'ny@example.invalid', photo: '', avatar: '',
+    removePhoto: false, updateEko: true }));
+  assert.equal(changed.allowed, false);
+  assert.equal(f.rows[2][2], '0701111111');
+  assert.equal(f.rows[2][3], 'eva@example.invalid');
+  const contact = result(f.identity.readDashboardData('contacts')).data.contacts
+    .find(item => item.memberId === 'KORT-EVA');
+  assert.equal(contact.description, 'Gammal beskrivning');
+  assert.equal(contact.phone, '0701111111');
 });

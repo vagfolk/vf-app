@@ -44,6 +44,9 @@ test('Start visar inga medlemskort före inloggning eller för styrelseroll', ()
   });
   assert.doesNotMatch(textOf(display), /Öppna kalender|Öppna information/);
   assert.match(textOf(display), /Ekonomi/);
+  const informationButton = descendants(display).find(item =>
+    item.dataset.action === 'navigate' && item.dataset.value === 'information');
+  assert.equal(informationButton?.textContent, 'Viktigt meddelande');
   assert.doesNotMatch(textOf(display), /Stäng vyn/);
   const createButton = descendants(display).find(item => item.dataset.action === 'open-task-form');
   assert.equal(createButton?.textContent, 'Att göra');
@@ -66,6 +69,7 @@ test('Start visar inga medlemskort före inloggning eller för styrelseroll', ()
   });
   assert.match(textOf(display), /Öppna kalender/);
   assert.match(textOf(display), /Öppna information/);
+  assert.doesNotMatch(textOf(display), /Viktigt meddelande/);
 });
 
 test('rollen styr uppgifter och dokument utan manuella medlems- eller styrelseval', () => {

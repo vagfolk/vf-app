@@ -71,7 +71,8 @@
     }
     const actions = element('div','view-actions');
     if (isBoard) {
-      actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','medlemmar'));
+      actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','medlemmar'),
+        button('Viktigt meddelande','navigate','information'));
       for (const [kind, title] of [['member', 'Ändra medlemskalender'], ['board', 'Ändra styrelsekalender']]) {
         const url = options.calendar?.links?.[kind];
         if (typeof url !== 'string' || !/^https:\/\/calendar\.google\.com\/calendar\//.test(url)) continue;

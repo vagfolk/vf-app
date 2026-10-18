@@ -617,6 +617,7 @@ function contactFilename_(name, id, extension) {
 function saveContactFile_(folderId, name, mimeType, bytes, existingId) {
   const token = ScriptApp.getOAuthToken();
   let id = existingId;
+  const createdNow = !id;
   if (!id) {
     const created = driveRequest_('https://www.googleapis.com/drive/v3/files?fields=id',
       'post', { name: name, mimeType: mimeType, parents: [folderId] }, token);
@@ -626,13 +627,19 @@ function saveContactFile_(folderId, name, mimeType, bytes, existingId) {
       encodeURIComponent(id) + '?fields=id', 'patch', { name: name }, token);
   }
   if (!/^[A-Za-z0-9_-]{20,128}$/.test(id || '')) throw new Error('Kontaktfilens ID saknas');
-  const result = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' +
-    encodeURIComponent(id) + '?uploadType=media&fields=id', {
-      method: 'patch', headers: { Authorization: 'Bearer ' + token },
-      contentType: mimeType, payload: bytes, muteHttpExceptions: true
-    });
-  if (result.getResponseCode() < 200 || result.getResponseCode() >= 300) {
-    throw new Error('Kontaktfilen kunde inte sparas');
+  try {
+    const result = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' +
+      encodeURIComponent(id) + '?uploadType=media&fields=id', {
+        method: 'patch', headers: { Authorization: 'Bearer ' + token },
+        contentType: mimeType, payload: bytes, muteHttpExceptions: true
+      });
+    if (result.getResponseCode() < 200 || result.getResponseCode() >= 300) {
+      throw new Error('Kontaktfilen kunde inte sparas');
+    }
+  } catch (error) {
+    // En ny Drive-fil utan innehåll får inte förstöra hela kontaktlistan.
+    if (createdNow) try { trashContactFile_(id); } catch (_cleanupError) {}
+    throw error;
   }
   return id;
 }
@@ -740,23 +747,44 @@ function writeContact_(action, content, members, spreadsheetId, properties) {
       phone: member ? '' : input.phone.trim(), email: member ? '' : input.email.trim(),
       photoId: photoId,
       avatar: input.photo ? input.avatar : input.removePhoto ? '' : existing?.avatar || '' };
-    if (member && (!newlyLinked || input.updateEko) &&
-        (input.phone !== String(member[2] || '') ||
-          input.email !== String(member[3] || ''))) {
-      const index = members.indexOf(member) + 11;
-      sheetsRequest_('https://sheets.googleapis.com/v4/spreadsheets/' +
-        encodeURIComponent(spreadsheetId) + '/values:batchUpdate', 'post', {
-          valueInputOption: 'RAW', data: [
-            { range: "'Medlemmar'!C" + index + ':D' + index,
-              values: [[input.phone.trim(), input.email.trim()]] }
-          ]
-        }, ScriptApp.getOAuthToken());
+    const filename = contactFilename_(name, input.memberId || id, '.json');
+    let savedFileId = '';
+    try {
+      // Drive-kortet måste finnas innan EKO ändras. Vid fel i Sheets återställs
+      // kortet, så att användaren inte får ett lyckat kort med gamla EKO-fält.
+      savedFileId = saveContactFile_(folder, filename, 'application/json',
+        Utilities.newBlob(JSON.stringify(card)).getBytes(), existing?.fileId);
+      if (member && (!newlyLinked || input.updateEko) &&
+          (input.phone !== String(member[2] || '') ||
+            input.email !== String(member[3] || ''))) {
+        const index = members.indexOf(member) + 11;
+        sheetsRequest_('https://sheets.googleapis.com/v4/spreadsheets/' +
+          encodeURIComponent(spreadsheetId) + '/values:batchUpdate', 'post', {
+            valueInputOption: 'RAW', data: [
+              { range: "'Medlemmar'!C" + index + ':D' + index,
+                values: [[input.phone.trim(), input.email.trim()]] }
+            ]
+          }, ScriptApp.getOAuthToken());
+      }
+    } catch (error) {
+      try {
+        if (existing) {
+          const original = { ...existing };
+          delete original.fileId;
+          saveContactFile_(folder, contactFilename_(existing.name,
+            existing.memberId || existing.id, '.json'), 'application/json',
+            Utilities.newBlob(JSON.stringify(original)).getBytes(), existing.fileId);
+        } else if (savedFileId) trashContactFile_(savedFileId);
+        if (photoId && photoId !== existing?.photoId) trashContactFile_(photoId);
+      } catch (_rollbackError) {
+        throw new Error('Kontaktkortet kunde inte återställas efter ett fel');
+      }
+      throw error;
     }
-    saveContactFile_(folder, contactFilename_(name, input.memberId || id, '.json'),
-      'application/json', Utilities.newBlob(JSON.stringify(card)).getBytes(),
-      existing?.fileId);
+    // Dessa filer läses inte längre. Ett städningsfel får inte ändra utfallet
+    // efter att både kontaktkortet och eventuella EKO-fält har sparats.
     if (existing && existing.photoId && existing.photoId !== photoId) {
-      trashContactFile_(existing.photoId);
+      try { trashContactFile_(existing.photoId); } catch (_cleanupError) {}
     }
     if (input.memberId && records.removed.has(input.memberId)) {
       trashContactFile_(records.removed.get(input.memberId));
