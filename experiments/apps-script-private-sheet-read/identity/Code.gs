@@ -57,12 +57,12 @@ function readTestData_(request) {
     ? request.action : null;
   if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
       'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
-      'create_task', 'complete_task', 'recall_task', 'save_contact',
+      'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
       'delete_contact', 'leave_app'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
   const writeAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
-    'complete_task', 'recall_task', 'save_contact', 'delete_contact'].includes(action);
+    'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact'].includes(action);
   const content = request && request.content;
   if (writeAction && (typeof content !== 'string' ||
       !content.trim() || content.length > (action === 'save_contact' ? 170000 :
@@ -319,6 +319,7 @@ function createTask(input) {
 
 function completeTask(id) { return taskWrite_('complete_task', id); }
 function recallTask(id) { return taskWrite_('recall_task', id); }
+function archiveTask(id) { return taskWrite_('archive_task', id); }
 
 function saveContact(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {

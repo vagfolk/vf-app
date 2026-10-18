@@ -104,7 +104,7 @@ function doPost(event) {
     }
     const hasContent = Object.prototype.hasOwnProperty.call(body, 'content');
     const writeAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
-      'complete_task', 'recall_task', 'save_contact', 'delete_contact'].includes(body.action);
+      'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact'].includes(body.action);
     const expectedKeys = hasContent
       ? 'action,associationId,content,nonce,subject,ts,v'
       : 'action,associationId,nonce,subject,ts,v';
@@ -112,7 +112,7 @@ function doPost(event) {
     if (body.v !== 1 || body.associationId !== associationId) return reply_(false, 'wrong_association_or_action');
     if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
           'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
-          'create_task', 'complete_task', 'recall_task', 'save_contact',
+          'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
           'delete_contact', 'leave_app'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
     if (typeof body.subject !== 'string' || !body.subject || body.subject.length > 255) return reply_(false, 'wrong_association_or_action');
     if (typeof body.nonce !== 'string' ||
@@ -214,7 +214,7 @@ function doPost(event) {
       return writeContact_(body.action, body.content, members, spreadsheetId,
         properties);
     }
-    if (['tasks', 'create_task', 'complete_task', 'recall_task'].includes(body.action)) {
+    if (['tasks', 'create_task', 'complete_task', 'recall_task', 'archive_task'].includes(body.action)) {
       const storeId = properties.getProperty(MESSAGES_SHEET_PROPERTY);
       if (!/^[A-Za-z0-9_-]{20,128}$/.test(storeId || '')) {
         return reply_(false, 'tasks_setup_missing');
@@ -913,7 +913,7 @@ function taskStates_(events) {
     if (!/^[0-9a-f-]{36}$/i.test(String(eventId)) ||
         !/^[0-9a-f-]{36}$/i.test(String(taskId)) ||
         !['medlem', 'styrelse', 'prioriterad'].includes(scope) ||
-        !['skapad', 'utförd', 'återkallad'].includes(event) ||
+        !['skapad', 'utförd', 'återkallad', 'arkiverad'].includes(event) ||
         typeof memberId !== 'string' || !memberId ||
         typeof name !== 'string' || !name ||
         typeof at !== 'string' || !Number.isFinite(Date.parse(at))) {
@@ -924,12 +924,14 @@ function taskStates_(events) {
         throw new Error('Dubblerad eller ogiltig uppgift');
       }
       tasks.set(taskId, { id: taskId, kind: scope, text: title, done: false,
-        completedBy: null, completedAt: null, lastRecall: null });
+        completedBy: null, completedAt: null, lastRecall: null, archived: false });
       continue;
     }
     const task = tasks.get(taskId);
-    if (!task || task.kind !== scope || (event === 'utförd' && task.done) ||
-        (event === 'återkallad' && (!task.done || task.completedBy?.memberId !== memberId || row[8] !== 'felaktig'))) {
+    if (!task || task.kind !== scope || task.archived ||
+        (event === 'utförd' && task.done) ||
+        (event === 'återkallad' && (!task.done || task.completedBy?.memberId !== memberId || row[8] !== 'felaktig')) ||
+        (event === 'arkiverad' && (!task.done || row[8] !== 'godkänd'))) {
       throw new Error('Motsägande uppgiftshistorik');
     }
     if (event === 'utförd') {
@@ -937,11 +939,14 @@ function taskStates_(events) {
       task.completedBy = { memberId: memberId, name: name };
       task.completedAt = at;
       task.lastRecall = null;
-    } else {
+    } else if (event === 'återkallad') {
       task.done = false;
       task.completedBy = null;
       task.completedAt = null;
       task.lastRecall = { name: name, at: at, reason: 'felaktig' };
+    } else {
+      task.archived = true;
+      task.archivedBy = { memberId: memberId, name: name, at: at };
     }
   }
   return tasks;
@@ -949,7 +954,7 @@ function taskStates_(events) {
 
 function visibleTasks_(events, boardAllowed, viewerId) {
   return Array.from(taskStates_(events).values())
-    .filter(task => boardAllowed || task.kind !== 'styrelse')
+    .filter(task => !task.archived && (boardAllowed || task.kind !== 'styrelse'))
     .map(task => ({ id: task.id, kind: task.kind, text: task.text,
       done: task.done, completedBy: task.completedBy?.name || null,
       completedAt: task.completedAt,
@@ -975,6 +980,7 @@ function writeTaskEvent_(id, action, content, memberId, name, boardAllowed) {
       return reply_(false, 'invalid_content');
     }
   } else {
+    if (action === 'archive_task' && !boardAllowed) return reply_(false, 'insufficient_role');
     taskId = content;
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(taskId)) {
       return reply_(false, 'invalid_content');
@@ -988,23 +994,26 @@ function writeTaskEvent_(id, action, content, memberId, name, boardAllowed) {
     const states = taskStates_(events);
     if (action !== 'create_task') {
       const task = states.get(taskId);
-      if (!task || (!boardAllowed && task.kind === 'styrelse')) {
+      if (!task || task.archived || (!boardAllowed && task.kind === 'styrelse')) {
         return reply_(false, 'task_not_found');
       }
       if (action === 'complete_task' && task.done) return reply_(false, 'already_completed');
       if (action === 'recall_task' && (!task.done || task.completedBy.memberId !== memberId)) {
         return reply_(false, 'recall_denied');
       }
+      if (action === 'archive_task' && !task.done) return reply_(false, 'not_completed');
       scope = task.kind;
     } else {
       taskId = Utilities.getUuid();
     }
     const event = action === 'create_task' ? 'skapad' :
-      action === 'complete_task' ? 'utförd' : 'återkallad';
+      action === 'complete_task' ? 'utförd' :
+        action === 'recall_task' ? 'återkallad' : 'arkiverad';
     sheetsRequest_('https://sheets.googleapis.com/v4/spreadsheets/' +
       encodeURIComponent(id) + '/values/%27Uppgifter%27!A:I:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS',
       'post', { values: [[Utilities.getUuid(), taskId, scope, event, title,
-        memberId, name, new Date().toISOString(), action === 'recall_task' ? 'felaktig' : '']] },
+        memberId, name, new Date().toISOString(),
+        action === 'recall_task' ? 'felaktig' : action === 'archive_task' ? 'godkänd' : '']] },
       ScriptApp.getOAuthToken());
     return reply_(true, null, { saved: true, taskId: taskId });
   } finally { lock.releaseLock(); }

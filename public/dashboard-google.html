@@ -164,6 +164,9 @@
 .view-surface .view-task-label input[type=checkbox]{flex:none;width:20px;height:20px;min-height:0;margin:0;padding:0;accent-color:#f2c457;cursor:pointer}
 .view-surface .view-task-label input[type=checkbox]:disabled{cursor:default}
 .view-surface .view-task-label input[type=checkbox]:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.view-surface .view-task-review{display:flex;align-items:center;flex-wrap:wrap;gap:5px 12px;margin:5px 0 0 30px}
+.view-surface .view-task-completer{color:#afc0c6;font-size:12px}
+.view-surface .view-task-archive{min-height:30px;padding:3px 9px;font-size:12px}
 .view-surface .view-task-empty{padding:8px 0;color:#b8c8cd;font-size:13px}
 .view-surface .view-document-columns{margin:12px 0;min-width:0}
 .view-surface .view-document-columns-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
@@ -445,6 +448,19 @@
         checkbox.setAttribute('aria-label', `${task.done ? 'Återkalla' : 'Markera klar'}: ${task.text}`);
         label.append(checkbox, element('span', '', task.text));
         row.append(label);
+        if (boardAllowed && task.done && options.connection === 'google_test') {
+          const review = element('div', 'view-task-review');
+          if (task.completedBy) {
+            review.append(element('span', 'view-task-completer',
+              `Utförd av ${task.completedBy}${task.completedAt ? ` · ${new Date(task.completedAt).toLocaleString('sv-SE')}` : ''}`));
+          }
+          const archive = element('button', 'view-task-archive', 'Godkänn och arkivera');
+          archive.type = 'button';
+          archive.dataset.action = 'task-archive';
+          archive.dataset.value = String(task.id);
+          review.append(archive);
+          row.append(review);
+        }
         list.append(row);
       }
       area.append(list);
@@ -805,6 +821,14 @@
         document.dispatchEvent(new CustomEvent(actionName === 'task-complete'
           ? 'vf:task-complete' : 'vf:task-recall', {detail:{id:value}}));
         return;
+      } else if (action === 'task-archive') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
+            window.VFAppData.connection !== 'google_test') return;
+        const task = window.VFAppData?.tasks?.tasks?.find(item => item.id === value);
+        if (!task?.done || !window.confirm('Godkänn att uppgiften är utförd och arkivera den? Den försvinner från Att göra men finns kvar i uppgiftsloggen.')) return;
+        control.disabled = true;
+        document.dispatchEvent(new CustomEvent('vf:task-archive', {detail:{id:value}}));
+        return;
       } else if (action === 'quick-message') {
         const form = control.closest('form');
         if (form) { form.querySelector('input').value = value; form.requestSubmit(); }
@@ -1162,6 +1186,7 @@
       if (state.connection === 'google_test') notice(method === 'completeTask'
         ? 'Uppgiften markerades som utförd. Du kan avmarkera kryssrutan om det blev fel.'
         : method === 'recallTask' ? 'Markeringen återkallades som felaktig.'
+          : method === 'archiveTask' ? 'Uppgiften godkändes och togs bort från den aktiva listan.'
           : 'Uppgiften lades till.');
     } catch (error) {
       if (error?.reason === 'already_completed') {
@@ -1251,6 +1276,10 @@
   });
   document.addEventListener('vf:task-recall', event => {
     writeTask('recallTask', event.detail?.id);
+  });
+  document.addEventListener('vf:task-archive', event => {
+    if (!state.user?.permissions?.includes('board_view')) return;
+    writeTask('archiveTask', event.detail?.id);
   });
   document.addEventListener('vf:contact-save', event => {
     writeContact('saveContact', event.detail);

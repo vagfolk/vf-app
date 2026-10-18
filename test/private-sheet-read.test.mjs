@@ -655,6 +655,35 @@ test('första avbockningen vinner och bara den personen får återkalla som fela
   assert.equal(app.identity.readDashboardData('tasks').data.tasks[0].canRecall, true);
 });
 
+test('bara styrelsen får godkänna färdiga uppgifter och historiken sparas', () => {
+  const app = fixture({ members: [memberHead,
+    memberRow({ sub: 'google-member', name: 'Anna', id: 'M-001' }),
+    memberRow({ sub: 'google-board', role: 'Styrelse', name: 'Bo', id: 'M-002' })] });
+  app.setSubject('google-board');
+  const created = app.identity.createTask({ kind: 'medlem', text: 'Torka golvet' });
+  assert.equal(created.allowed, true);
+  assert.equal(app.identity.archiveTask(created.taskId).reason, 'not_completed');
+  app.setSubject('google-member');
+  assert.equal(app.identity.completeTask(created.taskId).allowed, true);
+  assert.equal(app.identity.archiveTask(created.taskId).reason, 'insufficient_role');
+  assert.equal(app.identity.readDashboardData('tasks').data.tasks.length, 1);
+  app.setSubject('google-board');
+  assert.equal(app.identity.archiveTask(created.taskId).allowed, true);
+  assert.deepEqual(result(app.identity.readDashboardData('tasks').data.tasks), []);
+  assert.deepEqual(app.taskRows.slice(1).map(row => row[3]),
+    ['skapad', 'utförd', 'arkiverad']);
+  assert.equal(app.taskRows[3][1], created.taskId);
+  assert.equal(app.taskRows[3][5], 'M-002');
+  assert.equal(app.taskRows[3][6], 'Bo');
+  assert.equal(app.taskRows[3][8], 'godkänd');
+  assert.equal(Number.isFinite(Date.parse(app.taskRows[3][7])), true);
+  assert.equal(app.identity.archiveTask(created.taskId).reason, 'task_not_found');
+  app.setSubject('google-member');
+  assert.deepEqual(result(app.identity.readDashboardData('tasks').data.tasks), []);
+  assert.equal(app.identity.recallTask(created.taskId).reason, 'task_not_found');
+  assert.equal(app.taskRows.length, 4);
+});
+
 test('tom privat uppgiftsflik får rubriker utan att befintliga meddelanden ändras', () => {
   const app = fixture({ emptyTaskStore: true });
   app.data.prepareTaskStore();

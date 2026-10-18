@@ -200,10 +200,8 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   På styrelsens startsida öppnar knappen **Att göra** detta formulär;
   formuläret visas inte innan knappen trycks. Vänstermenyns **Att göra**
   öppnar listan. Knappen **Stäng vyn** används inte på startsidan.
-  Själva Att göra-vyn ska enbart
-  visa uppgifterna och låta behöriga användare bocka av eller återkalla med
-  kryssrutan en
-  egen felmarkering. En
+  Själva Att göra-vyn visar uppgifterna och låter behöriga användare bocka av
+  eller återkalla en felmarkering med kryssrutan. En
   inloggad medlem ska kunna markera en uppgift som utförd, och utförandet ska
   sparas med uppgiftens ID, personens medlems-ID och visningsnamn samt tid.
   Det ska också finnas en separat lista som bara styrelsebehöriga ser.
@@ -214,6 +212,12 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   felmarkering; uppgiften öppnas då igen. Både avbockning och återkallelse
   sparas med uppgift, person och tid, och återkallelsen märks **felaktig**.
   Ingen annan medlem får återkalla den personens avbockning.
+  När styrelsen har granskat en avbockad uppgift kan en styrelsebehörig välja
+  **Godkänn och arkivera** på den uppgiften. Den försvinner då från den aktiva
+  Att göra-listan för alla, men händelserna skapad, utförd och arkiverad finns
+  kvar i den privata uppgiftsloggen med medlems-ID, namn och tid för senare
+  kontroll. En oavslutad uppgift får inte arkiveras. Vanliga medlemmar ser
+  inte arkiveringsknappen.
 - **Mötesläge:** den gamla prototypens idé med aktuell dagordning och
   mötesfiler är endast underlag. Ett fullständigt arbetsflöde är ännu inte
   beslutat. Mötesläget ska byggas i ett senare samlat steg, liksom

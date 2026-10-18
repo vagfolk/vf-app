@@ -73,6 +73,9 @@
 .view-surface .view-task-label input[type=checkbox]{flex:none;width:20px;height:20px;min-height:0;margin:0;padding:0;accent-color:#f2c457;cursor:pointer}
 .view-surface .view-task-label input[type=checkbox]:disabled{cursor:default}
 .view-surface .view-task-label input[type=checkbox]:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.view-surface .view-task-review{display:flex;align-items:center;flex-wrap:wrap;gap:5px 12px;margin:5px 0 0 30px}
+.view-surface .view-task-completer{color:#afc0c6;font-size:12px}
+.view-surface .view-task-archive{min-height:30px;padding:3px 9px;font-size:12px}
 .view-surface .view-task-empty{padding:8px 0;color:#b8c8cd;font-size:13px}
 .view-surface .view-document-columns{margin:12px 0;min-width:0}
 .view-surface .view-document-columns-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}

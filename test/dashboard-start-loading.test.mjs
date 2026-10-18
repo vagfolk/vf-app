@@ -97,6 +97,7 @@ test('rollen styr uppgifter och dokument utan manuella medlems- eller styrelseva
   assert.match(textOf(display), /Prioriterad uppgift/);
   assert.doesNotMatch(textOf(display), /Styrelseuppgift|För medlemmar|För styrelsen/);
   assert.equal(descendants(display).filter(item => item.dataset.action === 'task-toggle').length, 2);
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'task-archive').length, 0);
   assert.equal(descendants(display).some(item => item.className?.includes('view-task-styrelse')), false);
 
   window.VFPreviewViews.show('medlemsarbete', {
@@ -108,6 +109,20 @@ test('rollen styr uppgifter och dokument utan manuella medlems- eller styrelseva
   assert.doesNotMatch(textOf(display), /För medlemmar|För styrelsen/);
   assert.equal(descendants(display).filter(item => item.dataset.action === 'task-toggle').length, 3);
   assert.equal(descendants(display).some(item => item.className?.includes('view-task-lower-board')), true);
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'task-archive').length, 0);
+
+  tasks.tasks[0].done = true;
+  tasks.tasks[0].completedBy = 'Anna';
+  window.VFPreviewViews.show('medlemsarbete', {
+    connection: 'google_test', user: { permissions: ['own_fee', 'board_view'] }, tasks,
+  });
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'task-archive').length, 1);
+  assert.match(textOf(display), /Godkänn och arkivera/);
+
+  window.VFPreviewViews.show('medlemsarbete', {
+    connection: 'google_test', user: { permissions: ['own_fee'] }, tasks,
+  });
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'task-archive').length, 0);
 
   window.VFPreviewViews.show('dokument', {
     connection: 'google_test', user: { permissions: ['own_fee'] },

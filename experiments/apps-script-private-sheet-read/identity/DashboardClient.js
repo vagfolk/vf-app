@@ -265,6 +265,7 @@
       if (state.connection === 'google_test') notice(method === 'completeTask'
         ? 'Uppgiften markerades som utförd. Du kan avmarkera kryssrutan om det blev fel.'
         : method === 'recallTask' ? 'Markeringen återkallades som felaktig.'
+          : method === 'archiveTask' ? 'Uppgiften godkändes och togs bort från den aktiva listan.'
           : 'Uppgiften lades till.');
     } catch (error) {
       if (error?.reason === 'already_completed') {
@@ -354,6 +355,10 @@
   });
   document.addEventListener('vf:task-recall', event => {
     writeTask('recallTask', event.detail?.id);
+  });
+  document.addEventListener('vf:task-archive', event => {
+    if (!state.user?.permissions?.includes('board_view')) return;
+    writeTask('archiveTask', event.detail?.id);
   });
   document.addEventListener('vf:contact-save', event => {
     writeContact('saveContact', event.detail);

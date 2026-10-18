@@ -175,6 +175,19 @@
         checkbox.setAttribute('aria-label', `${task.done ? 'Återkalla' : 'Markera klar'}: ${task.text}`);
         label.append(checkbox, element('span', '', task.text));
         row.append(label);
+        if (boardAllowed && task.done && options.connection === 'google_test') {
+          const review = element('div', 'view-task-review');
+          if (task.completedBy) {
+            review.append(element('span', 'view-task-completer',
+              `Utförd av ${task.completedBy}${task.completedAt ? ` · ${new Date(task.completedAt).toLocaleString('sv-SE')}` : ''}`));
+          }
+          const archive = element('button', 'view-task-archive', 'Godkänn och arkivera');
+          archive.type = 'button';
+          archive.dataset.action = 'task-archive';
+          archive.dataset.value = String(task.id);
+          review.append(archive);
+          row.append(review);
+        }
         list.append(row);
       }
       area.append(list);
@@ -534,6 +547,14 @@
         control.disabled = true;
         document.dispatchEvent(new CustomEvent(actionName === 'task-complete'
           ? 'vf:task-complete' : 'vf:task-recall', {detail:{id:value}}));
+        return;
+      } else if (action === 'task-archive') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
+            window.VFAppData.connection !== 'google_test') return;
+        const task = window.VFAppData?.tasks?.tasks?.find(item => item.id === value);
+        if (!task?.done || !window.confirm('Godkänn att uppgiften är utförd och arkivera den? Den försvinner från Att göra men finns kvar i uppgiftsloggen.')) return;
+        control.disabled = true;
+        document.dispatchEvent(new CustomEvent('vf:task-archive', {detail:{id:value}}));
         return;
       } else if (action === 'quick-message') {
         const form = control.closest('form');
