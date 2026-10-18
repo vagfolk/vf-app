@@ -270,10 +270,12 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   följa respektive bildrams konturer och kunna ändras som separata moduler.
   Mittdisplayens vanliga bakgrund är helt svart i stället för vägmotivet.
   Vid en ny inloggnings första inläsning från EKO får den visa animationen
-  `vf26_engine_startup_with_logo` (WebM med MP4 som reserv). Animationen
+  `Vagfolk26_Startsekvens_12s_v4` (WebM med MP4 som reserv). Animationen
   och EKO-hämtningen startar samtidigt. Alla startvyns EKO-uppgifter hämtas i
-  bakgrunden medan filmen spelar och visas först när både filmen och hämtningen
-  är klara. Om Google/EKO ändå tar längre tid än filmen
+  bakgrunden medan filmen spelar. Instrumentpanelen runt mittdisplayen förblir
+  synlig, men inget annat innehåll visas i mittdisplayen före filmens slut.
+  Inlästa uppgifter visas där först när både filmen och hämtningen är klara.
+  Om Google/EKO ändå tar längre tid än filmen
   ligger filmens sista bild kvar tills inläsningen är klar. Den startar inte om
   vid senare ändringskontroller mot EKO. Svart yta och video ska klippas innanför
   originalramens inre kontur utan en extra ram eller övertäckta kanter.
