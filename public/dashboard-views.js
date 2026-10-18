@@ -154,31 +154,39 @@
   const renderTasks = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
     root.append(heading('Att göra'));
-    const list = element('ul','view-list');
     const tasks = (options.tasks?.tasks || [])
-      .filter(task => boardAllowed || task.kind !== 'styrelse')
-      .sort((a, b) => Number(b.kind === 'prioriterad') - Number(a.kind === 'prioriterad'));
-    if (!options.tasks && options.connection === 'google_test') list.append(element('li','','Hämtar uppgifter…'));
-    else if (!tasks.length) list.append(element('li','','Inga uppgifter tillagda.'));
-    tasks.forEach(task => {
-      const row = element('li','view-row view-task-row');
-      const details = element('div');
-      if (task.kind === 'prioriterad') details.append(element('span','view-priority','Prioriterad'));
-      else if (task.kind === 'styrelse') details.append(element('span','view-priority','Styrelse'));
-      details.append(element('strong','',`${task.done ? '✓ ' : ''}${task.text}`));
-      if (task.done && task.completedBy && task.completedAt) {
-        details.append(paragraph(`Utförd av ${task.completedBy} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(new Date(task.completedAt))}`, 'view-muted'));
-      } else if (task.lastRecall) {
-        details.append(paragraph(`Återkallad som felaktig av ${task.lastRecall.name}`, 'view-muted'));
+      .filter(task => boardAllowed || task.kind !== 'styrelse');
+    const section = (kind, title) => {
+      const area = element('section', `view-task-section view-task-${kind}`);
+      area.append(element('h3', '', title));
+      const list = element('ul', 'view-task-list');
+      const matches = tasks.filter(task => task.kind === kind);
+      if (!matches.length) list.append(element('li', 'view-task-empty', 'Inga uppgifter.'));
+      for (const task of matches) {
+        const row = element('li', 'view-task-row');
+        const label = element('label', 'view-task-label');
+        const checkbox = element('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = Boolean(task.done);
+        checkbox.disabled = options.connection !== 'google_test' ||
+          (task.done && !task.canRecall);
+        checkbox.dataset.action = 'task-toggle';
+        checkbox.dataset.value = String(task.id);
+        checkbox.setAttribute('aria-label', `${task.done ? 'Återkalla' : 'Markera klar'}: ${task.text}`);
+        label.append(checkbox, element('span', '', task.text));
+        row.append(label);
+        list.append(row);
       }
-      row.append(details);
-      if (options.connection === 'google_test') {
-        if (!task.done) row.append(button('Klart','task-complete',task.id));
-        else if (task.canRecall) row.append(button('Återkalla','task-recall',task.id));
-      }
-      list.append(row);
-    });
-    root.append(list);
+      area.append(list);
+      return area;
+    };
+    const layout = element('div', 'view-task-layout');
+    layout.append(section('prioriterad', 'Prioriterade'));
+    const lower = element('div', `view-task-lower${boardAllowed ? ' view-task-lower-board' : ''}`);
+    lower.append(section('medlem', 'Medlemmar'));
+    if (boardAllowed) lower.append(section('styrelse', 'Styrelsen'));
+    layout.append(lower);
+    root.append(layout);
   };
   const renderInformation = (root, options) => {
     root.append(heading('Information', 'Viktigt meddelande från styrelsen'));
@@ -227,14 +235,27 @@
     input.maxLength = 120;
     input.required = true;
     input.placeholder = 'Skriv högst 120 tecken';
-    form.append(label,input,group(button('Blir sen','quick-message','Blir sen'),button('Hittar inte dit','quick-message','Hittar inte dit'),button('Behöver hjälp','quick-message','Behöver hjälp'),button('Skicka','submit-message')));
+    const compose = element('div', 'view-chat-compose');
+    compose.append(input, button('Skicka', 'submit-message'));
+    const shortcuts = group(button('Blir sen','quick-message','Blir sen'),
+      button('Hittar inte dit','quick-message','Hittar inte dit'),
+      button('Behöver hjälp','quick-message','Behöver hjälp'));
+    shortcuts.className += ' view-chat-shortcuts';
+    form.append(label, compose, shortcuts);
     root.append(form);
   };
   const renderDocuments = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
     root.append(heading('Dokument', 'Delade filer'));
-    root.append(card('Medlemsdokument', 'Inga dokument att visa.'));
-    if (boardAllowed) root.append(card('Styrelsedokument', 'Inga dokument att visa.'));
+    const columns = element('div', `view-document-columns${boardAllowed ? ' view-document-columns-board' : ''}`);
+    const section = (kind, title) => {
+      const area = element('section', `view-document-section view-document-${kind}`);
+      area.append(element('h3', '', title), paragraph('Inga dokument att visa.', 'view-document-empty'));
+      return area;
+    };
+    columns.append(section('member', 'Medlemsdokument'));
+    if (boardAllowed) columns.append(section('board', 'Styrelsedokument'));
+    root.append(columns);
     root.append(notice());
   };
   const renderFee = root => {
@@ -472,14 +493,17 @@
         }
         return;
       }
-      if (action === 'task-complete' || action === 'task-recall') {
+      if (action === 'task-toggle') {
         const task = window.VFAppData?.tasks?.tasks?.find(item => item.id === value);
-        if (!task) return;
-        if (action === 'task-complete' && task.done) return;
-        if (action === 'task-complete' &&
-            !window.confirm('Bekräfta att uppgiften är klar')) return;
-        if (action === 'task-recall' && (!task.canRecall || !window.confirm('Återkalla avbockningen som felaktig?'))) return;
-        document.dispatchEvent(new CustomEvent(action === 'task-complete'
+        if (!task) { control.checked = false; return; }
+        const actionName = task.done ? 'task-recall' : 'task-complete';
+        const allowed = task.done ? task.canRecall : true;
+        const confirmed = allowed && window.confirm(task.done
+          ? 'Återkalla avbockningen som felaktig?'
+          : 'Bekräfta att uppgiften är klar');
+        if (!confirmed) { control.checked = Boolean(task.done); return; }
+        control.disabled = true;
+        document.dispatchEvent(new CustomEvent(actionName === 'task-complete'
           ? 'vf:task-complete' : 'vf:task-recall', {detail:{id:value}}));
         return;
       } else if (action === 'quick-message') {

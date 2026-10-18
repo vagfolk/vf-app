@@ -112,20 +112,21 @@
 .view-surface{color:#eef2f2;font-family:"Segoe UI",Arial,sans-serif}
 .view-screen-reader-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .view-surface h2{margin:0 0 10px;font-size:clamp(19px,2vw,30px);line-height:1.1;color:#fff}
-.view-surface h3{margin:0 0 8px;font-size:16px;color:#f6d47e}
+.view-surface h3{margin:0 0 8px;font-size:16px;color:#eef2f2}
 .view-surface p{margin:0 0 12px;color:#d4dfe3;font-size:14px;line-height:1.45}
 .view-surface .view-kicker{color:#f9c34a;text-transform:uppercase;font-size:11px;font-weight:700;letter-spacing:.16em;margin-bottom:6px}
 .view-surface .view-muted{color:#9db0b9;font-size:12px}
-.view-surface .view-card{background:linear-gradient(145deg,#1c2a32d9,#071018e8 42%,#15181ce8);border:1px solid #65747a88;border-radius:16px;padding:14px 16px;box-shadow:inset 0 1px 0 #e1f0f43b,0 12px 24px #0008;margin:10px 0}
-.view-surface .view-card.notice{border-color:#d1a345aa;box-shadow:inset 0 1px 0 #f9dc8270,0 0 18px #e4a32325}
+.view-surface .view-card{background:transparent;border:0;border-bottom:1px solid #82939775;border-radius:0;padding:12px 0;box-shadow:none;margin:0}
+.view-surface .view-card.notice{border-color:#82939775}
 .view-surface .view-card.alert{border-color:#d14b59aa}
 .view-surface .view-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
 .view-surface .view-grid .view-card{margin:0}
 .view-surface .view-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
-.view-surface button{min-height:44px;border:1px solid #a8bac2a0;background:linear-gradient(#2a353d,#0d171e);color:#f5f8f8;box-shadow:inset 0 1px #ffffff38,0 3px 9px #0008;border-radius:10px;padding:7px 12px}
-.view-surface button:hover,.view-surface button:focus-visible{border-color:#f0c052;background:linear-gradient(#4c3c23,#18202a)}
-.view-surface button[aria-pressed=true]{border-color:#f3c54c;box-shadow:inset 0 1px #ffe0a6a8,0 0 14px #e8aa344a}
-.view-surface input,.view-surface textarea,.view-surface select{width:100%;min-height:40px;border:1px solid #89979d;background:#0b141b;color:#fff;border-radius:8px;padding:9px;font:inherit}
+.view-surface button{min-height:44px;border:1px solid #647681;background:linear-gradient(145deg,#172129,#0a1016 72%);color:#eef3f5;box-shadow:none;border-radius:9px;padding:7px 12px}
+.view-surface button:hover{border-color:#9aabb4;background:#222d35}
+.view-surface button:focus-visible{border-color:#c8d5db;outline:2px solid #fff;outline-offset:2px}
+.view-surface button[aria-pressed=true]{border-color:#9aabb4;background:#26323a}
+.view-surface input,.view-surface textarea,.view-surface select{width:100%;min-height:40px;border:1px solid #647681;background:#0b141b;color:#fff;border-radius:8px;padding:9px;font:inherit}
 .view-surface textarea{min-height:68px;resize:vertical}
 .view-surface .view-task-form{display:flex;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-top:12px}
 .view-surface .view-task-form textarea{flex:1 1 220px;width:auto;min-width:0;min-height:44px;max-height:140px;field-sizing:content;resize:vertical;overflow-y:auto}
@@ -137,45 +138,71 @@
 .view-surface .view-chat-row{display:grid;grid-template-columns:1fr auto;align-items:start}
 .view-surface .view-chat-row p{grid-column:1/-1;white-space:pre-wrap;overflow-wrap:anywhere}
 .view-surface .view-chat-row time{color:#afc0c6;font-size:12px}
+.view-surface .view-chat-compose{display:flex;align-items:stretch;gap:8px}
+.view-surface .view-chat-compose input{flex:1 1 auto;min-width:0}
+.view-surface .view-chat-compose button{flex:none}
+.view-surface .view-chat-shortcuts{margin-top:8px}
 .view-surface .view-row small{color:#afc0c6}
-.view-surface .view-task-row>div{min-width:0;overflow-wrap:anywhere}
-.view-surface .view-task-row p{margin:4px 0 0}
-.view-surface .view-priority{display:inline-block;margin-right:8px;padding:2px 7px;border:1px solid #eead3c;border-radius:999px;color:#ffda7a;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
-.view-surface .view-contact-list{list-style:none;margin:8px 0;padding:0;display:grid;gap:8px}
-.view-surface .view-contact{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:10px;border:1px solid #65747a88;border-radius:14px;background:linear-gradient(145deg,#1c2a32d9,#071018e8 55%,#15181ce8)}
-.view-surface .view-contact-avatar{display:grid;place-items:center;flex:none;width:52px;height:52px;object-fit:cover;border-radius:50%;color:#f8df9e;border:1px solid #d2a63799;background:linear-gradient(145deg,#373025,#0b141b);font-weight:700}
+.view-surface .view-task-layout{display:grid;gap:16px;margin-top:12px}
+.view-surface .view-task-section{min-width:0}
+.view-surface .view-task-section h3{margin:0 0 8px}
+.view-surface .view-task-prioriterad{padding-bottom:15px;border-bottom:1px solid #82939775}
+.view-surface .view-task-lower{min-width:0}
+.view-surface .view-task-lower-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.view-surface .view-task-lower-board .view-task-styrelse{border-left:1px solid #82939775;padding-left:18px}
+.view-surface .view-task-list{list-style:none;margin:0;padding:0}
+.view-surface .view-task-row{border-bottom:1px solid #82939745;padding:8px 0}
+.view-surface .view-task-row:last-child{border-bottom:0}
+.view-surface .view-task-label{display:flex;align-items:flex-start;gap:10px;margin:0;line-height:1.4;cursor:pointer}
+.view-surface .view-task-label span{min-width:0;overflow-wrap:anywhere;color:#eef2f2;font-size:14px}
+.view-surface .view-task-label input[type=checkbox]{flex:none;width:20px;height:20px;min-height:0;margin:0;padding:0;accent-color:#f2c457;cursor:pointer}
+.view-surface .view-task-label input[type=checkbox]:disabled{cursor:default}
+.view-surface .view-task-label input[type=checkbox]:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.view-surface .view-task-empty{padding:8px 0;color:#b8c8cd;font-size:13px}
+.view-surface .view-document-columns{margin:12px 0;min-width:0}
+.view-surface .view-document-columns-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.view-surface .view-document-section{min-width:0}
+.view-surface .view-document-section h3{margin:0 0 12px}
+.view-surface .view-document-board{border-left:1px solid #82939775;padding-left:18px}
+.view-surface .view-document-empty{color:#b8c8cd}
+@media(max-width:700px){.view-surface .view-task-lower-board,.view-surface .view-document-columns-board{grid-template-columns:1fr;gap:14px}.view-surface .view-task-lower-board .view-task-styrelse,.view-surface .view-document-board{border-left:0;border-top:1px solid #82939775;padding:14px 0 0}}
+.view-surface .view-contact-list{list-style:none;margin:8px 0;padding:0}
+.view-surface .view-contact{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0;border-bottom:1px solid #82939775;background:transparent}
+.view-surface .view-contact-avatar{display:grid;place-items:center;flex:none;width:52px;height:52px;object-fit:cover;border-radius:50%;color:#eef2f2;border:1px solid #647681;background:#172129;font-weight:700}
 .stage .view-contact img.view-contact-avatar{position:static;max-width:52px;pointer-events:auto}
 .view-surface .view-contact>div:not(.view-actions){display:grid;gap:3px;min-width:0}
-.view-surface .view-contact a{color:#e9d38e;overflow-wrap:anywhere}
+.view-surface .view-contact a{color:#d7e5ea;overflow-wrap:anywhere}
 .view-surface .view-contact-description{margin:0;font-size:12px}
 .view-surface .view-contact-controls{margin-left:auto}
 .view-surface .view-contact-controls button{min-height:34px;padding:4px 8px;font-size:12px}
-.view-surface .view-contact-form{flex:1 0 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;margin:6px 0 12px;padding:12px;border:1px solid #59656b;border-radius:12px;background:#071018}
+.view-surface .view-contact-form{flex:1 0 100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 12px;margin:6px 0 12px;padding:12px 0;border-top:1px solid #82939775;background:transparent}
 .view-surface .view-contact-form label{margin:2px 0}
 .view-surface .view-contact-form label:has(textarea),.view-surface .view-contact-form .view-actions{grid-column:1/-1}
 .view-surface .view-contact-form input[type=file]{font-size:12px}
 .view-surface .view-contact-remove-photo{display:flex!important;align-items:center;gap:8px}
 .view-surface .view-contact-remove-photo input{width:auto;min-height:0}
 @media(max-width:650px){.view-surface .view-contact-form{grid-template-columns:1fr}}
-.view-surface .view-pill{display:inline-block;border:1px solid #789383;border-radius:999px;color:#a9f2c6;padding:4px 9px;font-size:12px}
-.view-surface .view-placeholder{border:1px dashed #88969a87;border-radius:12px;padding:16px;color:#c0ced2;margin:10px 0}
-.view-surface .view-calendar-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
-.view-surface .view-calendar-section{min-width:0;padding:15px;border:1px solid #65747a88;border-radius:16px;background:linear-gradient(145deg,#1c2a32d9,#071018e8 42%,#15181ce8);box-shadow:inset 0 1px 0 #e1f0f43b,0 12px 24px #0008}
+.view-surface .view-pill{display:inline-block;border:1px solid #647681;border-radius:9px;color:#eef2f2;padding:4px 9px;font-size:12px}
+.view-surface .view-placeholder{border-bottom:1px solid #82939775;padding:12px 0;color:#c0ced2;margin:10px 0}
+.view-surface .view-calendar-columns{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin:12px 0}
+.view-surface .view-calendar-section{min-width:0;padding:0}
+.view-surface .view-calendar-section+.view-calendar-section{border-left:1px solid #82939775;padding-left:18px}
 .view-surface .view-calendar-section-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 .view-surface .view-calendar-section-header h3{margin:0}
-.view-surface .view-calendar-link{flex:none;border:1px solid #d2a63788;border-radius:8px;padding:5px 8px;color:#f9d777;font-size:12px;text-decoration:none}
-.view-surface .view-actions .view-calendar-link{display:inline-flex;align-items:center;min-height:44px;padding:7px 12px;font-size:14px;background:linear-gradient(#2a353d,#0d171e);box-shadow:inset 0 1px #ffffff38,0 3px 9px #0008}
-.view-surface .view-calendar-link:hover,.view-surface .view-calendar-link:focus-visible{background:#57421a;outline:2px solid #d2a637;outline-offset:2px}
+.view-surface .view-calendar-link{flex:none;border:1px solid #647681;border-radius:9px;padding:5px 8px;color:#eef3f5;font-size:12px;text-decoration:none}
+.view-surface .view-actions .view-calendar-link{display:inline-flex;align-items:center;min-height:44px;padding:7px 12px;font-size:14px;background:linear-gradient(145deg,#172129,#0a1016 72%);box-shadow:none}
+.view-surface .view-calendar-link:hover{border-color:#9aabb4;background:#222d35}
+.view-surface .view-calendar-link:focus-visible{outline:2px solid #fff;outline-offset:2px}
 .view-surface .view-calendar-events{list-style:none;margin:0;padding:0}
 .view-surface .view-calendar-event{display:grid;gap:3px;padding:10px 0;border-top:1px solid #7b919047;overflow-wrap:anywhere}
-.view-surface .view-calendar-event time{color:#f6cb72;font-size:12px;text-transform:capitalize}
+.view-surface .view-calendar-event time{color:#c2d1d6;font-size:12px;text-transform:capitalize}
 .view-surface .view-calendar-event span{font-size:14px;line-height:1.35}
 .view-surface .view-calendar-empty{padding:10px 0;color:#b8c8cd;font-size:13px}
+@media(max-width:700px){.view-surface .view-calendar-columns{grid-template-columns:1fr;gap:14px}.view-surface .view-calendar-section+.view-calendar-section{border-left:0;border-top:1px solid #82939775;padding:14px 0 0}}
 .view-surface .view-back{margin-bottom:12px}
 .view-surface .view-list{list-style:none;margin:0;padding:0}
 .view-surface .view-list li{padding:9px 0;border-bottom:1px solid #7b919047}
 .view-surface .view-list li:last-child{border:0}
-.view-surface .view-list .view-task-row{margin:8px 0;padding:12px 14px;border:1px solid #65747a88;border-radius:12px;background:linear-gradient(145deg,#30363b,#20272c 55%,#171d22);box-shadow:inset 0 1px 0 #ffffff24,0 5px 12px #0005}
 .view-surface .view-status-line{display:flex;align-items:center;gap:9px}
 .view-surface .view-status-dot{width:11px;height:11px;border-radius:50%;background:#f2b64c;box-shadow:0 0 10px #f2b64c}
 .screen-content{scrollbar-color:#8e6530 #091017;scrollbar-width:thin}
@@ -391,31 +418,39 @@
   const renderTasks = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
     root.append(heading('Att göra'));
-    const list = element('ul','view-list');
     const tasks = (options.tasks?.tasks || [])
-      .filter(task => boardAllowed || task.kind !== 'styrelse')
-      .sort((a, b) => Number(b.kind === 'prioriterad') - Number(a.kind === 'prioriterad'));
-    if (!options.tasks && options.connection === 'google_test') list.append(element('li','','Hämtar uppgifter…'));
-    else if (!tasks.length) list.append(element('li','','Inga uppgifter tillagda.'));
-    tasks.forEach(task => {
-      const row = element('li','view-row view-task-row');
-      const details = element('div');
-      if (task.kind === 'prioriterad') details.append(element('span','view-priority','Prioriterad'));
-      else if (task.kind === 'styrelse') details.append(element('span','view-priority','Styrelse'));
-      details.append(element('strong','',`${task.done ? '✓ ' : ''}${task.text}`));
-      if (task.done && task.completedBy && task.completedAt) {
-        details.append(paragraph(`Utförd av ${task.completedBy} · ${new Intl.DateTimeFormat('sv-SE',{dateStyle:'short',timeStyle:'short'}).format(new Date(task.completedAt))}`, 'view-muted'));
-      } else if (task.lastRecall) {
-        details.append(paragraph(`Återkallad som felaktig av ${task.lastRecall.name}`, 'view-muted'));
+      .filter(task => boardAllowed || task.kind !== 'styrelse');
+    const section = (kind, title) => {
+      const area = element('section', `view-task-section view-task-${kind}`);
+      area.append(element('h3', '', title));
+      const list = element('ul', 'view-task-list');
+      const matches = tasks.filter(task => task.kind === kind);
+      if (!matches.length) list.append(element('li', 'view-task-empty', 'Inga uppgifter.'));
+      for (const task of matches) {
+        const row = element('li', 'view-task-row');
+        const label = element('label', 'view-task-label');
+        const checkbox = element('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = Boolean(task.done);
+        checkbox.disabled = options.connection !== 'google_test' ||
+          (task.done && !task.canRecall);
+        checkbox.dataset.action = 'task-toggle';
+        checkbox.dataset.value = String(task.id);
+        checkbox.setAttribute('aria-label', `${task.done ? 'Återkalla' : 'Markera klar'}: ${task.text}`);
+        label.append(checkbox, element('span', '', task.text));
+        row.append(label);
+        list.append(row);
       }
-      row.append(details);
-      if (options.connection === 'google_test') {
-        if (!task.done) row.append(button('Klart','task-complete',task.id));
-        else if (task.canRecall) row.append(button('Återkalla','task-recall',task.id));
-      }
-      list.append(row);
-    });
-    root.append(list);
+      area.append(list);
+      return area;
+    };
+    const layout = element('div', 'view-task-layout');
+    layout.append(section('prioriterad', 'Prioriterade'));
+    const lower = element('div', `view-task-lower${boardAllowed ? ' view-task-lower-board' : ''}`);
+    lower.append(section('medlem', 'Medlemmar'));
+    if (boardAllowed) lower.append(section('styrelse', 'Styrelsen'));
+    layout.append(lower);
+    root.append(layout);
   };
   const renderInformation = (root, options) => {
     root.append(heading('Information', 'Viktigt meddelande från styrelsen'));
@@ -464,14 +499,27 @@
     input.maxLength = 120;
     input.required = true;
     input.placeholder = 'Skriv högst 120 tecken';
-    form.append(label,input,group(button('Blir sen','quick-message','Blir sen'),button('Hittar inte dit','quick-message','Hittar inte dit'),button('Behöver hjälp','quick-message','Behöver hjälp'),button('Skicka','submit-message')));
+    const compose = element('div', 'view-chat-compose');
+    compose.append(input, button('Skicka', 'submit-message'));
+    const shortcuts = group(button('Blir sen','quick-message','Blir sen'),
+      button('Hittar inte dit','quick-message','Hittar inte dit'),
+      button('Behöver hjälp','quick-message','Behöver hjälp'));
+    shortcuts.className += ' view-chat-shortcuts';
+    form.append(label, compose, shortcuts);
     root.append(form);
   };
   const renderDocuments = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
     root.append(heading('Dokument', 'Delade filer'));
-    root.append(card('Medlemsdokument', 'Inga dokument att visa.'));
-    if (boardAllowed) root.append(card('Styrelsedokument', 'Inga dokument att visa.'));
+    const columns = element('div', `view-document-columns${boardAllowed ? ' view-document-columns-board' : ''}`);
+    const section = (kind, title) => {
+      const area = element('section', `view-document-section view-document-${kind}`);
+      area.append(element('h3', '', title), paragraph('Inga dokument att visa.', 'view-document-empty'));
+      return area;
+    };
+    columns.append(section('member', 'Medlemsdokument'));
+    if (boardAllowed) columns.append(section('board', 'Styrelsedokument'));
+    root.append(columns);
     root.append(notice());
   };
   const renderFee = root => {
@@ -709,14 +757,17 @@
         }
         return;
       }
-      if (action === 'task-complete' || action === 'task-recall') {
+      if (action === 'task-toggle') {
         const task = window.VFAppData?.tasks?.tasks?.find(item => item.id === value);
-        if (!task) return;
-        if (action === 'task-complete' && task.done) return;
-        if (action === 'task-complete' &&
-            !window.confirm('Bekräfta att uppgiften är klar')) return;
-        if (action === 'task-recall' && (!task.canRecall || !window.confirm('Återkalla avbockningen som felaktig?'))) return;
-        document.dispatchEvent(new CustomEvent(action === 'task-complete'
+        if (!task) { control.checked = false; return; }
+        const actionName = task.done ? 'task-recall' : 'task-complete';
+        const allowed = task.done ? task.canRecall : true;
+        const confirmed = allowed && window.confirm(task.done
+          ? 'Återkalla avbockningen som felaktig?'
+          : 'Bekräfta att uppgiften är klar');
+        if (!confirmed) { control.checked = Boolean(task.done); return; }
+        control.disabled = true;
+        document.dispatchEvent(new CustomEvent(actionName === 'task-complete'
           ? 'vf:task-complete' : 'vf:task-recall', {detail:{id:value}}));
         return;
       } else if (action === 'quick-message') {
@@ -1074,7 +1125,7 @@
       }
       await loadTasks(true);
       if (state.connection === 'google_test') notice(method === 'completeTask'
-        ? 'Uppgiften markerades som utförd. Du kan välja Återkalla om det blev fel.'
+        ? 'Uppgiften markerades som utförd. Du kan avmarkera kryssrutan om det blev fel.'
         : method === 'recallTask' ? 'Markeringen återkallades som felaktig.'
           : 'Uppgiften lades till.');
     } catch (error) {

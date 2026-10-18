@@ -51,6 +51,8 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   använda beslutade snabbval. Varje post ska knytas till den inloggade
   användarens beständiga medlems-ID, visningsnamn och tid. Användaren ska inte
   kunna ange någon annans identitet.
+  Knappen **Skicka** ska ligga bredvid textrutan; snabbknapparna ligger i en
+  separat grupp under den.
   Chatvyn ska inte upprepa menynamnet i stora rubriker. Detsamma gäller
   andra vyers dubbla rubrikpar. Teknik- och teststatus dokumenteras utanför
   appens användargränssnitt; upprepade testetiketter ska inte täcka innehållet.
@@ -67,6 +69,10 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   redigeringsmöjligheter som behövs för protokoll och mötesdokument; kassören
   får motsvarande rätt för sina ekonomidokument. Exakt arbetsflöde och vilka
   Drive-mappar som ska användas ska bestämmas innan funktionen byggs.
+  Dokumentvyn ska ha samma enkla mittdisplaystil som övriga vyer: två
+  avdelningar med endast ett skiljestreck för styrelsebehöriga, och enbart
+  medlemsdokument för vanliga medlemmar. Rollen styr visningen utan manuellt
+  listval.
 - **Inloggade och mötesdeltagande:** alla ska se hur många som är aktuellt
   inloggade. En vanlig medlem ska inte automatiskt få en namnlista. När
   mötesläget senare är byggt ska möten kunna hållas helt eller delvis genom
@@ -179,14 +185,20 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
 - **Att göra:** namnet avser en att-göra-lista, inte sekreterarens
   medlemsregister. Styrelsen ska lägga till uppgifter från startsidan med
   rullistan **Medlem**, **Styrelse** eller **Prioriterad**. Prioriterade
-  uppgifter syns överst för alla medlemmar. Varje uppgift visas i en egen
-  mörkgrå ruta. Skrivfältet på startsidan är kompakt, kan växa nedåt vid
+  uppgifter syns överst för alla medlemmar. I Att göra-vyn visas de överst,
+  med medlemsuppgifter och styrelseuppgifter i två avdelningar under.
+  Vanliga medlemmar ser bara prioriterade uppgifter och medlemsuppgifter.
+  Avdelningarna skiljs åt med enkla linjer utan synliga kolumnrutor.
+  Varje uppgift visas som text med en vanlig kryssruta, utan en egen grå ruta
+  eller en etikett som upprepar uppgiftens kategori. Skrivfältet på startsidan
+  är kompakt, kan växa nedåt vid
   längre text och har listvalet och knappen **Lägg till uppgift** intill sig.
   På styrelsens startsida öppnar knappen **Att göra** detta formulär;
   formuläret visas inte innan knappen trycks. Vänstermenyns **Att göra**
   öppnar listan. Knappen **Stäng vyn** används inte på startsidan.
   Själva Att göra-vyn ska enbart
-  visa uppgifterna och låta behöriga användare bocka av eller återkalla en
+  visa uppgifterna och låta behöriga användare bocka av eller återkalla med
+  kryssrutan en
   egen felmarkering. En
   inloggad medlem ska kunna markera en uppgift som utförd, och utförandet ska
   sparas med uppgiftens ID, personens medlems-ID och visningsnamn samt tid.
@@ -249,6 +261,14 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   också vara självständiga delar. Fasta etiketter som `demo`, `tillfälligt`
   eller `exempel` ska inte läggas inne i panelens grafiska utformning;
   skissens status och påhittade värden förklaras i text utanför panelen.
+  Alla vyer inne i mittdisplayen, även Start, Kalender, Att göra, Chat,
+  Information, Dokument, Min avgift, Kontakt, Medlemmar och Ekonomi, ska ha
+  ett enklare, mörkt uttryck. Knapparna ska påminna om vänstermenyns inbyggda
+  knappar men sakna dess färgeffekt. Innehåll delas där det passar med tunna
+  skiljestreck i stället för tjocka kort och lysande ramar. Detta gäller även
+  vyer som tillkommer senare.
+  Den yttre instrumentpanelens godkända bilddelar påverkas inte av den
+  förenklingen.
   Nederdelens korta avgiftsindikator ska heta **Medlemsstatus** utan `OK`.
   Den ska vara grön när avgiften är betald och tydligt röd vid obetald avgift,
   med glaslik glöd i samma stil som lägesknapparna. Klockan till vänster om

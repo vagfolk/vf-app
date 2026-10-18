@@ -263,7 +263,7 @@
       }
       await loadTasks(true);
       if (state.connection === 'google_test') notice(method === 'completeTask'
-        ? 'Uppgiften markerades som utförd. Du kan välja Återkalla om det blev fel.'
+        ? 'Uppgiften markerades som utförd. Du kan avmarkera kryssrutan om det blev fel.'
         : method === 'recallTask' ? 'Markeringen återkallades som felaktig.'
           : 'Uppgiften lades till.');
     } catch (error) {
