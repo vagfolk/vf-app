@@ -2,8 +2,8 @@
 const ASSOCIATION_PROPERTY = 'VF_TEST_ASSOCIATION_ID';
 const KEY_PROPERTY = 'VF_TEST_BRIDGE_KEY';
 const DATA_URL_PROPERTY = 'VF_TEST_DATA_URL';
-const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/3ca841532137fec42c964d6a4f45d7152da0ac04/public/dashboard-google.html';
-const DASHBOARD_SHA256 = 'g4o_pzAorcwaVboxXeHkLxobH-vsAmlxvEQCEkb46Pw';
+const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/584db879414cfff569f83b8b2db355a9445193e7/public/dashboard-google.html';
+const DASHBOARD_SHA256 = 'PpBf9vmGTJobQjbiOUZe2kE1xogmlLZn1fsz43-FpLI';
 
 function doGet(request) {
   ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
@@ -56,12 +56,12 @@ function readTestData_(request) {
   const action = request && typeof request === 'object' && !Array.isArray(request)
     ? request.action : null;
   if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
-      'publish_information', 'post_chat', 'tasks', 'contacts',
+      'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
       'create_task', 'complete_task', 'recall_task', 'save_contact',
       'delete_contact', 'leave_app'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
-  const writeAction = ['publish_information', 'post_chat', 'create_task',
+  const writeAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
     'complete_task', 'recall_task', 'save_contact', 'delete_contact'].includes(action);
   const content = request && request.content;
   if (writeAction && (typeof content !== 'string' ||
@@ -228,7 +228,15 @@ function readDashboardData(action) {
         typeof message.text !== 'string' || typeof message.createdAt !== 'string')) {
       return { allowed: false, reason: 'data_unavailable' };
     }
-    return { allowed: true, data: { message: message } };
+    if (data.messages !== undefined &&
+        (!Array.isArray(data.messages) || data.messages.length > 1000 ||
+          data.messages.some(function(item) {
+            return !item || typeof item.id !== 'string' ||
+              typeof item.name !== 'string' || typeof item.text !== 'string' ||
+              typeof item.createdAt !== 'string';
+          }))) return { allowed: false, reason: 'data_unavailable' };
+    return { allowed: true, data: { message: message,
+      ...(data.messages === undefined ? {} : { messages: data.messages }) } };
   }
   if (action === 'chat') {
     if (!Array.isArray(data.messages) || data.messages.length > 50 ||
@@ -282,6 +290,15 @@ function readDashboardData(action) {
 
 function publishInformation(text) {
   const result = readTestData_({ action: 'publish_information', content: text });
+  return result.allowed && result.data && result.data.saved === true
+    ? { allowed: true } : { allowed: false, reason: result.reason || 'data_unavailable' };
+}
+
+function deleteInformation(id) {
+  if (typeof id !== 'string' || !/^[0-9a-f-]{36}$/i.test(id)) {
+    return { allowed: false, reason: 'invalid_content' };
+  }
+  const result = readTestData_({ action: 'delete_information', content: id });
   return result.allowed && result.data && result.data.saved === true
     ? { allowed: true } : { allowed: false, reason: result.reason || 'data_unavailable' };
 }
