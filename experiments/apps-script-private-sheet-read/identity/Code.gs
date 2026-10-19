@@ -2,10 +2,8 @@
 const ASSOCIATION_PROPERTY = 'VF_TEST_ASSOCIATION_ID';
 const KEY_PROPERTY = 'VF_TEST_BRIDGE_KEY';
 const DATA_URL_PROPERTY = 'VF_TEST_DATA_URL';
-const MEMBER_DOCUMENT_FOLDER_PROPERTY = 'VF_MEMBER_DOCUMENT_FOLDER_ID';
-const BOARD_DOCUMENT_FOLDER_PROPERTY = 'VF_BOARD_DOCUMENT_FOLDER_ID';
-const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/0c46bd001e0231b028ccda82cc078011b94ffe7a/public/dashboard-google.html';
-const DASHBOARD_SHA256 = 'ulPUwOtUcGKbcn42V_aho_g1WDPb4O7ZLbSh1dzFkJY';
+const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/9d3ce52/public/dashboard-google.html';
+const DASHBOARD_SHA256 = 'S-NDgVUIkqgr25Cu0_ltj29cWikv2hYCeb2hlGQETRc';
 
 function doGet(request) {
   ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
@@ -60,14 +58,17 @@ function readTestData_(request) {
   if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
       'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
       'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
-      'delete_contact', 'leave_app'].includes(action)) {
+      'delete_contact', 'documents', 'document_open', 'document_upload',
+      'leave_app'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
-  const writeAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
-    'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact'].includes(action);
+  const contentAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
+    'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact',
+    'document_open', 'document_upload'].includes(action);
   const content = request && request.content;
-  if (writeAction && (typeof content !== 'string' ||
-      !content.trim() || content.length > (action === 'save_contact' ? 170000 :
+  if (contentAction && (typeof content !== 'string' ||
+      !content.trim() || content.length > (action === 'document_upload' ? 7100000 :
+        action === 'save_contact' ? 170000 :
         action === 'post_chat' ? 120 : 600))) {
     return { allowed: false, reason: 'invalid_content' };
   }
@@ -88,7 +89,7 @@ function readTestData_(request) {
     v: 1, associationId: associationId, action: action, subject: subject,
     ts: Date.now(), nonce: Utilities.getUuid()
   };
-  if (writeAction) body.content = content;
+  if (contentAction) body.content = content;
   const bodyText = JSON.stringify(body);
   const mac = Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature(
     Utilities.newBlob(bodyText, 'text/plain').getBytes(), keyBytes)).replace(/=+$/, '');
@@ -128,7 +129,7 @@ function readTestData_(request) {
 // medlems- och rollkontrollen på nytt vid varje anrop.
 function readDashboardData(action) {
   if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
-      'tasks', 'contacts'].includes(action)) {
+      'tasks', 'contacts', 'documents'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
   const result = readTestData_({ action: action });
@@ -155,24 +156,9 @@ function readDashboardData(action) {
       return { allowed: false, reason: 'data_unavailable' };
     }
     const permissions = [...new Set(roles.flatMap(function(role) { return rolePermissions[role]; }))].sort();
-    const settings = PropertiesService.getScriptProperties();
-    const folderId = function(property) {
-      const value = settings.getProperty(property);
-      return typeof value === 'string' && /^[A-Za-z0-9_-]{20,128}$/.test(value)
-        ? value : null;
-    };
-    const memberFolder = folderId(MEMBER_DOCUMENT_FOLDER_PROPERTY);
-    const boardFolder = permissions.includes('board_view')
-      ? folderId(BOARD_DOCUMENT_FOLDER_PROPERTY) : null;
-    const documentFolders = {};
-    if (memberFolder) documentFolders.member =
-      'https://drive.google.com/drive/folders/' + memberFolder;
-    if (boardFolder) documentFolders.board =
-      'https://drive.google.com/drive/folders/' + boardFolder;
     return { allowed: true, data: {
       associationId: data.associationId, associationName: 'Vägfölk test',
       name: data.name, roles: roles, permissions: permissions,
-      documentFolders: documentFolders,
       online: Number.isSafeInteger(data.online) && data.online >= 1 && data.online <= 1000
         ? data.online : 1
     } };
@@ -198,6 +184,7 @@ function readDashboardData(action) {
     };
     const calendar = data.calendar;
     if (!validTime(data.eko) || !validTime(data.store) || !validTime(data.contacts) ||
+        typeof data.documents !== 'string' || data.documents.length > 100 ||
         !Number.isSafeInteger(data.online) || data.online < 1 || data.online > 1000 || !calendar ||
         typeof calendar !== 'object' || Array.isArray(calendar) ||
         Object.keys(calendar).some(function(kind) { return !['member', 'board'].includes(kind); }) ||
@@ -206,7 +193,7 @@ function readDashboardData(action) {
       return { allowed: false, reason: 'data_unavailable' };
     }
     return { allowed: true, data: { eko: data.eko, store: data.store,
-      contacts: data.contacts, online: data.online,
+      contacts: data.contacts, documents: data.documents, online: data.online,
       calendar: calendar } };
   }
   if (action === 'calendar' || action === 'calendar_version') {
@@ -292,6 +279,20 @@ function readDashboardData(action) {
         })) return { allowed: false, reason: 'data_unavailable' };
     return { allowed: true, data: { contacts: data.contacts } };
   }
+  if (action === 'documents') {
+    if (!Array.isArray(data.documents) || data.documents.length > 1000 ||
+        data.documents.some(function(item) {
+          return !item || typeof item.id !== 'string' ||
+            !/^[A-Za-z0-9_-]{20,128}$/.test(item.id) ||
+            typeof item.name !== 'string' || item.name.length > 160 ||
+            !['member', 'board'].includes(item.kind) ||
+            typeof item.mimeType !== 'string' || item.mimeType.length > 120 ||
+            typeof item.size !== 'number' || !Number.isFinite(item.size) ||
+            item.size < 0 || item.size > 5000000 ||
+            typeof item.modifiedTime !== 'string';
+        })) return { allowed: false, reason: 'data_unavailable' };
+    return { allowed: true, data: { documents: data.documents } };
+  }
   if (typeof data.period !== 'string' || !data.period ||
       ['bank', 'cash', 'result'].some(function(field) {
         return typeof data[field] !== 'number' || !Number.isFinite(data[field]) ||
@@ -355,6 +356,31 @@ function deleteContact(input) {
   const result = readTestData_({ action: 'delete_contact', content: JSON.stringify(input) });
   return result.allowed && result.data?.saved === true
     ? { allowed: true } : { allowed: false, reason: result.reason || 'data_unavailable' };
+}
+
+function uploadDocument(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input) ||
+      typeof input.name !== 'string' || typeof input.content !== 'string' ||
+      !['member', 'board'].includes(input.kind)) {
+    return { allowed: false, reason: 'invalid_content' };
+  }
+  const result = readTestData_({ action: 'document_upload', content: JSON.stringify(input) });
+  return result.allowed && result.data?.saved === true
+    ? { allowed: true, id: result.data.id }
+    : { allowed: false, reason: result.reason || 'data_unavailable' };
+}
+
+function openDocument(id) {
+  const result = readTestData_({ action: 'document_open', content: id });
+  if (!result.allowed) return result;
+  const data = result.data;
+  if (!data || typeof data.name !== 'string' || data.name.length > 160 ||
+      typeof data.mimeType !== 'string' || data.mimeType.length > 120 ||
+      typeof data.content !== 'string' || data.content.length > 6700000 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(data.content)) {
+    return { allowed: false, reason: 'data_unavailable' };
+  }
+  return { allowed: true, data: data };
 }
 
 function leaveApp() {

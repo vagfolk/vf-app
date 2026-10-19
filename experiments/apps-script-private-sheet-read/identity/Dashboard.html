@@ -176,6 +176,16 @@
 .view-surface .view-document-empty{color:#b8c8cd}
 .view-surface .view-document-link{display:inline-flex;align-items:center;min-height:38px;padding:7px 13px;border:1px solid #647681;border-radius:9px;background:linear-gradient(145deg,#1b232b,#0c1017);color:#eef2f2;text-decoration:none;font-size:14px;box-shadow:inset 0 1px #ffffff24}
 .view-surface .view-document-link:hover,.view-surface .view-document-link:focus-visible{border-color:#bac7c9;background:linear-gradient(145deg,#25313a,#101720);outline:none}
+.view-surface .view-document-list{list-style:none;margin:0;padding:0}
+.view-surface .view-document-item{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #82939775;padding:8px 0}
+.view-surface .view-document-item span{min-width:0;overflow-wrap:anywhere}
+.view-surface .view-document-item button{flex:none;min-height:36px;padding:5px 10px}
+.view-surface .view-document-upload{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:12px 0}
+.view-surface .view-document-upload label{flex:1 1 170px;margin:0}
+.view-surface .view-document-upload select{max-width:180px}
+.view-surface .view-document-preview{width:100%;height:min(58vh,560px);border:0;background:#fff;margin-top:10px}
+.view-surface .view-document-preview-image{object-fit:contain;background:#0b141b}
+.stage img.view-document-preview-image{position:static;max-width:100%;pointer-events:auto}
 @media(max-width:700px){.view-surface .view-task-lower-board,.view-surface .view-document-columns-board{grid-template-columns:1fr;gap:14px}.view-surface .view-task-lower-board .view-task-styrelse,.view-surface .view-document-board{border-left:0;border-top:1px solid #82939775;padding:14px 0 0}}
 .view-surface .view-contact-list{list-style:none;margin:8px 0;padding:0}
 .view-surface .view-contact{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0;border-bottom:1px solid #82939775;background:transparent}
@@ -347,6 +357,7 @@
     const actions = element('div','view-actions');
     if (isBoard) {
       actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','medlemmar'),
+        button('Dokument','navigate','document_manage'),
         button('Viktigt meddelande','navigate','information_manage'));
       for (const [kind, title] of [['member', 'Ändra medlemskalender'], ['board', 'Ändra styrelsekalender']]) {
         const url = options.calendar?.links?.[kind];
@@ -556,23 +567,67 @@
     form.append(label, compose, shortcuts);
     root.append(form);
   };
-  const renderDocuments = (root, options) => {
+  const renderDocuments = (root, options, management = false) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
-    const folders = options.user?.documentFolders || {};
+    if (management && !boardAllowed) return;
+    if (management && options.connection === 'google_test') {
+      const form = element('form', 'view-document-upload');
+      form.dataset.form = 'document';
+      const fileLabel = element('label', '', 'Välj fil');
+      const file = element('input');
+      file.type = 'file';
+      file.name = 'document';
+      file.required = true;
+      file.accept = '.pdf,.png,.jpg,.jpeg,.webp,.txt,.docx,.xlsx,.pptx,.odt';
+      fileLabel.append(file);
+      const kindLabel = element('label', '', 'Visas för');
+      const kind = element('select');
+      kind.name = 'kind';
+      for (const [value, title] of [['member', 'Medlem'], ['board', 'Styrelse']]) {
+        const choice = element('option', '', title);
+        choice.value = value;
+        kind.append(choice);
+      }
+      kindLabel.append(kind);
+      form.append(fileLabel, kindLabel, button('Ladda upp', 'submit-document'));
+      root.append(form);
+    }
+    const opened = options.documentOpen;
+    if (opened?.url) {
+      root.append(button('Stäng dokument', 'close-document'));
+      root.append(element('h3', '', opened.name));
+      if (opened.mimeType.startsWith('image/')) {
+        const image = element('img', 'view-document-preview view-document-preview-image');
+        image.src = opened.url;
+        image.alt = opened.name;
+        root.append(image);
+      } else if (['application/pdf', 'text/plain'].includes(opened.mimeType)) {
+        const frame = element('iframe', 'view-document-preview');
+        frame.src = opened.url;
+        frame.title = opened.name;
+        root.append(frame);
+      } else {
+        const link = element('a', 'view-document-link', 'Hämta och öppna filen');
+        link.href = opened.url;
+        link.download = opened.name;
+        root.append(link);
+      }
+      return;
+    }
     const columns = element('div', `view-document-columns${boardAllowed ? ' view-document-columns-board' : ''}`);
     const section = (kind, title) => {
       const area = element('section', `view-document-section view-document-${kind}`);
       area.append(element('h3', '', title));
-      const url = folders[kind];
-      if (typeof url === 'string' &&
-          /^https:\/\/drive\.google\.com\/drive\/folders\/[A-Za-z0-9_-]{20,128}$/.test(url)) {
-        const link = element('a', 'view-document-link', 'Öppna dokument');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.setAttribute('aria-label', `Öppna ${title.toLowerCase()} i Google Drive`);
-        area.append(link);
-      } else area.append(paragraph('Dokumenten är inte tillgängliga.', 'view-document-empty'));
+      const list = element('ul', 'view-document-list');
+      const documents = (options.documents?.documents || []).filter(item => item.kind === kind);
+      if (!documents.length) list.append(element('li', 'view-document-empty', 'Inga dokument ännu.'));
+      for (const document of documents) {
+        const row = element('li', 'view-document-item');
+        row.append(element('span', '', document.name),
+          button('Öppna', 'open-document', document.id));
+        list.append(row);
+      }
+      area.append(list);
       return area;
     };
     columns.append(section('member', 'Medlemsdokument'));
@@ -734,7 +789,7 @@
     }
     root.append(list);
   };
-  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,information_manage:(root,options)=>renderInformation(root,options,true),dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,medlemmar:renderMemberCardCreate,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
+  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,information_manage:(root,options)=>renderInformation(root,options,true),dokument:renderDocuments,document_manage:(root,options)=>renderDocuments(root,options,true),avgift:renderFee,kontakt:renderContact,medlemmar:renderMemberCardCreate,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
   document.addEventListener('vf:contact-result', () => {
     for (const form of document.querySelectorAll('form[data-form="contact"]')) {
       form.dataset.busy = 'false';
@@ -800,6 +855,15 @@
         draw(window.VFPreviewViews.options);
         return;
       }
+      if (action === 'open-document') {
+        control.disabled = true;
+        document.dispatchEvent(new CustomEvent('vf:document-open', {detail:{id:value}}));
+        return;
+      }
+      if (action === 'close-document') {
+        document.dispatchEvent(new Event('vf:document-close'));
+        return;
+      }
       if (action === 'signout') {
         document.dispatchEvent(new Event('vf:signout'));
         return;
@@ -853,7 +917,8 @@
         if (form) { form.querySelector('input').value = value; form.requestSubmit(); }
         return;
       } else if (action === 'submit-task' || action === 'submit-message' ||
-          action === 'submit-information' || action === 'submit-contact') {
+          action === 'submit-information' || action === 'submit-contact' ||
+          action === 'submit-document') {
         const form = control.closest('form');
         form?.requestSubmit();
         return;
@@ -864,6 +929,34 @@
       const form = event.target.closest('form[data-form]');
       if (!form) return;
       event.preventDefault();
+      if (form.dataset.form === 'document') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
+            form.dataset.busy === 'true') return;
+        const file = form.elements.namedItem('document')?.files?.[0];
+        const kind = form.elements.namedItem('kind')?.value;
+        if (!file || !['member', 'board'].includes(kind)) return;
+        if (file.size < 1 || file.size > 5000000) {
+          window.alert('Välj ett dokument på högst 5 MB.');
+          return;
+        }
+        form.dataset.busy = 'true';
+        try {
+          const content = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          if (!content) throw new Error('Filen kunde inte läsas.');
+          document.dispatchEvent(new CustomEvent('vf:document-upload', {
+            detail: {name:file.name, kind:kind, content:content}
+          }));
+        } catch (_error) {
+          form.dataset.busy = 'false';
+          window.alert('Filen kunde inte läsas.');
+        }
+        return;
+      }
       if (form.dataset.form === 'contact') {
         if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
             form.dataset.busy === 'true') return;
@@ -942,6 +1035,7 @@
 (() => {
   const state = { user: null, fee: null, boardSummary: null, calendar: null,
     information: null, chat: null, tasks: null, contacts: null,
+    documents: null, documentOpen: null,
     versions: null, online: null, connection: 'checking' };
   let updateCheckPromise = null;
   let lastUpdateCheckAt = 0;
@@ -951,6 +1045,7 @@
   let chatRequest = 0;
   let tasksRequest = 0;
   let contactsRequest = 0;
+  let documentsRequest = 0;
   let chatLoading = false;
 
   function show() { window.VFDashboard?.setData(state); }
@@ -958,12 +1053,18 @@
     const node = document.querySelector('.app-notice');
     if (node) node.textContent = message;
   }
+  function closeDocument() {
+    if (state.documentOpen?.url) URL.revokeObjectURL(state.documentOpen.url);
+    state.documentOpen = null;
+  }
   function closePrivateView() {
     ++updateGeneration;
     ++informationRequest;
     ++chatRequest;
     ++tasksRequest;
     ++contactsRequest;
+    ++documentsRequest;
+    closeDocument();
     state.user = null;
     state.fee = null;
     state.boardSummary = null;
@@ -973,6 +1074,7 @@
     state.chat = null;
     state.tasks = null;
     state.contacts = null;
+    state.documents = null;
     state.versions = null;
     state.online = null;
     state.connection = 'error';
@@ -1022,7 +1124,7 @@
       // Starta alla tillåtna grundläsningar direkt medan startfilmen spelas.
       // Varje anrop behörighetskontrolleras fortfarande av dataskriptet.
       const actions = ['profile', 'own_fee', 'calendar', 'information', 'chat',
-        'tasks', 'contacts', 'app_versions'];
+        'tasks', 'contacts', 'documents', 'app_versions'];
       const pending = Object.fromEntries(actions.map(action => [action, read(action)]));
       const boardSummary = pending.profile.then(profile =>
         Array.isArray(profile?.permissions) && profile.permissions.includes('board_view')
@@ -1043,6 +1145,7 @@
       state.chat = snapshot.chat;
       state.tasks = snapshot.tasks;
       state.contacts = snapshot.contacts;
+      state.documents = snapshot.documents;
       state.boardSummary = snapshot.board_summary || null;
       state.versions = snapshot.app_versions;
       state.online = snapshot.app_versions.online || profile.online || 1;
@@ -1060,6 +1163,7 @@
       state.chat = null;
       state.tasks = null;
       state.contacts = null;
+      state.documents = null;
       state.versions = null;
       state.online = null;
       state.connection = 'error';
@@ -1083,10 +1187,12 @@
         const ekoChanged = latest.eko !== state.versions.eko;
         const storeChanged = latest.store !== state.versions.store;
         const contactsChanged = latest.contacts !== state.versions.contacts;
+        const documentsChanged = latest.documents !== state.versions.documents;
         const calendarChanged = calendarDay !== new Date().toDateString() ||
           JSON.stringify(latest.calendar) !== JSON.stringify(state.versions.calendar);
         state.online = latest.online;
-        if (!ekoChanged && !storeChanged && !calendarChanged && !contactsChanged) {
+        if (!ekoChanged && !storeChanged && !calendarChanged &&
+            !contactsChanged && !documentsChanged) {
           state.versions = latest;
           window.VFDashboard?.setOnlineCount?.(state.online);
           return;
@@ -1095,6 +1201,7 @@
         if (ekoChanged) actions.push('profile', 'own_fee', 'contacts');
         else if (contactsChanged) actions.push('contacts');
         if (storeChanged) actions.push('information', 'chat', 'tasks');
+        if (documentsChanged || ekoChanged) actions.push('documents');
         if (calendarChanged) actions.push('calendar');
         const loaded = await Promise.all(actions.map(read));
         if (generation !== updateGeneration || state.connection !== 'google_test') return;
@@ -1113,6 +1220,10 @@
           state.information = updated.information;
           state.chat = updated.chat;
           state.tasks = updated.tasks;
+        }
+        if (documentsChanged || ekoChanged) {
+          closeDocument();
+          state.documents = updated.documents;
         }
         if (calendarChanged) {
           state.calendar = updated.calendar;
@@ -1192,6 +1303,74 @@
     }
   }
 
+  async function loadDocuments(force = false) {
+    if (state.connection !== 'google_test' || !state.user ||
+        (state.documents && !force)) return;
+    const request = ++documentsRequest;
+    try {
+      const documents = await read('documents');
+      if (request !== documentsRequest) return;
+      state.documents = documents;
+      show();
+    } catch (error) {
+      if (request === documentsRequest) handleReadFailure(error);
+    }
+  }
+
+  async function openDocument(id) {
+    if (state.connection !== 'google_test' || !state.user ||
+        !state.documents?.documents?.some(item => item.id === id)) return;
+    try {
+      let result = await call('openDocument', id);
+      if (result?.reason === 'authorization_expired') {
+        await loadDocuments(true);
+        result = await call('openDocument', id);
+      }
+      if (!result || result.allowed !== true || !result.data) {
+        const error = new Error('Dokumentet kunde inte öppnas');
+        error.reason = result?.reason;
+        throw error;
+      }
+      const data = result.data;
+      const binary = atob(data.content);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+      closeDocument();
+      state.documentOpen = { name:data.name, mimeType:data.mimeType,
+        url:URL.createObjectURL(new Blob([bytes], {type:data.mimeType})) };
+      show();
+      notice('');
+    } catch (error) {
+      handleReadFailure(error);
+      if (!accessRevoked(error)) notice('Dokumentet kunde inte öppnas. Försök igen.');
+      show();
+    }
+  }
+
+  async function uploadDocument(input) {
+    if (state.connection !== 'google_test' ||
+        !state.user?.permissions?.includes('board_view')) return;
+    try {
+      const result = await call('uploadDocument', input);
+      if (!result || result.allowed !== true) {
+        const error = new Error('Dokumentet sparades inte');
+        error.reason = result?.reason;
+        throw error;
+      }
+      await loadDocuments(true);
+      state.versions = await read('app_versions');
+      show();
+      notice('Dokumentet laddades upp.');
+    } catch (error) {
+      handleReadFailure(error);
+      if (!accessRevoked(error)) notice('Dokumentet kunde inte sparas. Kontrollera listan innan du försöker igen.');
+    } finally {
+      document.querySelectorAll('form[data-form="document"]').forEach(form => {
+        form.dataset.busy = 'false';
+      });
+    }
+  }
+
   async function writeTask(method, input) {
     if (state.connection !== 'google_test') return;
     try {
@@ -1259,7 +1438,18 @@
   }
 
   document.addEventListener('vf:view-selected', event => {
+    if (!['dokument', 'document_manage'].includes(event.detail?.id)) closeDocument();
     checkUpdates();
+  });
+  document.addEventListener('vf:document-open', event => {
+    openDocument(event.detail?.id);
+  });
+  document.addEventListener('vf:document-close', () => {
+    closeDocument();
+    show();
+  });
+  document.addEventListener('vf:document-upload', event => {
+    uploadDocument(event.detail);
   });
   document.addEventListener('vf:information-publish', event => {
     writeMessage('publishInformation', event.detail?.text, loadInformation);
@@ -1321,6 +1511,8 @@
     state.chat = null;
     state.tasks = null;
     state.contacts = null;
+    state.documents = null;
+    closeDocument();
     state.versions = null;
     state.online = null;
     state.connection = 'error';

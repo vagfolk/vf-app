@@ -11,6 +11,11 @@ const MESSAGES_FOLDER_PROPERTY = 'VF_TEST_MESSAGES_FOLDER_ID';
 const CONTACT_FOLDER_PROPERTY = 'VF_TEST_CONTACT_FOLDER_ID';
 const APP_ROOT_FOLDER_PROPERTY = 'VF_TEST_APP_ROOT_FOLDER_ID';
 const CONTACT_VERSION_PROPERTY = 'VF_TEST_CONTACTS_VERSION';
+const DOCUMENT_ROOT_PROPERTY = 'VF_TEST_DOCUMENT_ROOT_ID';
+const DOCUMENT_MEMBER_PROPERTY = 'VF_TEST_DOCUMENT_MEMBER_ID';
+const DOCUMENT_BOARD_PROPERTY = 'VF_TEST_DOCUMENT_BOARD_ID';
+const DOCUMENT_VERSION_PROPERTY = 'VF_TEST_DOCUMENT_VERSION';
+const MAX_DOCUMENT_BYTES = 5000000;
 const MAX_AGE_MS = 120000;
 
 function doGet() {
@@ -92,10 +97,10 @@ function sheetsRequest_(url, method, payload, token) {
 function doPost(event) {
   try {
     const raw = event && event.postData && event.postData.contents;
-    if (typeof raw !== 'string' || raw.length > 180000) return reply_(false, 'invalid_request');
+    if (typeof raw !== 'string' || raw.length > 7200000) return reply_(false, 'invalid_request');
     const envelope = JSON.parse(raw);
     if (!envelope || typeof envelope.body !== 'string' || typeof envelope.mac !== 'string' ||
-        envelope.body.length > 180000 || !/^[A-Za-z0-9_-]{43}$/.test(envelope.mac)) {
+        envelope.body.length > 7100000 || !/^[A-Za-z0-9_-]{43}$/.test(envelope.mac)) {
       return reply_(false, 'invalid_request');
     }
     const properties = PropertiesService.getScriptProperties();
@@ -116,8 +121,9 @@ function doPost(event) {
       return reply_(false, 'wrong_association_or_action');
     }
     const hasContent = Object.prototype.hasOwnProperty.call(body, 'content');
-    const writeAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
-      'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact'].includes(body.action);
+    const contentAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
+      'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact',
+      'document_open', 'document_upload'].includes(body.action);
     const expectedKeys = hasContent
       ? 'action,associationId,content,nonce,subject,ts,v'
       : 'action,associationId,nonce,subject,ts,v';
@@ -126,13 +132,15 @@ function doPost(event) {
     if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
           'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
           'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
-          'delete_contact', 'leave_app'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
+          'delete_contact', 'documents', 'document_open', 'document_upload',
+          'leave_app'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
     if (typeof body.subject !== 'string' || !body.subject || body.subject.length > 255) return reply_(false, 'wrong_association_or_action');
     if (typeof body.nonce !== 'string' ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.nonce)) return reply_(false, 'wrong_association_or_action');
-    if (writeAction !== hasContent ||
+    if (contentAction !== hasContent ||
         (hasContent && (typeof body.content !== 'string' ||
-          body.content.length > (body.action === 'save_contact' ? 170000 : 600)))) {
+          body.content.length > (body.action === 'document_upload' ? 7100000 :
+            body.action === 'save_contact' ? 170000 : 600)))) {
       return reply_(false, 'wrong_association_or_action');
     }
     if (!Number.isSafeInteger(body.ts) || Math.abs(Date.now() - body.ts) > MAX_AGE_MS) {
@@ -147,6 +155,12 @@ function doPost(event) {
       cache.put(cacheKey, '1', 180);
     } finally {
       lock.releaseLock();
+    }
+
+    // En dokumentöppning använder den kortlivade roll som redan kontrollerades
+    // när dokumentlistan lästes. Den gör inget nytt EKO-anrop.
+    if (body.action === 'document_open') {
+      return openDocument_(body.content, body.subject, associationId, properties);
     }
 
     const members = readRange_(spreadsheetId, "'Medlemmar'!A11:U1011");
@@ -189,6 +203,7 @@ function doPost(event) {
         eko: readDriveModified_(spreadsheetId),
         store: readDriveModified_(messagesId),
         contacts: properties.getProperty(CONTACT_VERSION_PROPERTY) || '1970-01-01T00:00:00.000Z',
+        documents: properties.getProperty(DOCUMENT_VERSION_PROPERTY) || '1970-01-01T00:00:00.000Z',
         online: touchPresence_(members, associationId, row[16]),
         calendar: calendar
       });
@@ -220,6 +235,21 @@ function doPost(event) {
     }
     if (body.action === 'contacts') return reply_(true, null,
       { contacts: visibleContacts_(members, properties) });
+    if (body.action === 'documents') {
+      const boardAllowed = roles.some(role =>
+        ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role));
+      CacheService.getScriptCache().put('doc-role:' + associationId + ':' + body.subject,
+        JSON.stringify({ board: boardAllowed,
+          eko: readDriveModified_(spreadsheetId) }), 900);
+      return reply_(true, null, { documents: visibleDocuments_(properties, boardAllowed) });
+    }
+    if (body.action === 'document_upload') {
+      if (!roles.some(role =>
+          ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
+        return reply_(false, 'insufficient_role');
+      }
+      return uploadDocument_(body.content, properties);
+    }
     if (body.action === 'save_contact' || body.action === 'delete_contact') {
       if (!roles.some(role => ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
         return reply_(false, 'insufficient_role');
@@ -489,6 +519,176 @@ function driveRequest_(url, method, payload, token) {
     throw new Error('Drive-begäran misslyckades: HTTP ' + response.getResponseCode());
   }
   return JSON.parse(response.getContentText());
+}
+
+// Körs en gång av ägaren. Rotmappen skapas först i en redan appskapad mapp;
+// därefter kan den flyttas till VF-apps huvudmapp utan att byta fil-ID.
+function createDocumentFolders() {
+  const properties = PropertiesService.getScriptProperties();
+  const stagingParent = properties.getProperty(MESSAGES_FOLDER_PROPERTY);
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(stagingParent || '')) {
+    throw new Error('Appens befintliga styrmapp saknas');
+  }
+  const token = ScriptApp.getOAuthToken();
+  const create = (name, parent) => {
+    const file = driveRequest_('https://www.googleapis.com/drive/v3/files?fields=id',
+      'post', { name: name, mimeType: 'application/vnd.google-apps.folder',
+        parents: [parent] }, token);
+    if (!/^[A-Za-z0-9_-]{20,128}$/.test(file.id || '')) {
+      throw new Error('Google gav inget mapp-ID');
+    }
+    return file.id;
+  };
+  let root = properties.getProperty(DOCUMENT_ROOT_PROPERTY);
+  if (!root) {
+    root = create('Dokument', stagingParent);
+    properties.setProperty(DOCUMENT_ROOT_PROPERTY, root);
+  }
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(root)) throw new Error('Ogiltig dokumentmapp');
+  for (const [property, name] of [
+    [DOCUMENT_MEMBER_PROPERTY, 'Medlem'], [DOCUMENT_BOARD_PROPERTY, 'Styrelse']
+  ]) {
+    if (!properties.getProperty(property)) {
+      properties.setProperty(property, create(name, root));
+    }
+  }
+  properties.setProperty(DOCUMENT_VERSION_PROPERTY, new Date().toISOString());
+  return { root: root, member: properties.getProperty(DOCUMENT_MEMBER_PROPERTY),
+    board: properties.getProperty(DOCUMENT_BOARD_PROPERTY), stagingParent: stagingParent };
+}
+
+function documentFolders_(properties) {
+  const member = properties.getProperty(DOCUMENT_MEMBER_PROPERTY);
+  const board = properties.getProperty(DOCUMENT_BOARD_PROPERTY);
+  const valid = id => typeof id === 'string' && /^[A-Za-z0-9_-]{20,128}$/.test(id);
+  if (!valid(member) || !valid(board) || member === board) {
+    throw new Error('Dokumentmapparna är inte klara');
+  }
+  return { member: member, board: board };
+}
+
+function visibleDocuments_(properties, boardAllowed) {
+  const folders = documentFolders_(properties);
+  const documents = [];
+  for (const kind of boardAllowed ? ['member', 'board'] : ['member']) {
+    const folder = folders[kind];
+    let page = '';
+    for (let pageIndex = 0; pageIndex < 11; pageIndex++) {
+      const query = "'" + folder + "' in parents and trashed = false";
+      const url = 'https://www.googleapis.com/drive/v3/files?q=' +
+        encodeURIComponent(query) + '&fields=' +
+        encodeURIComponent('nextPageToken,files(id,name,mimeType,size,modifiedTime)') +
+        '&pageSize=100' + (page ? '&pageToken=' + encodeURIComponent(page) : '');
+      const result = driveRequest_(url, 'get', null, ScriptApp.getOAuthToken());
+      if (!Array.isArray(result.files)) throw new Error('Ogiltig dokumentlista');
+      for (const file of result.files) {
+        if (!/^[A-Za-z0-9_-]{20,128}$/.test(file.id || '') ||
+            typeof file.name !== 'string') continue;
+        documents.push({ id: file.id, name: file.name.slice(0, 160),
+          kind: kind, mimeType: String(file.mimeType || '').slice(0, 120),
+          size: Number(file.size || 0), modifiedTime: String(file.modifiedTime || '') });
+      }
+      if (documents.length > 1000) throw new Error('För många dokument');
+      page = result.nextPageToken || '';
+      if (!page) break;
+      if (pageIndex === 10) throw new Error('För många dokumentsidor');
+    }
+  }
+  documents.sort((left, right) => left.name.localeCompare(right.name, 'sv'));
+  return documents;
+}
+
+function documentMime_(name) {
+  const extension = name.toLowerCase().match(/\.[a-z0-9]{1,8}$/)?.[0] || '';
+  return {
+    '.pdf': 'application/pdf', '.png': 'image/png',
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
+    '.txt': 'text/plain', '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    '.odt': 'application/vnd.oasis.opendocument.text'
+  }[extension] || null;
+}
+
+function uploadDocument_(content, properties) {
+  let input;
+  try { input = JSON.parse(content); } catch (_error) { return reply_(false, 'invalid_content'); }
+  if (!input || typeof input !== 'object' || Array.isArray(input) ||
+      Object.keys(input).sort().join(',') !== 'content,kind,name' ||
+      !['member', 'board'].includes(input.kind) ||
+      typeof input.name !== 'string' || input.name.length > 160 ||
+      typeof input.content !== 'string' || input.content.length > 6700000 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(input.content)) {
+    return reply_(false, 'invalid_content');
+  }
+  const name = input.name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, ' ').trim();
+  const mimeType = documentMime_(name);
+  if (!name || !mimeType) return reply_(false, 'unsupported_document');
+  const bytes = Utilities.base64Decode(input.content);
+  if (bytes.length < 1 || bytes.length > MAX_DOCUMENT_BYTES) {
+    return reply_(false, 'document_too_large');
+  }
+  const folder = documentFolders_(properties)[input.kind];
+  const token = ScriptApp.getOAuthToken();
+  const created = driveRequest_('https://www.googleapis.com/drive/v3/files?fields=id',
+    'post', { name: name, mimeType: mimeType, parents: [folder] }, token);
+  const id = created.id;
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(id || '')) throw new Error('Dokument-ID saknas');
+  try {
+    const result = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files/' +
+      encodeURIComponent(id) + '?uploadType=media&fields=id', {
+        method: 'patch', headers: { Authorization: 'Bearer ' + token },
+        contentType: mimeType, payload: bytes, muteHttpExceptions: true
+      });
+    if (result.getResponseCode() < 200 || result.getResponseCode() >= 300) {
+      throw new Error('Dokumentet kunde inte sparas');
+    }
+  } catch (error) {
+    try { driveRequest_('https://www.googleapis.com/drive/v3/files/' +
+      encodeURIComponent(id) + '?fields=id', 'patch', { trashed: true }, token); }
+    catch (_cleanupError) {}
+    throw error;
+  }
+  properties.setProperty(DOCUMENT_VERSION_PROPERTY,
+    new Date().toISOString() + ':' + Utilities.getUuid());
+  return reply_(true, null, { saved: true, id: id });
+}
+
+function openDocument_(id, subject, associationId, properties) {
+  if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{20,128}$/.test(id)) {
+    return reply_(false, 'invalid_content');
+  }
+  const cached = CacheService.getScriptCache().get('doc-role:' + associationId + ':' + subject);
+  if (!cached) return reply_(false, 'authorization_expired');
+  let role;
+  try { role = JSON.parse(cached); } catch (_error) { return reply_(false, 'authorization_expired'); }
+  if (role.eko !== readDriveModified_(properties.getProperty(SHEET_PROPERTY))) {
+    return reply_(false, 'authorization_expired');
+  }
+  const folders = documentFolders_(properties);
+  const token = ScriptApp.getOAuthToken();
+  const file = driveRequest_('https://www.googleapis.com/drive/v3/files/' +
+    encodeURIComponent(id) + '?fields=id,name,mimeType,size,parents,trashed',
+    'get', null, token);
+  const parents = Array.isArray(file.parents) ? file.parents : [];
+  if (file.trashed || (!parents.includes(folders.member) &&
+      !(role.board === true && parents.includes(folders.board)))) {
+    return reply_(false, 'insufficient_role');
+  }
+  const size = Number(file.size || 0);
+  if (!Number.isFinite(size) || size < 1 || size > MAX_DOCUMENT_BYTES ||
+      file.mimeType !== documentMime_(String(file.name || ''))) {
+    return reply_(false, 'unsupported_document');
+  }
+  const response = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' +
+    encodeURIComponent(id) + '?alt=media', {
+      headers: { Authorization: 'Bearer ' + token }, muteHttpExceptions: true
+    });
+  if (response.getResponseCode() !== 200) throw new Error('Dokumentet kunde inte läsas');
+  const bytes = response.getContent();
+  if (bytes.length !== size) throw new Error('Dokumentstorleken ändrades');
+  return reply_(true, null, { name: file.name, mimeType: file.mimeType,
+    content: Utilities.base64Encode(bytes) });
 }
 
 // Kontaktkort och foton är privata Drive-filer som enbart ägarskriptet läser.

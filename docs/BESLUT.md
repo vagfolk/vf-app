@@ -69,15 +69,18 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
 - **Protokoll och dokument:** alla aktuella appfiler i Drive ligger under
   huvudmappen `VF-app`. Där finns separata mappar för `Kontaktkort`,
   `EKO och ekonomi`, `Appinformation och styrning` och `Dokument`.
-  `Dokument` innehåller exakt de två läsmapparna `Medlem` och `Styrelse`.
-  Styrelsen väljer vilka filer som medlemmar får läsa genom att lägga dem i
-  `Medlem`; styrelsens egna läsfiler läggs i `Styrelse`. En vanlig medlem ser
-  endast medlemsdokumenten. Styrelsebehöriga ser båda grupperna.
+  `Dokument` innehåller exakt de två mapparna `Medlem` och `Styrelse`.
+  De tidigare manuellt skapade dokumentmapparna togs bort av användaren.
+  Appens dataskript ska skapa nya mappar och filer med sin begränsade
+  `drive.file`-behörighet. Styrelsen laddar upp en lokal fil via knappen
+  `Dokument` på styrelsens startsida och väljer `Medlem` eller `Styrelse`.
+  En vanlig medlem ser endast medlemsdokumenten. Styrelsebehöriga ser båda.
   Dokumentvyn är en ren läsvy för **alla** roller: där får ingen skapa,
-  redigera, flytta eller ta bort dokument. Behörig hantering av originalfiler
-  sker utanför appens dokumentvy direkt i Drive. Inloggningens roll avgör
-  vilka dokumentgrupper appen laddar och visar; inga manuella rollval eller
-  nya EKO-kontroller ska krävas när ett enskilt dokument öppnas.
+  redigera, flytta eller ta bort dokument. Uppladdning finns endast på
+  styrelsens startsida. Inloggningens roll avgör vilka dokumentgrupper appen
+  laddar och visar; inga manuella rollval eller nya EKO-kontroller ska krävas
+  när ett enskilt dokument öppnas. Dokument levereras genom appen, inte som
+  direkta Drive-länkar som kräver enskilda Drive-behörigheter för medlemmarna.
   Dokumentvyn har samma enkla mittdisplaystil som övriga vyer: två
   avdelningar med endast ett skiljestreck för styrelsebehöriga, och enbart
   medlemsdokument för vanliga medlemmar. Rollen styr visningen utan manuellt
