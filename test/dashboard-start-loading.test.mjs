@@ -5,7 +5,7 @@ import { runInNewContext } from 'node:vm';
 
 function node(tag = 'div') {
   return {
-    tag, children: [], textContent: '', dataset: {},
+    tag, children: [], textContent: '', dataset: {}, classList: { add() {} },
     append(...children) { this.children.push(...children); },
     replaceChildren(...children) { this.children = children; },
     setAttribute() {},
@@ -45,7 +45,7 @@ test('Start visar inga medlemskort före inloggning eller för styrelseroll', ()
   assert.doesNotMatch(textOf(display), /Öppna kalender|Öppna information/);
   assert.match(textOf(display), /Ekonomi/);
   const informationButton = descendants(display).find(item =>
-    item.dataset.action === 'navigate' && item.dataset.value === 'information');
+    item.dataset.action === 'navigate' && item.dataset.value === 'information_manage');
   assert.equal(informationButton?.textContent, 'Viktigt meddelande');
   assert.doesNotMatch(textOf(display), /Stäng vyn/);
   const createButton = descendants(display).find(item => item.dataset.action === 'open-task-form');
@@ -56,6 +56,7 @@ test('Start visar inga medlemskort före inloggning eller för styrelseroll', ()
   display.listeners.click({ target: { closest() { return createButton; } } });
   assert.equal(descendants(display).some(item => item.dataset.form === 'task'), true);
   assert.match(textOf(display), /Medlem Styrelse Prioriterad/);
+  assert.match(textOf(display), /Prioriterade/);
   window.VFPreviewViews.show('medlemsarbete', {
     connection: 'google_test', user: { permissions: ['board_view'] }, tasks: { tasks: [] },
   });
@@ -116,8 +117,18 @@ test('rollen styr uppgifter och dokument utan manuella medlems- eller styrelseva
   window.VFPreviewViews.show('medlemsarbete', {
     connection: 'google_test', user: { permissions: ['own_fee', 'board_view'] }, tasks,
   });
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'task-archive').length, 0);
+  assert.doesNotMatch(textOf(display), /Godkänn och arkivera/);
+
+  window.VFPreviewViews.show('start', {
+    connection: 'google_test', user: { permissions: ['own_fee', 'board_view'] }, tasks,
+  });
+  const taskAdminButton = descendants(display).find(item => item.dataset.action === 'open-task-form');
+  window.VFAppData = { user: { permissions: ['board_view'] }, tasks };
+  display.listeners.click({ target: { closest() { return taskAdminButton; } } });
   assert.equal(descendants(display).filter(item => item.dataset.action === 'task-archive').length, 1);
   assert.match(textOf(display), /Godkänn och arkivera/);
+  assert.match(textOf(display), /Medlemsuppgift|Styrelseuppgift/);
 
   window.VFPreviewViews.show('medlemsarbete', {
     connection: 'google_test', user: { permissions: ['own_fee'] }, tasks,
@@ -162,7 +173,7 @@ test('Chat har Skicka bredvid textrutan och snabbvalen för sig', () => {
   assert.equal(shortcuts.children.some(item => item.textContent === 'Skicka'), false);
 });
 
-test('bara styrelsen ser borttagning vid varje publicerat viktigt meddelande', () => {
+test('information läses utan administration; styrelsens startknapp öppnar hantering', () => {
   const window = {};
   const document = {
     createElement: node,
@@ -182,6 +193,12 @@ test('bara styrelsen ser borttagning vid varje publicerat viktigt meddelande', (
   window.VFPreviewViews.show('information', {
     connection: 'google_test', user: { permissions: ['board_view'] }, information,
   });
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'delete-information').length, 0);
+  assert.doesNotMatch(textOf(display), /Skicka viktigt meddelande/);
+
+  window.VFPreviewViews.show('information_manage', {
+    connection: 'google_test', user: { permissions: ['board_view'] }, information,
+  });
   assert.equal(descendants(display).filter(item => item.dataset.action === 'delete-information').length, 2);
   assert.match(textOf(display), /Nytt besked/);
   assert.match(textOf(display), /Äldre besked/);
@@ -191,4 +208,33 @@ test('bara styrelsen ser borttagning vid varje publicerat viktigt meddelande', (
   });
   assert.equal(descendants(display).filter(item => item.dataset.action === 'delete-information').length, 0);
   assert.doesNotMatch(textOf(display), /Äldre besked|Skicka viktigt meddelande/);
+});
+
+test('Kontakt är läsbar; bara Medlemmar på styrelsens start har redigering', () => {
+  const window = {};
+  const document = {
+    createElement: node,
+    createDocumentFragment: () => node('fragment'),
+    addEventListener() {},
+  };
+  runInNewContext(readFileSync(new URL('../public/dashboard-views.js', import.meta.url), 'utf8'),
+    { window, document, Date, Intl, Set });
+  const display = node('main');
+  display.id = 'screen-content';
+  window.VFPreviewViews.attach(display);
+  const contacts = { contacts: [{ cardId: 'c1', memberId: 'm1', name: 'Anna Andersson' }] };
+  const board = { connection: 'google_test', user: { permissions: ['board_view'] }, contacts };
+  window.VFPreviewViews.show('kontakt', board);
+  assert.match(textOf(display), /Anna Andersson/);
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'edit-contact').length, 0);
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'delete-contact').length, 0);
+
+  window.VFPreviewViews.show('medlemmar', board);
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'edit-contact').length, 1);
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'delete-contact').length, 1);
+  assert.equal(descendants(display).filter(item => item.dataset.form === 'contact').length, 1);
+
+  window.VFPreviewViews.show('medlemmar', { connection: 'google_test',
+    user: { permissions: ['own_fee'] }, contacts });
+  assert.equal(descendants(display).filter(item => item.dataset.action === 'edit-contact').length, 0);
 });

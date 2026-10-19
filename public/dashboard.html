@@ -474,8 +474,9 @@
 
     async function selectMenu(id) {
       if (!menu.some(entry => entry.id === id) &&
-          !['information', 'medlemmar'].includes(id) && !Object.hasOwn(restrictedViews,id)) return;
-      if (id === 'medlemmar' && !window.VFAppData?.user?.permissions?.includes('board_view')) return;
+          !['information', 'information_manage', 'medlemmar'].includes(id) && !Object.hasOwn(restrictedViews,id)) return;
+      if (['information_manage', 'medlemmar'].includes(id) &&
+          !window.VFAppData?.user?.permissions?.includes('board_view')) return;
       const request = ++navigationRequest;
       const required = restrictedViews[id];
       if (required && !window.VFAppData?.user?.permissions?.includes(required)) {
@@ -684,7 +685,8 @@
           screenContent.hidden = true;
           window.VFAppData = data;
           if ((restrictedViews[selectedMenu] && !data.user?.permissions?.includes(restrictedViews[selectedMenu])) ||
-              (selectedMenu === 'medlemmar' && !data.user?.permissions?.includes('board_view'))) {
+              (['medlemmar', 'information_manage'].includes(selectedMenu) &&
+                !data.user?.permissions?.includes('board_view'))) {
             ++navigationRequest;
             selectedMenu = 'start';
             showMenuSelection();

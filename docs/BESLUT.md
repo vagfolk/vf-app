@@ -155,9 +155,11 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   kortet till ett beständigt Medlems-ID (samma sak som medlemsnummer), även
   senare när posten skapats manuellt i EKO. Namn ensamt får inte användas för
   automatisk koppling. För kopplade kort hämtas telefon och e-post från EKO.
-  Diskreta knappar **Redigera** och **Ta bort** finns inne i varje kort och
-  visas bara för styrelsen. Under redigering finns också **Stäng**, som
-  återgår till Kontakt utan att spara. Ta bort avser kontaktkortet, inte
+  Kontakt i vänstermenyn är en ren läsvy även för styrelsen. Styrelsens
+  startknapp **Medlemmar** öppnar både formuläret för nya kontaktkort och
+  en lista över korten med diskreta knappar **Redigera** och **Ta bort**.
+  Under redigering finns också **Stäng**, som återgår till listan i Medlemmar
+  utan att spara. Ta bort avser kontaktkortet, inte
   EKO-posten.
   Ett borttaget kopplat kort ska inte automatiskt återskapas ur EKO;
   styrelsen får skapa ett nytt kort om personen ska visas i Kontakt igen.
@@ -179,6 +181,11 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   styrelsekalendern i Google. Kalenderlänkarna flyttas från kalendervyn.
   Google och EKO avgör
   fortfarande vilka uppgifter respektive roll får läsa eller ändra.
+  Alla befintliga administrativa reglage ska nås från styrelsens startsida,
+  inte från vänstermenyns innehållsvyer. Informationskortet öppnar en
+  läsvy även för styrelsen; startknappen **Viktigt meddelande** öppnar
+  publicering och borttagning av tidigare meddelanden. Vanlig Chat är
+  medlemmarnas kommunikation och räknas inte som administration.
 - **Rollstyrning i hela appen:** användaren ska inte behöva välja mellan
   ”För medlemmar” och ”För styrelsen” i Att göra, Dokument eller andra vyer.
   EKO-rollen bestämmer automatiskt vilka listor, knappar och uppgifter som
@@ -197,7 +204,8 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   eller en etikett som upprepar uppgiftens kategori. Skrivfältet på startsidan
   är kompakt, kan växa nedåt vid
   längre text och har listvalet och knappen **Lägg till uppgift** intill sig.
-  På styrelsens startsida öppnar knappen **Att göra** detta formulär;
+  På styrelsens startsida öppnar knappen **Att göra** detta formulär och
+  styrelsens granskningslista med både aktiva och avbockade uppgifter;
   formuläret visas inte innan knappen trycks. Vänstermenyns **Att göra**
   öppnar listan. Knappen **Stäng vyn** används inte på startsidan.
   Själva Att göra-vyn visar uppgifterna och låter behöriga användare bocka av
@@ -213,7 +221,9 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   sparas med uppgift, person och tid, och återkallelsen märks **felaktig**.
   Ingen annan medlem får återkalla den personens avbockning.
   När styrelsen har granskat en avbockad uppgift kan en styrelsebehörig välja
-  **Godkänn och arkivera** på den uppgiften. Den försvinner då från den aktiva
+  **Godkänn och arkivera** i startsidans Att göra-avdelning. Vänstermenyns
+  Att göra är endast för att läsa uppgifterna och bocka av eller återkalla
+  egna avbockningar. Den arkiverade uppgiften försvinner från den aktiva
   Att göra-listan för alla, men händelserna skapad, utförd och arkiverad finns
   kvar i den privata uppgiftsloggen med medlems-ID, namn och tid för senare
   kontroll. En oavslutad uppgift får inte arkiveras. Vanliga medlemmar ser

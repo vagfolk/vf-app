@@ -72,7 +72,7 @@
     const actions = element('div','view-actions');
     if (isBoard) {
       actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','medlemmar'),
-        button('Viktigt meddelande','navigate','information'));
+        button('Viktigt meddelande','navigate','information_manage'));
       for (const [kind, title] of [['member', 'Ändra medlemskalender'], ['board', 'Ändra styrelsekalender']]) {
         const url = options.calendar?.links?.[kind];
         if (typeof url !== 'string' || !/^https:\/\/calendar\.google\.com\/calendar\//.test(url)) continue;
@@ -116,6 +116,7 @@
       form.append(label, input, kindLabel, kind,
         button('Lägg till uppgift', 'submit-task'));
       root.append(form);
+      renderTasks(root, options, true);
     }
   };
   const renderCalendar = (root, options) => {
@@ -151,7 +152,7 @@
     }
     root.append(notice());
   };
-  const renderTasks = (root, options) => {
+  const renderTasks = (root, options, management = false) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
     root.append(heading('Att göra'));
     const tasks = (options.tasks?.tasks || [])
@@ -168,14 +169,16 @@
         const checkbox = element('input');
         checkbox.type = 'checkbox';
         checkbox.checked = Boolean(task.done);
-        checkbox.disabled = options.connection !== 'google_test' ||
+        checkbox.disabled = management || options.connection !== 'google_test' ||
           (task.done && !task.canRecall);
-        checkbox.dataset.action = 'task-toggle';
-        checkbox.dataset.value = String(task.id);
+        if (!management) {
+          checkbox.dataset.action = 'task-toggle';
+          checkbox.dataset.value = String(task.id);
+        }
         checkbox.setAttribute('aria-label', `${task.done ? 'Återkalla' : 'Markera klar'}: ${task.text}`);
         label.append(checkbox, element('span', '', task.text));
         row.append(label);
-        if (boardAllowed && task.done && options.connection === 'google_test') {
+        if (management && boardAllowed && task.done && options.connection === 'google_test') {
           const review = element('div', 'view-task-review');
           if (task.completedBy) {
             review.append(element('span', 'view-task-completer',
@@ -201,7 +204,7 @@
     layout.append(lower);
     root.append(layout);
   };
-  const renderInformation = (root, options) => {
+  const renderInformation = (root, options, management = false) => {
     root.append(heading('Information', 'Viktigt meddelande från styrelsen'));
     const boardAllowed = options.user?.permissions?.includes('board_view');
     const message = options.information?.message || state.information;
@@ -213,7 +216,7 @@
       root.append(card('Hämtar information', 'Vänta ett ögonblick.'));
       return;
     }
-    if (boardAllowed) {
+    if (management && boardAllowed) {
       const form = element('form');
       form.dataset.form = 'information';
       const input = element('textarea');
@@ -392,9 +395,13 @@
     root.append(heading('Medlemmar'));
     root.append(paragraph('Skapa ett kontaktkort. Ange Medlems-ID om personen redan finns i EKO.'));
     root.append(contactForm());
+    renderContactList(root, options, true);
   };
   const renderContact = (root, options) => {
     root.append(heading('Kontakt'));
+    renderContactList(root, options, false);
+  };
+  const renderContactList = (root, options, management) => {
     const contacts = options.contacts?.contacts;
     if (!contacts) return root.append(paragraph('Hämtar medlemmar…'));
     if (!contacts.length) return root.append(paragraph('Inga aktiva medlemmar att visa.'));
@@ -424,7 +431,7 @@
         details.append(link);
       }
       item.append(avatar, details);
-      if (options.user?.permissions?.includes('board_view')) {
+      if (management && options.user?.permissions?.includes('board_view')) {
         const cardKey = contact.cardId || `eko:${contact.memberId}`;
         const editing = state.editingCard === cardKey;
         const controls = group(button('Redigera', 'edit-contact',
@@ -442,7 +449,7 @@
     }
     root.append(list);
   };
-  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,medlemmar:renderMemberCardCreate,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
+  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,information_manage:(root,options)=>renderInformation(root,options,true),dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,medlemmar:renderMemberCardCreate,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
   document.addEventListener('vf:contact-result', () => {
     for (const form of document.querySelectorAll('form[data-form="contact"]')) {
       form.dataset.busy = 'false';
@@ -635,7 +642,7 @@
       if (id !== 'start' || !options.user?.permissions?.includes('board_view')) {
         state.taskFormOpen = false;
       }
-      if (id !== 'kontakt') state.editingCard = null;
+      if (id !== 'medlemmar') state.editingCard = null;
       currentView=id;
       this.options=options;
       draw(options);

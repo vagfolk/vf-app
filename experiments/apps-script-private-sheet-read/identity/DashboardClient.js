@@ -294,7 +294,7 @@
       state.online = state.versions.online;
       show();
       document.dispatchEvent(new CustomEvent('vf:navigate', {
-        detail: { id: 'kontakt' }
+        detail: { id: 'medlemmar' }
       }));
       notice(method === 'deleteContact' ? 'Kontaktkortet togs bort.' :
         'Kontaktkortet sparades.');
