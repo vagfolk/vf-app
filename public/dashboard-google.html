@@ -185,6 +185,7 @@
 .view-surface .view-document-upload select{max-width:180px}
 .view-surface .view-document-preview{width:100%;height:min(58vh,560px);border:0;background:#fff;margin-top:10px}
 .view-surface .view-document-preview-image{object-fit:contain;background:#0b141b}
+.view-surface .view-document-preview-text{box-sizing:border-box;height:auto;max-height:min(58vh,560px);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:14px;background:#101820;color:#eef2f2;font:14px/1.5 system-ui,sans-serif}
 .stage img.view-document-preview-image{position:static;max-width:100%;pointer-events:auto}
 @media(max-width:700px){.view-surface .view-task-lower-board,.view-surface .view-document-columns-board{grid-template-columns:1fr;gap:14px}.view-surface .view-task-lower-board .view-task-styrelse,.view-surface .view-document-board{border-left:0;border-top:1px solid #82939775;padding:14px 0 0}}
 .view-surface .view-contact-list{list-style:none;margin:8px 0;padding:0}
@@ -601,11 +602,18 @@
         image.src = opened.url;
         image.alt = opened.name;
         root.append(image);
-      } else if (['application/pdf', 'text/plain'].includes(opened.mimeType)) {
+      } else if (opened.mimeType === 'text/plain') {
+        root.append(element('pre', 'view-document-preview view-document-preview-text', opened.text || ''));
+      } else if (opened.mimeType === 'application/pdf') {
         const frame = element('iframe', 'view-document-preview');
         frame.src = opened.url;
         frame.title = opened.name;
         root.append(frame);
+        const link = element('a', 'view-document-link', 'Öppna PDF separat');
+        link.href = opened.url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        root.append(link);
       } else {
         const link = element('a', 'view-document-link', 'Hämta och öppna filen');
         link.href = opened.url;
@@ -1344,6 +1352,7 @@
       for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
       closeDocument();
       state.documentOpen = { name:data.name, mimeType:data.mimeType,
+        text:data.mimeType === 'text/plain' ? new TextDecoder('utf-8').decode(bytes) : null,
         url:URL.createObjectURL(new Blob([bytes], {type:data.mimeType})) };
       show();
       notice('');
