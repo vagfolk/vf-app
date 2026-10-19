@@ -174,6 +174,8 @@
 .view-surface .view-document-section h3{margin:0 0 12px}
 .view-surface .view-document-board{border-left:1px solid #82939775;padding-left:18px}
 .view-surface .view-document-empty{color:#b8c8cd}
+.view-surface .view-document-link{display:inline-flex;align-items:center;min-height:38px;padding:7px 13px;border:1px solid #647681;border-radius:9px;background:linear-gradient(145deg,#1b232b,#0c1017);color:#eef2f2;text-decoration:none;font-size:14px;box-shadow:inset 0 1px #ffffff24}
+.view-surface .view-document-link:hover,.view-surface .view-document-link:focus-visible{border-color:#bac7c9;background:linear-gradient(145deg,#25313a,#101720);outline:none}
 @media(max-width:700px){.view-surface .view-task-lower-board,.view-surface .view-document-columns-board{grid-template-columns:1fr;gap:14px}.view-surface .view-task-lower-board .view-task-styrelse,.view-surface .view-document-board{border-left:0;border-top:1px solid #82939775;padding:14px 0 0}}
 .view-surface .view-contact-list{list-style:none;margin:8px 0;padding:0}
 .view-surface .view-contact{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0;border-bottom:1px solid #82939775;background:transparent}
@@ -556,11 +558,21 @@
   };
   const renderDocuments = (root, options) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
-    root.append(heading('Dokument', 'Delade filer'));
+    const folders = options.user?.documentFolders || {};
     const columns = element('div', `view-document-columns${boardAllowed ? ' view-document-columns-board' : ''}`);
     const section = (kind, title) => {
       const area = element('section', `view-document-section view-document-${kind}`);
-      area.append(element('h3', '', title), paragraph('Inga dokument att visa.', 'view-document-empty'));
+      area.append(element('h3', '', title));
+      const url = folders[kind];
+      if (typeof url === 'string' &&
+          /^https:\/\/drive\.google\.com\/drive\/folders\/[A-Za-z0-9_-]{20,128}$/.test(url)) {
+        const link = element('a', 'view-document-link', 'Öppna dokument');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.setAttribute('aria-label', `Öppna ${title.toLowerCase()} i Google Drive`);
+        area.append(link);
+      } else area.append(paragraph('Dokumenten är inte tillgängliga.', 'view-document-empty'));
       return area;
     };
     columns.append(section('member', 'Medlemsdokument'));

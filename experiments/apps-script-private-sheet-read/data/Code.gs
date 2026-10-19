@@ -3,11 +3,13 @@
 const ASSOCIATION_PROPERTY = 'VF_TEST_ASSOCIATION_ID';
 const KEY_PROPERTY = 'VF_TEST_BRIDGE_KEY';
 const SHEET_PROPERTY = 'VF_TEST_SPREADSHEET_ID';
+const EKO_FOLDER_PROPERTY = 'VF_TEST_EKO_FOLDER_ID';
 const MEMBER_CALENDAR_PROPERTY = 'VF_MEMBER_CALENDAR_ID';
 const BOARD_CALENDAR_PROPERTY = 'VF_BOARD_CALENDAR_ID';
 const MESSAGES_SHEET_PROPERTY = 'VF_TEST_MESSAGES_SHEET_ID';
 const MESSAGES_FOLDER_PROPERTY = 'VF_TEST_MESSAGES_FOLDER_ID';
 const CONTACT_FOLDER_PROPERTY = 'VF_TEST_CONTACT_FOLDER_ID';
+const APP_ROOT_FOLDER_PROPERTY = 'VF_TEST_APP_ROOT_FOLDER_ID';
 const CONTACT_VERSION_PROPERTY = 'VF_TEST_CONTACTS_VERSION';
 const MAX_AGE_MS = 120000;
 
@@ -24,6 +26,10 @@ function createDriveFileTest() {
   if (properties.getProperty(SHEET_PROPERTY + '_CREATED')) {
     throw new Error('Testfil har redan skapats');
   }
+  const ekoFolderId = properties.getProperty(EKO_FOLDER_PROPERTY);
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(ekoFolderId || '')) {
+    throw new Error('EKO-mappen saknas');
+  }
   const token = ScriptApp.getOAuthToken();
   const created = sheetsRequest_('https://sheets.googleapis.com/v4/spreadsheets', 'post', {
     properties: { title: 'VF drive.file-prov – ENDAST TESTDATA' },
@@ -34,6 +40,13 @@ function createDriveFileTest() {
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{20,128}$/.test(id)) {
     throw new Error('Google gav inget giltigt fil-ID');
   }
+  const meta = driveRequest_('https://www.googleapis.com/drive/v3/files/' +
+    encodeURIComponent(id) + '?fields=parents', 'get', null, token);
+  const oldParents = (meta.parents || []).join(',');
+  driveRequest_('https://www.googleapis.com/drive/v3/files/' + encodeURIComponent(id) +
+    '?addParents=' + encodeURIComponent(ekoFolderId) +
+    (oldParents ? '&removeParents=' + encodeURIComponent(oldParents) : '') +
+    '&fields=id,parents', 'patch', null, token);
   const header = ['Nr', 'Namn', 'Telefon', 'E-post', 'Medlemstyp', 'Familje-ID',
     'Avgiftsskyldig?', 'Avgift', 'Egen avgift', 'Inbetalt belopp', 'Betalstatus',
     'Betalsätt', 'Betald datum', 'Radstatus', 'Kommentar', 'Betalningsreferens',
@@ -431,9 +444,13 @@ function createMessagesTestStore() {
   const token = ScriptApp.getOAuthToken();
   let folderId = properties.getProperty(MESSAGES_FOLDER_PROPERTY);
   if (!folderId) {
+    const rootId = properties.getProperty(APP_ROOT_FOLDER_PROPERTY);
+    if (!/^[A-Za-z0-9_-]{20,128}$/.test(rootId || '')) {
+      throw new Error('VF-apps huvudmapp saknas');
+    }
     const folder = driveRequest_('https://www.googleapis.com/drive/v3/files?fields=id', 'post',
-      { name: 'VF-APP meddelanden – ENDAST TESTDATA',
-        mimeType: 'application/vnd.google-apps.folder' }, token);
+      { name: 'Appinformation och styrning',
+        mimeType: 'application/vnd.google-apps.folder', parents: [rootId] }, token);
     folderId = folder.id;
     if (!/^[A-Za-z0-9_-]{20,128}$/.test(folderId || '')) throw new Error('Mapp-ID saknas');
     properties.setProperty(MESSAGES_FOLDER_PROPERTY, folderId);
@@ -482,15 +499,15 @@ function contactFolder_(properties) {
     if (!/^[A-Za-z0-9_-]{20,128}$/.test(id)) throw new Error('Ogiltig kontaktmapp');
     return id;
   }
-  const parent = properties.getProperty(MESSAGES_FOLDER_PROPERTY);
-  if (!/^[A-Za-z0-9_-]{20,128}$/.test(parent || '')) throw new Error('Privat huvudmapp saknas');
+  const parent = properties.getProperty(APP_ROOT_FOLDER_PROPERTY);
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(parent || '')) throw new Error('VF-apps huvudmapp saknas');
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) throw new Error('Kontaktmappen är upptagen');
   try {
     id = properties.getProperty(CONTACT_FOLDER_PROPERTY);
     if (!id) {
       const created = driveRequest_('https://www.googleapis.com/drive/v3/files?fields=id',
-        'post', { name: 'Kontakter', mimeType: 'application/vnd.google-apps.folder',
+        'post', { name: 'Kontaktkort', mimeType: 'application/vnd.google-apps.folder',
           parents: [parent] }, ScriptApp.getOAuthToken());
       id = created.id;
       if (!/^[A-Za-z0-9_-]{20,128}$/.test(id || '')) throw new Error('Kontaktmappens ID saknas');

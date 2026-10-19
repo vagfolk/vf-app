@@ -66,17 +66,22 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   ett eget senare steg för lässtatus, telefonbehörighet och leverans när appen
   inte är öppen. Ingen sådan notis får beskrivas som fungerande innan den
   faktiskt är byggd och provad.
-- **Protokoll och dokument:** medlemmar ska bara kunna läsa filer som styrelsen
-  uttryckligen har valt att dela med medlemmarna. Styrelsebehöriga ska kunna
-  läsa alla föreningens styrelsefiler. Vanliga styrelseledamöter ska inte
-  kunna redigera dem via appen. Sekreteraren får de särskilda
-  redigeringsmöjligheter som behövs för protokoll och mötesdokument; kassören
-  får motsvarande rätt för sina ekonomidokument. Exakt arbetsflöde och vilka
-  Drive-mappar som ska användas ska bestämmas innan funktionen byggs.
-  Dokumentvyn ska ha samma enkla mittdisplaystil som övriga vyer: två
+- **Protokoll och dokument:** alla aktuella appfiler i Drive ligger under
+  huvudmappen `VF-app`. Där finns separata mappar för `Kontaktkort`,
+  `EKO och ekonomi`, `Appinformation och styrning` och `Dokument`.
+  `Dokument` innehåller exakt de två läsmapparna `Medlem` och `Styrelse`.
+  Styrelsen väljer vilka filer som medlemmar får läsa genom att lägga dem i
+  `Medlem`; styrelsens egna läsfiler läggs i `Styrelse`. En vanlig medlem ser
+  endast medlemsdokumenten. Styrelsebehöriga ser båda grupperna.
+  Dokumentvyn är en ren läsvy för **alla** roller: där får ingen skapa,
+  redigera, flytta eller ta bort dokument. Behörig hantering av originalfiler
+  sker utanför appens dokumentvy direkt i Drive. Inloggningens roll avgör
+  vilka dokumentgrupper appen laddar och visar; inga manuella rollval eller
+  nya EKO-kontroller ska krävas när ett enskilt dokument öppnas.
+  Dokumentvyn har samma enkla mittdisplaystil som övriga vyer: två
   avdelningar med endast ett skiljestreck för styrelsebehöriga, och enbart
   medlemsdokument för vanliga medlemmar. Rollen styr visningen utan manuellt
-  listval.
+  listval. Direktdelning i Drive får inte kringgå denna uppdelning.
 - **Inloggade och mötesdeltagande:** alla ska se hur många som är aktuellt
   inloggade. En vanlig medlem ska inte automatiskt få en namnlista. När
   mötesläget senare är byggt ska möten kunna hållas helt eller delvis genom

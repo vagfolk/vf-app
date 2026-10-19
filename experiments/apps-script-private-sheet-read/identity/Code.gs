@@ -2,6 +2,8 @@
 const ASSOCIATION_PROPERTY = 'VF_TEST_ASSOCIATION_ID';
 const KEY_PROPERTY = 'VF_TEST_BRIDGE_KEY';
 const DATA_URL_PROPERTY = 'VF_TEST_DATA_URL';
+const MEMBER_DOCUMENT_FOLDER_PROPERTY = 'VF_MEMBER_DOCUMENT_FOLDER_ID';
+const BOARD_DOCUMENT_FOLDER_PROPERTY = 'VF_BOARD_DOCUMENT_FOLDER_ID';
 const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/0c46bd001e0231b028ccda82cc078011b94ffe7a/public/dashboard-google.html';
 const DASHBOARD_SHA256 = 'ulPUwOtUcGKbcn42V_aho_g1WDPb4O7ZLbSh1dzFkJY';
 
@@ -153,9 +155,24 @@ function readDashboardData(action) {
       return { allowed: false, reason: 'data_unavailable' };
     }
     const permissions = [...new Set(roles.flatMap(function(role) { return rolePermissions[role]; }))].sort();
+    const settings = PropertiesService.getScriptProperties();
+    const folderId = function(property) {
+      const value = settings.getProperty(property);
+      return typeof value === 'string' && /^[A-Za-z0-9_-]{20,128}$/.test(value)
+        ? value : null;
+    };
+    const memberFolder = folderId(MEMBER_DOCUMENT_FOLDER_PROPERTY);
+    const boardFolder = permissions.includes('board_view')
+      ? folderId(BOARD_DOCUMENT_FOLDER_PROPERTY) : null;
+    const documentFolders = {};
+    if (memberFolder) documentFolders.member =
+      'https://drive.google.com/drive/folders/' + memberFolder;
+    if (boardFolder) documentFolders.board =
+      'https://drive.google.com/drive/folders/' + boardFolder;
     return { allowed: true, data: {
       associationId: data.associationId, associationName: 'Vägfölk test',
       name: data.name, roles: roles, permissions: permissions,
+      documentFolders: documentFolders,
       online: Number.isSafeInteger(data.online) && data.online >= 1 && data.online <= 1000
         ? data.online : 1
     } };
