@@ -75,8 +75,12 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   `drive.file`-behörighet. Styrelsen laddar upp en lokal fil via knappen
   `Dokument` på styrelsens startsida och väljer `Medlem` eller `Styrelse`.
   En vanlig medlem ser endast medlemsdokumenten. Styrelsebehöriga ser båda.
-  Dokumentvyn är en ren läsvy för **alla** roller: där får ingen skapa,
-  redigera, flytta eller ta bort dokument. Uppladdning finns endast på
+  Dokumentvyn är en ren fillista för **alla** roller: där får ingen skapa,
+  redigera, flytta eller ta bort dokument. När en fil väljs lämnas den till
+  webbläsaren eller enhetens filhantering. Appen visar ingen egen
+  dokumentförhandsvisning och bestämmer inte vilket program som öppnar filen.
+  Om webbläsaren inte kan öppna filtypen får användaren hämta filen.
+  Uppladdning finns endast på
   styrelsens startsida. Inloggningens roll avgör vilka dokumentgrupper appen
   laddar och visar; inga manuella rollval eller nya EKO-kontroller ska krävas
   när ett enskilt dokument öppnas. Dokument levereras genom appen, inte som

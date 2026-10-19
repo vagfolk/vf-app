@@ -19,7 +19,7 @@ VF-app/
     └── Styrelse/
 ```
 
-De tidigare manuellt skapade dokumentmapparna har tagits bort. Dataskriptet skapade den 19 oktober 2026 nya privata mappar `Dokument/Medlem` och `Dokument/Styrelse`, och `Dokument` har flyttats till huvudmappen `VF-app`. Styrelsen ska välja målgrupp när en lokal fil laddas upp via startsidans knapp `Dokument`. Vänstermenyns dokumentvy är enbart för läsning: medlem ser Medlem, styrelse ser båda. Inga dokument får redigeras eller raderas i dokumentvyn.
+De tidigare manuellt skapade dokumentmapparna har tagits bort. Dataskriptet skapade den 19 oktober 2026 nya privata mappar `Dokument/Medlem` och `Dokument/Styrelse`, och `Dokument` har flyttats till huvudmappen `VF-app`. Styrelsen ska välja målgrupp när en lokal fil laddas upp via startsidans knapp `Dokument`. Vänstermenyns dokumentvy visar endast en fillista: medlem ser Medlem, styrelse ser båda. Valda filer öppnas av webbläsaren eller hämtas enligt enhetens inställningar; appen har ingen egen förhandsvisning. Inga dokument får redigeras eller raderas i dokumentvyn.
 
 Appens nuvarande Drive-behörighet är `drive.file`. Den används för mappar och filer som dataskriptet självt skapar. Dokument ska läsas genom appens serverdel efter rollkontroll, utan direktlänk till Google Drive eller separat delning till varje medlem. Appen ska inte slå upp EKO-rader på nytt för varje dokumentöppning; en tidsbegränsad servercache för redan kontrollerad roll används. Mappskapandet är verifierat i Drive. Uppladdning och öppning med båda rollerna måste provas i den publicerade appen innan funktionen kan kallas färdig. Ingen bredare Drive-behörighet har godkänts.
 
