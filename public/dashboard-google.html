@@ -1125,13 +1125,20 @@
       // Varje anrop behörighetskontrolleras fortfarande av dataskriptet.
       const actions = ['profile', 'own_fee', 'calendar', 'information', 'chat',
         'tasks', 'contacts', 'documents', 'app_versions'];
-      const pending = Object.fromEntries(actions.map(action => [action, read(action)]));
-      const boardSummary = pending.profile.then(profile =>
-        Array.isArray(profile?.permissions) && profile.permissions.includes('board_view')
-          ? read('board_summary') : null);
-      const loaded = await Promise.all([...actions.map(action => pending[action]), boardSummary]);
-      const snapshot = Object.fromEntries([...actions, 'board_summary']
-        .map((action, index) => [action, loaded[index]]));
+      // Apps Script kan avvisa enstaka samtidiga körningar när alla vyer begärs
+      // på en gång. Tre parallella läsningar håller startpaketet i gång utan
+      // att belasta samma Google-konto med tio anrop samtidigt.
+      const snapshot = {};
+      let nextAction = 0;
+      await Promise.all(Array.from({length:3}, async () => {
+        while (nextAction < actions.length) {
+          const action = actions[nextAction++];
+          snapshot[action] = await read(action);
+        }
+      }));
+      snapshot.board_summary = Array.isArray(snapshot.profile?.permissions) &&
+        snapshot.profile.permissions.includes('board_view')
+        ? await read('board_summary') : null;
       const profile = snapshot.profile;
       const fee = snapshot.own_fee;
       if (!Array.isArray(profile.permissions) || !profile.permissions.includes('own_fee') ||
