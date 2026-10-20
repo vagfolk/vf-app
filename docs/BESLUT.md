@@ -88,7 +88,12 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   Dokumentvyn har samma enkla mittdisplaystil som övriga vyer: två
   avdelningar med endast ett skiljestreck för styrelsebehöriga, och enbart
   medlemsdokument för vanliga medlemmar. Rollen styr visningen utan manuellt
-  listval. Direktdelning i Drive får inte kringgå denna uppdelning.
+  listval. Direktdelning i Drive får inte kringgå denna uppdelning. På
+  styrelsens administrativa sida `Start → Dokument` ska uppladdningen visa
+  omedelbar förloppsinformation, hindra dubbelklick under pågående uppladdning
+  och bekräfta resultatet. Där får styrelsen även ta bort felplacerade eller
+  inaktuella dokument efter en tydlig bekräftelse; den åtgärden finns inte i
+  vänstermenyns dokumentvy. Borttagning flyttar filen till Drives papperskorg.
 - **Inloggade och mötesdeltagande:** alla ska se hur många som är aktuellt
   inloggade. En vanlig medlem ska inte automatiskt få en namnlista. När
   mötesläget senare är byggt ska möten kunna hållas helt eller delvis genom

@@ -58,13 +58,13 @@ function readTestData_(request) {
   if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
       'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
       'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
-      'delete_contact', 'documents', 'document_open', 'document_upload',
+      'delete_contact', 'documents', 'document_open', 'document_upload', 'document_delete',
       'leave_app'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
   const contentAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
     'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact',
-    'document_open', 'document_upload'].includes(action);
+    'document_open', 'document_upload', 'document_delete'].includes(action);
   const content = request && request.content;
   if (contentAction && (typeof content !== 'string' ||
       !content.trim() || content.length > (action === 'document_upload' ? 7100000 :
@@ -368,6 +368,15 @@ function uploadDocument(input) {
   return result.allowed && result.data?.saved === true
     ? { allowed: true, id: result.data.id }
     : { allowed: false, reason: result.reason || 'data_unavailable' };
+}
+
+function deleteDocument(id) {
+  if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{20,128}$/.test(id)) {
+    return { allowed: false, reason: 'invalid_content' };
+  }
+  const result = readTestData_({ action: 'document_delete', content: id });
+  return result.allowed && result.data?.saved === true
+    ? { allowed: true } : { allowed: false, reason: result.reason || 'data_unavailable' };
 }
 
 function openDocument(id) {

@@ -123,7 +123,7 @@ function doPost(event) {
     const hasContent = Object.prototype.hasOwnProperty.call(body, 'content');
     const contentAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
       'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact',
-      'document_open', 'document_upload'].includes(body.action);
+      'document_open', 'document_upload', 'document_delete'].includes(body.action);
     const expectedKeys = hasContent
       ? 'action,associationId,content,nonce,subject,ts,v'
       : 'action,associationId,nonce,subject,ts,v';
@@ -132,7 +132,7 @@ function doPost(event) {
     if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
           'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
           'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
-          'delete_contact', 'documents', 'document_open', 'document_upload',
+          'delete_contact', 'documents', 'document_open', 'document_upload', 'document_delete',
           'leave_app'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
     if (typeof body.subject !== 'string' || !body.subject || body.subject.length > 255) return reply_(false, 'wrong_association_or_action');
     if (typeof body.nonce !== 'string' ||
@@ -249,6 +249,13 @@ function doPost(event) {
         return reply_(false, 'insufficient_role');
       }
       return uploadDocument_(body.content, properties);
+    }
+    if (body.action === 'document_delete') {
+      if (!roles.some(role =>
+          ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
+        return reply_(false, 'insufficient_role');
+      }
+      return deleteDocument_(body.content, properties);
     }
     if (body.action === 'save_contact' || body.action === 'delete_contact') {
       if (!roles.some(role => ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
@@ -652,6 +659,28 @@ function uploadDocument_(content, properties) {
   properties.setProperty(DOCUMENT_VERSION_PROPERTY,
     new Date().toISOString() + ':' + Utilities.getUuid());
   return reply_(true, null, { saved: true, id: id });
+}
+
+function deleteDocument_(id, properties) {
+  if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{20,128}$/.test(id)) {
+    return reply_(false, 'invalid_content');
+  }
+  const folders = documentFolders_(properties);
+  const token = ScriptApp.getOAuthToken();
+  const file = driveRequest_('https://www.googleapis.com/drive/v3/files/' +
+    encodeURIComponent(id) + '?fields=id,parents,trashed', 'get', null, token);
+  const parents = Array.isArray(file.parents) ? file.parents : [];
+  if (file.trashed || (!parents.includes(folders.member) && !parents.includes(folders.board))) {
+    return reply_(false, 'invalid_document');
+  }
+  const updated = driveRequest_('https://www.googleapis.com/drive/v3/files/' +
+    encodeURIComponent(id) + '?fields=id,trashed', 'patch', { trashed: true }, token);
+  if (updated.id !== id || updated.trashed !== true) {
+    throw new Error('Dokumentet kunde inte tas bort');
+  }
+  properties.setProperty(DOCUMENT_VERSION_PROPERTY,
+    new Date().toISOString() + ':' + Utilities.getUuid());
+  return reply_(true, null, { saved: true });
 }
 
 function openDocument_(id, subject, associationId, properties) {
