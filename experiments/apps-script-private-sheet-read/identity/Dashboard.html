@@ -242,7 +242,8 @@
   .compact-brand{font-size:clamp(15px,2.3vw,23px);font-weight:800;letter-spacing:.08em;text-shadow:0 1px #fff7,0 3px 4px #000,0 0 9px #dcecff75;white-space:nowrap}
   .compact-brand em{font-style:italic;color:#f6ca53;text-shadow:0 0 10px #ffbf3c9d}
   .compact-top-right{display:flex;gap:12px;align-items:center;font-size:12px;color:#d6e3e7}
-  .compact-online{color:#81f3a9;white-space:nowrap}
+  .compact-online{color:#ff6973;white-space:nowrap}
+  .compact-online[data-authenticated="true"]{color:#81f3a9}
   .compact-body{display:grid;grid-template-columns:clamp(150px,24vw,240px) minmax(0,1fr);gap:8px;min-height:0;padding:8px}
   .compact-nav{display:flex;flex-direction:column;gap:3px;min-height:0;overflow-y:auto;padding:3px 4px 7px 1px;scrollbar-width:thin}
   .compact-nav button{min-height:45px;text-align:left;border-radius:9px 14px 14px 9px;border:1px solid #6476818c;background:linear-gradient(145deg,#141d24,#070c11 65%,#111a20);color:#eaf0f2;box-shadow:inset 0 1px #e8f5ff20,0 3px 6px #0009;padding:7px 12px;font-size:clamp(13px,1.7vw,16px)}
@@ -1674,8 +1675,8 @@
         <path d="M 1466 857 L 1475 832 M 1496 857 L 1486 832 M 1481 853 V 849 M 1481 842 V 838 M 1481 833 V 831" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round"/>
       </g>
       <text x="260" y="145" fill="url(#detail-fore)" font-family="Segoe UI,Arial,sans-serif" font-size="19">Status –</text>
-      <text id="online-value" x="332" y="145" fill="#5ef594" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600"></text>
-      <text id="online-label" x="349" y="145" fill="#5ef594" font-family="Segoe UI,Arial,sans-serif" font-size="17">Online</text>
+      <text id="online-value" x="332" y="145" fill="#ff6973" font-family="Segoe UI,Arial,sans-serif" font-size="19" font-weight="600"></text>
+      <text id="online-label" x="349" y="145" fill="#ff6973" font-family="Segoe UI,Arial,sans-serif" font-size="17">Online</text>
       <g aria-hidden="true">${bars}</g>
       <g class="bt-indicator"><path d="M 465 121 V 151 L 474 143 L 458 128 M 458 143 L 474 129 L 465 121" fill="none" stroke="#3294ff" stroke-width="7" opacity=".7" filter="url(#detail-led-glow)"/>
       <path d="M 465 121 V 151 L 474 143 L 458 128 M 458 143 L 474 129 L 465 121" fill="none" stroke="#82c8ff" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"/></g>
@@ -1702,9 +1703,22 @@
       const count = dashboardArt.querySelector('#online-value');
       count.textContent = previewOnlineCount === null ? '–' : String(previewOnlineCount);
       dashboardArt.querySelector('#online-label').setAttribute('x', String(previewOnlineCount === null ? 350 : previewOnlineCount > 99 ? 370 : previewOnlineCount > 9 ? 360 : 350));
+      updateOnlineIndicator();
       dashboardArt.querySelector('#forecast-value').textContent = forecastTemperature === null ? '' : `${Math.round(forecastTemperature)}°`;
       showLocalDate();
       updateRoadIndicator();
+    }
+
+    function updateOnlineIndicator() {
+      const authenticated = window.VFAppData?.connection === 'google_test' && Boolean(window.VFAppData.user);
+      const color = authenticated ? '#5ef594' : '#ff6973';
+      for (const id of ['online-value', 'online-label']) {
+        dashboardArt.querySelector(`#${id}`)?.setAttribute('fill', color);
+      }
+      const compact = document.querySelector('#compact-online');
+      compact.dataset.authenticated = String(authenticated);
+      compact.textContent = authenticated && previewOnlineCount !== null
+        ? `${previewOnlineCount} Online` : '– Online';
     }
 
     function showLocalDate() {
@@ -2177,9 +2191,8 @@
             showMenuSelection();
           }
           previewName = String(data.fee?.name || '').trim().slice(0, 36);
-          previewOnlineCount = Number.isSafeInteger(data.online) ? data.online : null;
-          document.querySelector('#compact-online').textContent = previewOnlineCount === null
-            ? '– online' : `${previewOnlineCount} online`;
+          previewOnlineCount = data.connection === 'google_test' && data.user && Number.isSafeInteger(data.online)
+            ? data.online : null;
           sampleMemberStatus = data.fee?.status === 'paid' ? 'paid' : data.fee?.status === 'unpaid' ? 'unpaid' : 'unknown';
           showDashboardDetails();
           showMemberPanel();
@@ -2202,13 +2215,14 @@
         },
         setOnlineCount(count) {
           if (startupActive) return;
+          if (window.VFAppData?.connection !== 'google_test' || !window.VFAppData.user) return;
           if (!Number.isSafeInteger(count)) return;
           previewOnlineCount = count;
-          document.querySelector('#compact-online').textContent = `${count} online`;
           const value = dashboardArt.querySelector('#online-value');
           if (value) value.textContent = String(count);
           const label = dashboardArt.querySelector('#online-label');
           if (label) label.setAttribute('x', String(count > 99 ? 370 : count > 9 ? 360 : 350));
+          updateOnlineIndicator();
         },
         refresh() { renderMenuContent(); updateScreenContentVisibility(); },
       };
@@ -2251,7 +2265,7 @@
         const value = event.target.value;
         previewOnlineCount = value === '' ? null : Math.min(999,Math.max(0,Number(value)));
         showDashboardDetails();
-        document.querySelector('#compact-online').textContent = previewOnlineCount === null ? '– online' : `${previewOnlineCount} online`;
+        updateOnlineIndicator();
       });
       document.querySelector('#load-forecast').addEventListener('click', loadLocalForecast);
       for (const button of document.querySelectorAll('[data-road-mode]')) button.addEventListener('click', () => {
@@ -2297,7 +2311,7 @@
   </header>
   <div class="compact-shell" aria-label="Vägfölk 26 på mindre skärm">
     <div class="compact-rotate" hidden><strong>Vrid telefonen till liggande läge</strong>Alla funktioner finns kvar när skärmen är bredare.</div>
-    <div class="compact-top"><span class="compact-brand">VÄGFÖLK <em>26</em></span><div class="compact-top-right"><span id="compact-online" class="compact-online">– online</span><time id="compact-time" class="compact-time"></time></div></div>
+    <div class="compact-top"><span class="compact-brand">VÄGFÖLK <em>26</em></span><div class="compact-top-right"><span id="compact-online" class="compact-online">– Online</span><time id="compact-time" class="compact-time"></time></div></div>
     <div class="compact-body"><nav class="compact-nav" id="compact-nav" aria-label="Huvudmeny"></nav><main class="compact-display" id="compact-content" aria-live="polite" data-start="true"></main><div class="compact-startup-host" id="compact-startup-host" hidden></div></div>
     <div class="compact-bottom"><span>Vägfölk 26</span><span class="compact-fee"></span></div>
   </div>

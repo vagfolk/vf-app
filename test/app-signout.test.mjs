@@ -38,6 +38,8 @@ test('utloggning avslutar appnärvaro före inloggningssidan', () => {
   assert.match(page.html, /Appen är stängd/);
   assert.match(page.html, /Google-kontot är fortfarande inloggat/);
   assert.match(page.html, /Välj Google-konto/);
+  assert.match(page.html, /class="app-status">Status – Online/);
+  assert.match(page.html, /\.app-status\{color:#ff6973/);
 });
 
 test('inloggningssidan avslutar inte appnärvaro', () => {
@@ -45,6 +47,36 @@ test('inloggningssidan avslutar inte appnärvaro', () => {
   const page = doGet({ parameter: { view: 'login' } });
   assert.equal(calls.some(([kind]) => kind === 'data'), false);
   assert.match(page.html, /Välkommen till Vägfölk/);
+  assert.match(page.html, /class="app-status">Status – Online/);
+});
+
+test('Online är rött utan godkänd appinloggning och grönt efteråt', () => {
+  const section = dashboard.match(/    function updateOnlineIndicator\(\) \{[\s\S]*?\n    \}/);
+  assert.ok(section);
+  const elements = Object.fromEntries(['online-value', 'online-label'].map(id => [id, {
+    attributes: {}, setAttribute(name, value) { this.attributes[name] = value; },
+  }]));
+  const compact = { dataset: {}, textContent: '' };
+  const context = {
+    window: { VFAppData: { connection: 'error', user: null } },
+    dashboardArt: { querySelector: selector => elements[selector.slice(1)] },
+    document: { querySelector: () => compact },
+    previewOnlineCount: 4,
+  };
+  runInNewContext(section[0] + '\nthis.updateOnlineIndicator = updateOnlineIndicator;', context);
+  context.updateOnlineIndicator();
+  assert.equal(elements['online-label'].attributes.fill, '#ff6973');
+  assert.equal(compact.dataset.authenticated, 'false');
+  assert.equal(compact.textContent, '– Online');
+  context.window.VFAppData = { connection: 'google_test', user: { memberId: '1' } };
+  context.updateOnlineIndicator();
+  assert.equal(elements['online-label'].attributes.fill, '#5ef594');
+  assert.equal(compact.dataset.authenticated, 'true');
+  assert.equal(compact.textContent, '4 Online');
+  context.window.VFAppData = { connection: 'error', user: null };
+  context.updateOnlineIndicator();
+  assert.equal(elements['online-label'].attributes.fill, '#ff6973');
+  assert.equal(compact.textContent, '– Online');
 });
 
 test('medlemmens Start visar Logga ut utan styrelsereglage', () => {
