@@ -2,17 +2,24 @@
 const ASSOCIATION_PROPERTY = 'VF_TEST_ASSOCIATION_ID';
 const KEY_PROPERTY = 'VF_TEST_BRIDGE_KEY';
 const DATA_URL_PROPERTY = 'VF_TEST_DATA_URL';
-const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/206edf8/public/dashboard-google.html';
-const DASHBOARD_SHA256 = 'jQGoo-ynN5aAU5DznvtyUGDHa_YpL1QyLLLSGpORKjI';
+const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/34f7dc6/public/dashboard-google.html';
+const DASHBOARD_SHA256 = 'P0NiD2X5X3OyErxViokUToqIRjLIDPaTynHMMx_sDxI';
 
 function doGet(request) {
   ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   const appUrl = ScriptApp.getService().getUrl();
-  if (request && request.parameter && request.parameter.view === 'login') {
+  const view = request && request.parameter && request.parameter.view;
+  if (view === 'login' || view === 'logout') {
+    const left = view === 'logout' ? readTestData_({ action: 'leave_app' }) : null;
+    const heading = view === 'logout' ? 'Appen är stängd' : 'Välkommen till Vägfölk';
+    const message = view === 'logout'
+      ? (left && left.allowed ? 'Din appnärvaro har avslutats. Google-kontot är fortfarande inloggat i webbläsaren.'
+        : 'Appvyn är stängd, men avslutad appnärvaro kunde inte bekräftas. Google-kontot är fortfarande inloggat i webbläsaren.')
+      : 'Logga in med det Google-konto som är kopplat till ditt medlemskap.';
     const chooseAccountUrl = 'https://accounts.google.com/AccountChooser?continue=' +
       encodeURIComponent(appUrl + '?view=dashboard');
-    return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vägfölk 26 – logga in</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090b10;color:#f3efe6;font:18px system-ui,sans-serif}main{max-width:32rem;padding:2rem}h1{font-size:1.5rem;color:#d2a637}a{display:inline-block;margin-top:1rem;padding:.8rem 1.2rem;border:1px solid #d2a637;border-radius:.6rem;background:#34280d;color:#fff;text-decoration:none}a:hover,a:focus-visible{background:#57421a;outline:2px solid #d2a637;outline-offset:3px}</style></head><body><main><h1>Välkommen till Vägfölk</h1><p>Logga in med det Google-konto som är kopplat till ditt medlemskap.</p><a target="_top" href="' + chooseAccountUrl + '">Välj Google-konto</a></main></body></html>')
-      .setTitle('Vägfölk 26 – logga in');
+    return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vägfölk 26 – ' + (view === 'logout' ? 'utloggad' : 'logga in') + '</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090b10;color:#f3efe6;font:18px system-ui,sans-serif}main{max-width:32rem;padding:2rem}h1{font-size:1.5rem;color:#d2a637}a{display:inline-block;margin-top:1rem;padding:.8rem 1.2rem;border:1px solid #d2a637;border-radius:.6rem;background:#34280d;color:#fff;text-decoration:none}a:hover,a:focus-visible{background:#57421a;outline:2px solid #d2a637;outline-offset:3px}</style></head><body><main><h1>' + heading + '</h1><p>' + message + '</p><a target="_top" href="' + chooseAccountUrl + '">Välj Google-konto</a></main></body></html>')
+      .setTitle('Vägfölk 26 – ' + (view === 'logout' ? 'utloggad' : 'logga in'));
   }
   const access = readDashboardData('profile');
   if (!access.allowed) {
@@ -33,7 +40,8 @@ function doGet(request) {
   const digest = Utilities.base64EncodeWebSafe(Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256, response.getContent())).replace(/=+$/, '');
   if (digest !== DASHBOARD_SHA256) throw new Error('Instrumentpanelens version avviker');
-  return HtmlService.createHtmlOutput(html).setTitle('Vägfölk 26');
+  return HtmlService.createHtmlOutput(html.replace('__VF_LOGOUT_URL__', appUrl + '?view=logout'))
+    .setTitle('Vägfölk 26');
 }
 
 // Visas bara för att testaren ska kunna kontrollera vilket konto som används.
