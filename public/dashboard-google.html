@@ -122,6 +122,8 @@
 .view-surface .view-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
 .view-surface .view-grid .view-card{margin:0}
 .view-surface .view-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.view-surface .view-start-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.view-surface .view-start-header .view-calendar-link{display:inline-flex;align-items:center;min-height:44px;padding:7px 12px;font-size:14px;background:linear-gradient(145deg,#172129,#0a1016 72%);white-space:nowrap}
 .view-surface button{min-height:44px;border:1px solid #647681;background:linear-gradient(145deg,#172129,#0a1016 72%);color:#eef3f5;box-shadow:none;border-radius:9px;padding:7px 12px}
 .view-surface button:hover{border-color:#9aabb4;background:#222d35}
 .view-surface button:focus-visible{border-color:#c8d5db;outline:2px solid #fff;outline-offset:2px}
@@ -330,27 +332,24 @@
     node.append(...children);
     return node;
   };
+  const signoutControl = options => {
+    if (options.connection !== 'google_test') return button('Logga ut', 'signout');
+    const link = element('a', 'view-calendar-link', 'Logga ut');
+    link.href = '__VF_LOGOUT_URL__';
+    link.target = '_top';
+    return link;
+  };
   const renderStart = (root, options) => {
     // Den skyddade appen får inte rita en medlemsvy innan profilen är känd.
     // Annars blinkar medlemskort fram för en styrelseanvändare under laddning.
     if (options.connection && !options.user) return;
-    root.append(heading(options.name ? `Hej, ${options.name.split(/\s+/)[0]}` : 'Välkommen', 'Mina sidor'));
     const permissions = new Set(options.user?.permissions || []);
     const isBoard = permissions.has('board_view');
-    const events = options.calendar?.events || [];
-    if (!isBoard) {
-      const grid = element('div', 'view-grid');
-      const memberMeeting = nextMeeting(events, 'member');
-      const meeting = card('Nästa medlemsmöte', memberMeeting
-        ? formatEvent(memberMeeting) : options.calendar?.error
-          ? 'Kalendern kunde inte hämtas.' : 'Inget kommande medlemsmöte hittades.');
-      meeting.append(button('Öppna kalender', 'navigate', 'kalender'));
-      const info = options.information?.message;
-      const board = card('Information', info?.text || 'Inget viktigt meddelande publicerat.');
-      board.append(button('Öppna information', 'navigate', 'information'));
-      grid.append(meeting, board);
-      root.append(grid);
-    }
+    const startHeader = element('div', 'view-start-header');
+    startHeader.append(heading(options.name ? `Hej, ${options.name.split(/\s+/)[0]}` : 'Välkommen', 'Mina sidor'));
+    if (options.user) startHeader.append(signoutControl(options));
+    root.append(startHeader);
+    if (!isBoard) return;
     const actions = element('div','view-actions');
     if (isBoard) {
       actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','medlemmar'),
@@ -370,7 +369,6 @@
       ? button('Att göra', 'open-task-form')
       : button('Att göra', 'navigate', 'medlemsarbete'));
     if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
-    if (options.user && options.connection !== 'google_test') actions.append(button('Logga ut','signout'));
     root.append(actions, notice());
     if (isBoard && options.connection === 'google_test' && state.taskFormOpen) {
       const form = element('form', 'view-task-form');
@@ -1901,9 +1899,7 @@
       const active = activeLayoutView === 'interactive' || activeLayoutView === 'all';
       const hasProfile = Boolean(window.VFAppData?.user);
       const canShow = !document.body.classList.contains('app-mode') || hasProfile;
-      const boardStart = selectedMenu === 'start' &&
-        window.VFAppData?.user?.permissions?.includes('board_view');
-      screenContent.hidden = !((active && canShow && (selectedMenu !== 'start' || boardStart)) ||
+      screenContent.hidden = !((active && canShow) ||
         (activeLayoutView === 'cards' && selectedCard));
     }
 
