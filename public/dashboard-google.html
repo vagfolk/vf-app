@@ -566,6 +566,11 @@
   const renderDocuments = (root, options, management = false) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
     if (management && !boardAllowed) return;
+    if (options.documents?.error) {
+      root.append(paragraph('Dokumenten kunde inte hämtas just nu.'));
+      root.append(button('Försök igen', 'retry-documents'));
+      return;
+    }
     if (management && options.connection === 'google_test') {
       const form = element('form', 'view-document-upload');
       form.dataset.form = 'document';
@@ -841,6 +846,11 @@
         document.dispatchEvent(new CustomEvent('vf:document-open', {detail:{id:value}}));
         return;
       }
+      if (action === 'retry-documents') {
+        control.disabled = true;
+        document.dispatchEvent(new Event('vf:document-retry'));
+        return;
+      }
       if (action === 'delete-document') {
         if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
             window.VFAppData.connection !== 'google_test') return;
@@ -1108,6 +1118,14 @@
     }
     return result.data;
   }
+  async function readDocuments() {
+    try {
+      return await read('documents');
+    } catch (error) {
+      if (accessRevoked(error)) throw error;
+      return { documents: [], error: true };
+    }
+  }
   async function start() {
     try {
       // Starta alla tillåtna grundläsningar direkt medan startfilmen spelas.
@@ -1122,7 +1140,7 @@
       await Promise.all(Array.from({length:3}, async () => {
         while (nextAction < actions.length) {
           const action = actions[nextAction++];
-          snapshot[action] = await read(action);
+          snapshot[action] = action === 'documents' ? await readDocuments() : await read(action);
         }
       }));
       snapshot.board_summary = Array.isArray(snapshot.profile?.permissions) &&
@@ -1199,7 +1217,8 @@
         if (storeChanged) actions.push('information', 'chat', 'tasks');
         if (documentsChanged || ekoChanged) actions.push('documents');
         if (calendarChanged) actions.push('calendar');
-        const loaded = await Promise.all(actions.map(read));
+        const loaded = await Promise.all(actions.map(action =>
+          action === 'documents' ? readDocuments() : read(action)));
         if (generation !== updateGeneration || state.connection !== 'google_test') return;
         const updated = Object.fromEntries(actions.map((action, index) =>
           [action, loaded[index]]));
@@ -1303,7 +1322,7 @@
         (state.documents && !force)) return;
     const request = ++documentsRequest;
     try {
-      const documents = await read('documents');
+      const documents = await readDocuments();
       if (request !== documentsRequest) return;
       state.documents = documents;
       show();
@@ -1481,6 +1500,9 @@
   });
   document.addEventListener('vf:document-open', event => {
     openDocument(event.detail?.id);
+  });
+  document.addEventListener('vf:document-retry', () => {
+    loadDocuments(true);
   });
   document.addEventListener('vf:document-upload', event => {
     uploadDocument(event.detail);

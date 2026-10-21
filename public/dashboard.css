@@ -31,6 +31,8 @@
 .view-surface .view-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
 .view-surface .view-grid .view-card{margin:0}
 .view-surface .view-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.view-surface .view-start-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.view-surface .view-start-header .view-calendar-link{display:inline-flex;align-items:center;min-height:44px;padding:7px 12px;font-size:14px;background:linear-gradient(145deg,#172129,#0a1016 72%);white-space:nowrap}
 .view-surface button{min-height:44px;border:1px solid #647681;background:linear-gradient(145deg,#172129,#0a1016 72%);color:#eef3f5;box-shadow:none;border-radius:9px;padding:7px 12px}
 .view-surface button:hover{border-color:#9aabb4;background:#222d35}
 .view-surface button:focus-visible{border-color:#c8d5db;outline:2px solid #fff;outline-offset:2px}
@@ -83,6 +85,15 @@
 .view-surface .view-document-section h3{margin:0 0 12px}
 .view-surface .view-document-board{border-left:1px solid #82939775;padding-left:18px}
 .view-surface .view-document-empty{color:#b8c8cd}
+.view-surface .view-document-list{list-style:none;margin:0;padding:0}
+.view-surface .view-document-item{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid #82939775;padding:8px 0}
+.view-surface .view-document-item span{min-width:0;overflow-wrap:anywhere}
+.view-surface .view-document-item button{flex:none;min-height:36px;padding:5px 10px}
+.view-surface .view-document-upload{display:flex;align-items:end;flex-wrap:wrap;gap:10px;margin:12px 0}
+.view-surface .view-document-upload label{flex:1 1 170px;margin:0}
+.view-surface .view-document-upload select{max-width:180px}
+.view-surface .view-document-upload-status{flex-basis:100%;margin:0;min-height:1.4em;color:#c7d7db;font-size:13px}
+.view-surface .view-document-upload-status:empty{min-height:0}
 @media(max-width:700px){.view-surface .view-task-lower-board,.view-surface .view-document-columns-board{grid-template-columns:1fr;gap:14px}.view-surface .view-task-lower-board .view-task-styrelse,.view-surface .view-document-board{border-left:0;border-top:1px solid #82939775;padding:14px 0 0}}
 .view-surface .view-contact-list{list-style:none;margin:8px 0;padding:0}
 .view-surface .view-contact{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 0;border-bottom:1px solid #82939775;background:transparent}
@@ -140,7 +151,8 @@
   .compact-brand{font-size:clamp(15px,2.3vw,23px);font-weight:800;letter-spacing:.08em;text-shadow:0 1px #fff7,0 3px 4px #000,0 0 9px #dcecff75;white-space:nowrap}
   .compact-brand em{font-style:italic;color:#f6ca53;text-shadow:0 0 10px #ffbf3c9d}
   .compact-top-right{display:flex;gap:12px;align-items:center;font-size:12px;color:#d6e3e7}
-  .compact-online{color:#81f3a9;white-space:nowrap}
+  .compact-online{color:#ff6973;white-space:nowrap}
+  .compact-online[data-authenticated="true"]{color:#81f3a9}
   .compact-body{display:grid;grid-template-columns:clamp(150px,24vw,240px) minmax(0,1fr);gap:8px;min-height:0;padding:8px}
   .compact-nav{display:flex;flex-direction:column;gap:3px;min-height:0;overflow-y:auto;padding:3px 4px 7px 1px;scrollbar-width:thin}
   .compact-nav button{min-height:45px;text-align:left;border-radius:9px 14px 14px 9px;border:1px solid #6476818c;background:linear-gradient(145deg,#141d24,#070c11 65%,#111a20);color:#eaf0f2;box-shadow:inset 0 1px #e8f5ff20,0 3px 6px #0009;padding:7px 12px;font-size:clamp(13px,1.7vw,16px)}

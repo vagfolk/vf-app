@@ -2,6 +2,7 @@
 (() => {
   const state = { user: null, fee: null, boardSummary: null, calendar: null,
     information: null, chat: null, tasks: null, contacts: null,
+    documents: null,
     versions: null, online: null, connection: 'checking' };
   let updateCheckPromise = null;
   let lastUpdateCheckAt = 0;
@@ -11,6 +12,7 @@
   let chatRequest = 0;
   let tasksRequest = 0;
   let contactsRequest = 0;
+  let documentsRequest = 0;
   let chatLoading = false;
 
   function show() { window.VFDashboard?.setData(state); }
@@ -24,6 +26,7 @@
     ++chatRequest;
     ++tasksRequest;
     ++contactsRequest;
+    ++documentsRequest;
     state.user = null;
     state.fee = null;
     state.boardSummary = null;
@@ -33,6 +36,7 @@
     state.chat = null;
     state.tasks = null;
     state.contacts = null;
+    state.documents = null;
     state.versions = null;
     state.online = null;
     state.connection = 'error';
@@ -77,19 +81,34 @@
     }
     return result.data;
   }
+  async function readDocuments() {
+    try {
+      return await read('documents');
+    } catch (error) {
+      if (accessRevoked(error)) throw error;
+      return { documents: [], error: true };
+    }
+  }
   async function start() {
     try {
       // Starta alla tillåtna grundläsningar direkt medan startfilmen spelas.
       // Varje anrop behörighetskontrolleras fortfarande av dataskriptet.
       const actions = ['profile', 'own_fee', 'calendar', 'information', 'chat',
-        'tasks', 'contacts', 'app_versions'];
-      const pending = Object.fromEntries(actions.map(action => [action, read(action)]));
-      const boardSummary = pending.profile.then(profile =>
-        Array.isArray(profile?.permissions) && profile.permissions.includes('board_view')
-          ? read('board_summary') : null);
-      const loaded = await Promise.all([...actions.map(action => pending[action]), boardSummary]);
-      const snapshot = Object.fromEntries([...actions, 'board_summary']
-        .map((action, index) => [action, loaded[index]]));
+        'tasks', 'contacts', 'documents', 'app_versions'];
+      // Apps Script kan avvisa enstaka samtidiga körningar när alla vyer begärs
+      // på en gång. Tre parallella läsningar håller startpaketet i gång utan
+      // att belasta samma Google-konto med tio anrop samtidigt.
+      const snapshot = {};
+      let nextAction = 0;
+      await Promise.all(Array.from({length:3}, async () => {
+        while (nextAction < actions.length) {
+          const action = actions[nextAction++];
+          snapshot[action] = action === 'documents' ? await readDocuments() : await read(action);
+        }
+      }));
+      snapshot.board_summary = Array.isArray(snapshot.profile?.permissions) &&
+        snapshot.profile.permissions.includes('board_view')
+        ? await read('board_summary') : null;
       const profile = snapshot.profile;
       const fee = snapshot.own_fee;
       if (!Array.isArray(profile.permissions) || !profile.permissions.includes('own_fee') ||
@@ -103,6 +122,7 @@
       state.chat = snapshot.chat;
       state.tasks = snapshot.tasks;
       state.contacts = snapshot.contacts;
+      state.documents = snapshot.documents;
       state.boardSummary = snapshot.board_summary || null;
       state.versions = snapshot.app_versions;
       state.online = snapshot.app_versions.online || profile.online || 1;
@@ -120,6 +140,7 @@
       state.chat = null;
       state.tasks = null;
       state.contacts = null;
+      state.documents = null;
       state.versions = null;
       state.online = null;
       state.connection = 'error';
@@ -143,10 +164,12 @@
         const ekoChanged = latest.eko !== state.versions.eko;
         const storeChanged = latest.store !== state.versions.store;
         const contactsChanged = latest.contacts !== state.versions.contacts;
+        const documentsChanged = latest.documents !== state.versions.documents;
         const calendarChanged = calendarDay !== new Date().toDateString() ||
           JSON.stringify(latest.calendar) !== JSON.stringify(state.versions.calendar);
         state.online = latest.online;
-        if (!ekoChanged && !storeChanged && !calendarChanged && !contactsChanged) {
+        if (!ekoChanged && !storeChanged && !calendarChanged &&
+            !contactsChanged && !documentsChanged) {
           state.versions = latest;
           window.VFDashboard?.setOnlineCount?.(state.online);
           return;
@@ -155,8 +178,10 @@
         if (ekoChanged) actions.push('profile', 'own_fee', 'contacts');
         else if (contactsChanged) actions.push('contacts');
         if (storeChanged) actions.push('information', 'chat', 'tasks');
+        if (documentsChanged || ekoChanged) actions.push('documents');
         if (calendarChanged) actions.push('calendar');
-        const loaded = await Promise.all(actions.map(read));
+        const loaded = await Promise.all(actions.map(action =>
+          action === 'documents' ? readDocuments() : read(action)));
         if (generation !== updateGeneration || state.connection !== 'google_test') return;
         const updated = Object.fromEntries(actions.map((action, index) =>
           [action, loaded[index]]));
@@ -173,6 +198,9 @@
           state.information = updated.information;
           state.chat = updated.chat;
           state.tasks = updated.tasks;
+        }
+        if (documentsChanged || ekoChanged) {
+          state.documents = updated.documents;
         }
         if (calendarChanged) {
           state.calendar = updated.calendar;
@@ -252,6 +280,118 @@
     }
   }
 
+  async function loadDocuments(force = false) {
+    if (state.connection !== 'google_test' || !state.user ||
+        (state.documents && !force)) return;
+    const request = ++documentsRequest;
+    try {
+      const documents = await readDocuments();
+      if (request !== documentsRequest) return;
+      state.documents = documents;
+      show();
+    } catch (error) {
+      if (request === documentsRequest) handleReadFailure(error);
+    }
+  }
+
+  async function openDocument(id) {
+    const selected = state.documents?.documents?.find(item => item.id === id);
+    if (state.connection !== 'google_test' || !state.user || !selected) return;
+    const browserCanShow = selected.mimeType === 'application/pdf' ||
+      selected.mimeType === 'text/plain' || selected.mimeType.startsWith('image/');
+    // Öppna fliken medan klicket ännu räknas som användarens åtgärd.
+    const browserTab = browserCanShow ? window.open('about:blank', '_blank') : null;
+    if (browserTab) browserTab.opener = null;
+    try {
+      let result = await call('openDocument', id);
+      if (result?.reason === 'authorization_expired') {
+        await loadDocuments(true);
+        result = await call('openDocument', id);
+      }
+      if (!result || result.allowed !== true || !result.data) {
+        const error = new Error('Dokumentet kunde inte öppnas');
+        error.reason = result?.reason;
+        throw error;
+      }
+      const data = result.data;
+      const binary = atob(data.content);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+      const url = URL.createObjectURL(new Blob([bytes], {type:data.mimeType}));
+      if (browserTab && !browserTab.closed) {
+        browserTab.location.replace(url);
+      } else {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = data.name;
+        link.hidden = true;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+      show();
+      notice('');
+    } catch (error) {
+      if (browserTab && !browserTab.closed) browserTab.close();
+      handleReadFailure(error);
+      if (!accessRevoked(error)) notice('Dokumentet kunde inte öppnas. Försök igen.');
+      show();
+    }
+  }
+
+  async function uploadDocument(input) {
+    if (state.connection !== 'google_test' ||
+        !state.user?.permissions?.includes('board_view')) return;
+    try {
+      const result = await call('uploadDocument', input);
+      if (!result || result.allowed !== true) {
+        const error = new Error('Dokumentet sparades inte');
+        error.reason = result?.reason;
+        throw error;
+      }
+      await loadDocuments(true);
+      state.versions = await read('app_versions');
+      const listed = state.documents?.documents?.some(item => item.id === result.id);
+      state.documentUploadStatus = {busy:false, message: listed
+        ? `Uppladdad: ${input.name}`
+        : `Uppladdad: ${input.name}. Listan kunde inte uppdateras; ladda om sidan.`};
+      show();
+    } catch (error) {
+      handleReadFailure(error);
+      if (!accessRevoked(error)) {
+        state.documentUploadStatus = {busy:false,
+          message:'Uppladdningen kunde inte bekräftas. Kontrollera listan innan du försöker igen.'};
+        show();
+      }
+    } finally {
+      document.querySelectorAll('form[data-form="document"]').forEach(form => {
+        form.dataset.busy = 'false';
+      });
+    }
+  }
+
+  async function deleteDocument(id) {
+    if (state.connection !== 'google_test' ||
+        !state.user?.permissions?.includes('board_view')) return;
+    try {
+      const result = await call('deleteDocument', id);
+      if (!result || result.allowed !== true) {
+        const error = new Error('Dokumentet togs inte bort');
+        error.reason = result?.reason;
+        throw error;
+      }
+      await loadDocuments(true);
+      state.versions = await read('app_versions');
+      show();
+      notice('Dokumentet togs bort.');
+    } catch (error) {
+      handleReadFailure(error);
+      if (!accessRevoked(error)) notice('Dokumentet kunde inte tas bort. Kontrollera listan innan du försöker igen.');
+      show();
+    }
+  }
+
   async function writeTask(method, input) {
     if (state.connection !== 'google_test') return;
     try {
@@ -321,6 +461,18 @@
   document.addEventListener('vf:view-selected', event => {
     checkUpdates();
   });
+  document.addEventListener('vf:document-open', event => {
+    openDocument(event.detail?.id);
+  });
+  document.addEventListener('vf:document-retry', () => {
+    loadDocuments(true);
+  });
+  document.addEventListener('vf:document-upload', event => {
+    uploadDocument(event.detail);
+  });
+  document.addEventListener('vf:document-delete', event => {
+    deleteDocument(event.detail?.id);
+  });
   document.addEventListener('vf:information-publish', event => {
     writeMessage('publishInformation', event.detail?.text, loadInformation);
   });
@@ -381,6 +533,7 @@
     state.chat = null;
     state.tasks = null;
     state.contacts = null;
+    state.documents = null;
     state.versions = null;
     state.online = null;
     state.connection = 'error';

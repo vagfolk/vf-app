@@ -33,5 +33,6 @@ inject("fetch('placements.json')", `fetch('${publicUrl}placements.json')`);
 inject('fetch(`https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/${lon}/lat/${lat}/data.json?timeseries=4&parameters=air_temperature`,',
   "fetch('https://opendata-download-metfcst.smhi.se/api/category/snow1g/version/1/geotype/point/lon/' + lon + '/lat/' + lat + '/data.json?timeseries=4&parameters=air_temperature',");
 
-writeFileSync(resolve(here, 'Dashboard.html'), html);
+const output = process.argv[2] ? resolve(process.argv[2]) : resolve(here, 'Dashboard.html');
+writeFileSync(output, html);
 console.log('Dashboard.html byggd av granskad GitHub-vy utan inbäddade nycklar.');

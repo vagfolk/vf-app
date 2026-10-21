@@ -48,30 +48,28 @@
     node.append(...children);
     return node;
   };
+  const signoutControl = options => {
+    if (options.connection !== 'google_test') return button('Logga ut', 'signout');
+    const link = element('a', 'view-calendar-link', 'Logga ut');
+    link.href = '__VF_LOGOUT_URL__';
+    link.target = '_top';
+    return link;
+  };
   const renderStart = (root, options) => {
     // Den skyddade appen får inte rita en medlemsvy innan profilen är känd.
     // Annars blinkar medlemskort fram för en styrelseanvändare under laddning.
     if (options.connection && !options.user) return;
-    root.append(heading(options.name ? `Hej, ${options.name.split(/\s+/)[0]}` : 'Välkommen', 'Mina sidor'));
     const permissions = new Set(options.user?.permissions || []);
     const isBoard = permissions.has('board_view');
-    const events = options.calendar?.events || [];
-    if (!isBoard) {
-      const grid = element('div', 'view-grid');
-      const memberMeeting = nextMeeting(events, 'member');
-      const meeting = card('Nästa medlemsmöte', memberMeeting
-        ? formatEvent(memberMeeting) : options.calendar?.error
-          ? 'Kalendern kunde inte hämtas.' : 'Inget kommande medlemsmöte hittades.');
-      meeting.append(button('Öppna kalender', 'navigate', 'kalender'));
-      const info = options.information?.message;
-      const board = card('Information', info?.text || 'Inget viktigt meddelande publicerat.');
-      board.append(button('Öppna information', 'navigate', 'information'));
-      grid.append(meeting, board);
-      root.append(grid);
-    }
+    const startHeader = element('div', 'view-start-header');
+    startHeader.append(heading(options.name ? `Hej, ${options.name.split(/\s+/)[0]}` : 'Välkommen', 'Mina sidor'));
+    if (options.user) startHeader.append(signoutControl(options));
+    root.append(startHeader);
+    if (!isBoard) return;
     const actions = element('div','view-actions');
     if (isBoard) {
       actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','medlemmar'),
+        button('Dokument','navigate','document_manage'),
         button('Viktigt meddelande','navigate','information_manage'));
       for (const [kind, title] of [['member', 'Ändra medlemskalender'], ['board', 'Ändra styrelsekalender']]) {
         const url = options.calendar?.links?.[kind];
@@ -87,7 +85,6 @@
       ? button('Att göra', 'open-task-form')
       : button('Att göra', 'navigate', 'medlemsarbete'));
     if (permissions.has('recovery_manage')) actions.append(button('Administration','navigate','admin'));
-    if (options.user && options.connection !== 'google_test') actions.append(button('Logga ut','signout'));
     root.append(actions, notice());
     if (isBoard && options.connection === 'google_test' && state.taskFormOpen) {
       const form = element('form', 'view-task-form');
@@ -281,13 +278,57 @@
     form.append(label, compose, shortcuts);
     root.append(form);
   };
-  const renderDocuments = (root, options) => {
+  const renderDocuments = (root, options, management = false) => {
     const boardAllowed = options.user?.permissions?.includes('board_view');
-    root.append(heading('Dokument', 'Delade filer'));
+    if (management && !boardAllowed) return;
+    if (options.documents?.error) {
+      root.append(paragraph('Dokumenten kunde inte hämtas just nu.'));
+      root.append(button('Försök igen', 'retry-documents'));
+      return;
+    }
+    if (management && options.connection === 'google_test') {
+      const form = element('form', 'view-document-upload');
+      form.dataset.form = 'document';
+      const fileLabel = element('label', '', 'Välj fil');
+      const file = element('input');
+      file.type = 'file';
+      file.name = 'document';
+      file.required = true;
+      file.accept = '.pdf,.png,.jpg,.jpeg,.webp,.txt,.docx,.xlsx,.pptx,.odt';
+      fileLabel.append(file);
+      const kindLabel = element('label', '', 'Visas för');
+      const kind = element('select');
+      kind.name = 'kind';
+      for (const [value, title] of [['member', 'Medlem'], ['board', 'Styrelse']]) {
+        const choice = element('option', '', title);
+        choice.value = value;
+        kind.append(choice);
+      }
+      kindLabel.append(kind);
+      const uploadState = options.documentUploadStatus || {};
+      const submit = button(uploadState.busy ? 'Laddar upp…' : 'Ladda upp', 'submit-document');
+      submit.disabled = Boolean(uploadState.busy);
+      const status = element('p', 'view-document-upload-status', uploadState.message || '');
+      status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite');
+      form.append(fileLabel, kindLabel, submit, status);
+      root.append(form);
+    }
     const columns = element('div', `view-document-columns${boardAllowed ? ' view-document-columns-board' : ''}`);
     const section = (kind, title) => {
       const area = element('section', `view-document-section view-document-${kind}`);
-      area.append(element('h3', '', title), paragraph('Inga dokument att visa.', 'view-document-empty'));
+      area.append(element('h3', '', title));
+      const list = element('ul', 'view-document-list');
+      const documents = (options.documents?.documents || []).filter(item => item.kind === kind);
+      if (!documents.length) list.append(element('li', 'view-document-empty', 'Inga dokument ännu.'));
+      for (const document of documents) {
+        const row = element('li', 'view-document-item');
+        row.append(element('span', '', document.name),
+          button('Öppna', 'open-document', document.id));
+        if (management && boardAllowed) row.append(button('Ta bort', 'delete-document', document.id));
+        list.append(row);
+      }
+      area.append(list);
       return area;
     };
     columns.append(section('member', 'Medlemsdokument'));
@@ -449,7 +490,7 @@
     }
     root.append(list);
   };
-  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,information_manage:(root,options)=>renderInformation(root,options,true),dokument:renderDocuments,avgift:renderFee,kontakt:renderContact,medlemmar:renderMemberCardCreate,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
+  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,information_manage:(root,options)=>renderInformation(root,options,true),dokument:renderDocuments,document_manage:(root,options)=>renderDocuments(root,options,true),avgift:renderFee,kontakt:renderContact,medlemmar:renderMemberCardCreate,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
   document.addEventListener('vf:contact-result', () => {
     for (const form of document.querySelectorAll('form[data-form="contact"]')) {
       form.dataset.busy = 'false';
@@ -515,6 +556,25 @@
         draw(window.VFPreviewViews.options);
         return;
       }
+      if (action === 'open-document') {
+        control.disabled = true;
+        document.dispatchEvent(new CustomEvent('vf:document-open', {detail:{id:value}}));
+        return;
+      }
+      if (action === 'retry-documents') {
+        control.disabled = true;
+        document.dispatchEvent(new Event('vf:document-retry'));
+        return;
+      }
+      if (action === 'delete-document') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
+            window.VFAppData.connection !== 'google_test') return;
+        const selected = window.VFAppData.documents?.documents?.find(item => item.id === value);
+        if (!selected || !window.confirm(`Ta bort dokumentet ”${selected.name}”? Det försvinner från dokumentlistan.`)) return;
+        control.disabled = true;
+        document.dispatchEvent(new CustomEvent('vf:document-delete', {detail:{id:value}}));
+        return;
+      }
       if (action === 'signout') {
         document.dispatchEvent(new Event('vf:signout'));
         return;
@@ -568,7 +628,8 @@
         if (form) { form.querySelector('input').value = value; form.requestSubmit(); }
         return;
       } else if (action === 'submit-task' || action === 'submit-message' ||
-          action === 'submit-information' || action === 'submit-contact') {
+          action === 'submit-information' || action === 'submit-contact' ||
+          action === 'submit-document') {
         const form = control.closest('form');
         form?.requestSubmit();
         return;
@@ -579,6 +640,42 @@
       const form = event.target.closest('form[data-form]');
       if (!form) return;
       event.preventDefault();
+      if (form.dataset.form === 'document') {
+        if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
+            window.VFAppData.documentUploadStatus?.busy || form.dataset.busy === 'true') return;
+        const file = form.elements.namedItem('document')?.files?.[0];
+        const kind = form.elements.namedItem('kind')?.value;
+        if (!file || !['member', 'board'].includes(kind)) return;
+        if (file.size < 1 || file.size > 5000000) {
+          window.alert('Välj ett dokument på högst 5 MB.');
+          return;
+        }
+        form.dataset.busy = 'true';
+        const uploadMessage = `Laddar upp ${file.name}…`;
+        window.VFAppData.documentUploadStatus = {busy:true, message:uploadMessage};
+        const submit = form.querySelector('[data-action="submit-document"]');
+        if (submit) { submit.disabled = true; submit.textContent = 'Laddar upp…'; }
+        const status = form.querySelector('.view-document-upload-status');
+        if (status) status.textContent = uploadMessage;
+        try {
+          const content = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          if (!content) throw new Error('Filen kunde inte läsas.');
+          document.dispatchEvent(new CustomEvent('vf:document-upload', {
+            detail: {name:file.name, kind:kind, content:content}
+          }));
+        } catch (_error) {
+          form.dataset.busy = 'false';
+          window.VFAppData.documentUploadStatus = {busy:false, message:'Filen kunde inte läsas.'};
+          if (submit) { submit.disabled = false; submit.textContent = 'Ladda upp'; }
+          if (status) status.textContent = 'Filen kunde inte läsas.';
+        }
+        return;
+      }
       if (form.dataset.form === 'contact') {
         if (!window.VFAppData?.user?.permissions?.includes('board_view') ||
             form.dataset.busy === 'true') return;

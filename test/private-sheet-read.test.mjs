@@ -358,6 +358,7 @@ test('gemensam ändringskontroll skiljer EKO, appinnehåll och rollstyrd kalende
     eko: '2026-10-16T09:00:00.000Z',
     store: '2026-10-16T09:30:00.000Z',
     contacts: '2026-10-16T09:45:00.000Z',
+    documents: '1970-01-01T00:00:00.000Z',
     online: 1,
     calendar: { member: '2026-10-16T10:00:00.000Z' }
   });
@@ -367,6 +368,7 @@ test('gemensam ändringskontroll skiljer EKO, appinnehåll och rollstyrd kalende
     eko: '2026-10-16T12:00:00.000Z',
     store: '2026-10-16T09:30:00.000Z',
     contacts: '2026-10-16T09:45:00.000Z',
+    documents: '1970-01-01T00:00:00.000Z',
     online: 2,
     calendar: { member: '2026-10-16T10:00:00.000Z',
       board: '2026-10-16T11:00:00.000Z' }

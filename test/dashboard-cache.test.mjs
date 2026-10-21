@@ -17,6 +17,7 @@ test('EKO-läsning startar under filmen och visas först när alla svar finns', 
     chat: { messages: [] },
     tasks: { tasks: [] },
     contacts: { contacts: [] },
+    documents: { documents: [] },
     app_versions: { eko: 'e1', store: 's1', calendar: {}, online: 1 },
   };
   const document = {
@@ -47,8 +48,9 @@ test('EKO-läsning startar under filmen och visas först när alla svar finns', 
 
   for (const callback of listeners.get('vf:dashboard-ready')) callback();
   assert.equal(calls[0], 'film');
+  await new Promise(resolve => setImmediate(resolve));
   for (const action of ['profile', 'own_fee', 'calendar', 'information', 'chat',
-    'tasks', 'contacts', 'app_versions']) assert.ok(calls.includes(action));
+    'tasks', 'contacts', 'documents', 'app_versions']) assert.ok(calls.includes(action));
   assert.equal(shown.length, 0);
   finishProfile();
   await new Promise(resolve => setImmediate(resolve));
