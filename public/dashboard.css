@@ -30,6 +30,18 @@
 .view-surface .view-card.alert{border-color:#d14b59aa}
 .view-surface .view-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
 .view-surface .view-grid .view-card{margin:0}
+.view-surface .view-eko-tabs{display:flex;gap:6px;overflow-x:auto;padding:3px 0 9px;margin-bottom:7px}
+.view-surface .view-eko-tabs button{flex:none;min-height:38px;padding:5px 10px;font-size:13px}
+.view-surface .view-eko-summary{font-size:12px;color:#c4d1d6}
+.view-surface .view-eko-scroll{max-width:100%;max-height:48vh;overflow:auto;border:1px solid #82939775;border-radius:7px;scrollbar-width:thin}
+.view-surface .view-eko-scroll:focus-visible{outline:2px solid #d2ac58;outline-offset:2px}
+.view-surface .view-eko-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:12px;color:#17242c;background:#c6d0d4}
+.view-surface .view-eko-table th,.view-surface .view-eko-table td{min-width:96px;max-width:260px;padding:6px 9px;border-right:1px solid #8b9ca3;border-bottom:1px solid #9baab0;vertical-align:top;white-space:pre-wrap;overflow-wrap:anywhere}
+.view-surface .view-eko-table thead th{position:sticky;top:0;z-index:1;background:#aabcc4;color:#17242c;font-weight:700}
+.view-surface .view-eko-table .view-eko-row-number{position:sticky;left:0;z-index:2;min-width:44px;width:44px;background:#afc0c7;text-align:right;font-variant-numeric:tabular-nums}
+.view-surface .view-eko-table thead .view-eko-row-number{z-index:3}
+.view-surface .view-eko-table tbody tr:nth-child(even) td{background:#d6dee0}
+.view-surface .view-eko-pages button:disabled{opacity:.45}
 .view-surface .view-actions{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
 .view-surface .view-start-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
 .view-surface .view-start-header .view-calendar-link{display:inline-flex;align-items:center;min-height:44px;padding:7px 12px;font-size:14px;background:linear-gradient(145deg,#172129,#0a1016 72%);white-space:nowrap}

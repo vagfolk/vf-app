@@ -129,7 +129,7 @@ function doPost(event) {
       : 'action,associationId,nonce,subject,ts,v';
     if (Object.keys(body).sort().join(',') !== expectedKeys) return reply_(false, 'wrong_association_or_action');
     if (body.v !== 1 || body.associationId !== associationId) return reply_(false, 'wrong_association_or_action');
-    if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
+    if (!['profile', 'own_fee', 'board_summary', 'treasurer_eko', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
           'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
           'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
           'delete_contact', 'documents', 'document_open', 'document_upload', 'document_delete',
@@ -327,6 +327,12 @@ function doPost(event) {
       return reply_(true, null, { testData: true, events: events, links: links,
         version: version });
     }
+    if (body.action === 'treasurer_eko') {
+      if (!roles.some(role => role === 'Kassör' || role === 'Admin')) {
+        return reply_(false, 'insufficient_role');
+      }
+      return reply_(true, null, readTreasurerEko_(spreadsheetId));
+    }
     if (!roles.some(role => ['Styrelse', 'Sekreterare', 'Kassör', 'Admin'].includes(role))) {
       return reply_(false, 'insufficient_role');
     }
@@ -351,6 +357,44 @@ function doPost(event) {
   } catch (_error) {
     return reply_(false, 'data_unavailable');
   }
+}
+
+// Hela EKO läses som formaterade, beräknade värden. Inga fil-ID:n eller
+// redigeringslänkar lämnas till klienten. Ett för stort svar avvisas helt.
+function readTreasurerEko_(spreadsheetId) {
+  const token = ScriptApp.getOAuthToken();
+  const base = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(spreadsheetId);
+  const metadata = sheetsRequest_(base + '?fields=sheets(properties(title,index,hidden))',
+    'get', null, token);
+  const sheets = (metadata.sheets || []).map(sheet => sheet.properties)
+    .sort((a, b) => a.index - b.index);
+  if (!sheets.length || sheets.length > 12 || sheets.some(sheet =>
+      typeof sheet.title !== 'string' || !sheet.title || sheet.title.length > 100)) {
+    throw new Error('Invalid EKO sheet metadata');
+  }
+  const query = sheets.map(sheet =>
+    'ranges=' + encodeURIComponent("'" + sheet.title.replace(/'/g, "''") + "'")).join('&');
+  const values = sheetsRequest_(base + '/values:batchGet?valueRenderOption=FORMATTED_VALUE&' + query,
+    'get', null, token);
+  if (!Array.isArray(values.valueRanges) || values.valueRanges.length !== sheets.length) {
+    throw new Error('Incomplete EKO response');
+  }
+  let cells = 0;
+  const result = sheets.map((sheet, index) => {
+    const rows = values.valueRanges[index].values || [];
+    if (!Array.isArray(rows) || rows.length > 10000) throw new Error('EKO sheet too large');
+    for (const row of rows) {
+      if (!Array.isArray(row) || row.length > 100 || row.some(cell =>
+          typeof cell !== 'string' || cell.length > 10000)) {
+        throw new Error('Invalid EKO cell');
+      }
+      cells += row.length;
+      if (cells > 150000) throw new Error('EKO response too large');
+    }
+    return { name: sheet.title, hidden: sheet.hidden === true, rows: rows };
+  });
+  if (JSON.stringify(result).length > 5000000) throw new Error('EKO response too large');
+  return { sheets: result };
 }
 
 function validCalendarId_(value) {

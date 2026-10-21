@@ -1,6 +1,6 @@
 // Den här filen bäddas in i Dashboard.html vid bygget.
 (() => {
-  const state = { user: null, fee: null, boardSummary: null, calendar: null,
+  const state = { user: null, fee: null, boardSummary: null, treasurerEko: null, calendar: null,
     information: null, chat: null, tasks: null, contacts: null,
     documents: null,
     versions: null, online: null, connection: 'checking' };
@@ -30,6 +30,7 @@
     state.user = null;
     state.fee = null;
     state.boardSummary = null;
+    state.treasurerEko = null;
     state.calendar = null;
     calendarDay = '';
     state.information = null;
@@ -89,6 +90,14 @@
       return { documents: [], error: true };
     }
   }
+  async function readTreasurerEko() {
+    try {
+      return await read('treasurer_eko');
+    } catch (error) {
+      if (accessRevoked(error)) throw error;
+      return { error: true };
+    }
+  }
   async function start() {
     try {
       // Starta alla tillåtna grundläsningar direkt medan startfilmen spelas.
@@ -106,9 +115,12 @@
           snapshot[action] = action === 'documents' ? await readDocuments() : await read(action);
         }
       }));
-      snapshot.board_summary = Array.isArray(snapshot.profile?.permissions) &&
-        snapshot.profile.permissions.includes('board_view')
-        ? await read('board_summary') : null;
+      [snapshot.board_summary, snapshot.treasurer_eko] = await Promise.all([
+        snapshot.profile?.permissions?.includes('board_view')
+          ? read('board_summary') : null,
+        snapshot.profile?.permissions?.includes('finance_manage')
+          ? readTreasurerEko() : null
+      ]);
       const profile = snapshot.profile;
       const fee = snapshot.own_fee;
       if (!Array.isArray(profile.permissions) || !profile.permissions.includes('own_fee') ||
@@ -124,6 +136,7 @@
       state.contacts = snapshot.contacts;
       state.documents = snapshot.documents;
       state.boardSummary = snapshot.board_summary || null;
+      state.treasurerEko = snapshot.treasurer_eko;
       state.versions = snapshot.app_versions;
       state.online = snapshot.app_versions.online || profile.online || 1;
       calendarDay = new Date().toDateString();
@@ -135,6 +148,7 @@
       state.user = null;
       state.fee = null;
       state.boardSummary = null;
+      state.treasurerEko = null;
       state.calendar = null;
       state.information = null;
       state.chat = null;
@@ -186,11 +200,18 @@
         const updated = Object.fromEntries(actions.map((action, index) =>
           [action, loaded[index]]));
         if (ekoChanged) {
+          const hadFinanceAccess = state.user?.permissions?.includes('finance_manage');
           state.user = updated.profile;
           state.fee = updated.own_fee;
           state.contacts = updated.contacts;
+          if (!state.user.permissions.includes('finance_manage')) {
+            state.treasurerEko = null;
+            if (hadFinanceAccess) show();
+          }
           state.boardSummary = state.user.permissions.includes('board_view')
             ? await read('board_summary') : null;
+          state.treasurerEko = state.user.permissions.includes('finance_manage')
+            ? await readTreasurerEko() : null;
           if (generation !== updateGeneration || state.connection !== 'google_test') return;
         }
         else if (contactsChanged) state.contacts = updated.contacts;
@@ -528,6 +549,7 @@
     state.user = null;
     state.fee = null;
     state.boardSummary = null;
+    state.treasurerEko = null;
     state.calendar = null;
     state.information = null;
     state.chat = null;

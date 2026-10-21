@@ -75,7 +75,8 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
     'https://script.googleusercontent.com/macros/echo?user_content_key=TEST' } = {}) {
   const rows = members ?? [memberHead,
     memberRow({ sub: 'google-member', name: 'Testmedlem', id: 'M-001' }),
-    memberRow({ sub: 'google-board', role: 'Styrelse', name: 'Teststyrelse', id: 'M-002', paid: 300 })];
+    memberRow({ sub: 'google-board', role: 'Styrelse', name: 'Teststyrelse', id: 'M-002', paid: 300 }),
+    memberRow({ sub: 'google-treasurer', role: 'Kassör', name: 'Testkassör', id: 'M-003', paid: 300 })];
   const cash = finance ?? financeRows;
   const dataProperties = new Map([
     ['VF_TEST_ASSOCIATION_ID', association],
@@ -184,6 +185,24 @@ function fixture({ members, finance, failSheet = false, emptyTaskStore = false,
       assert.equal(options.headers.Authorization, 'Bearer fake-readonly-token');
       sheetReads.push(url);
       if (failSheet) return reply({ error: 'unavailable' }, 403);
+      if (url.includes('?fields=sheets(properties(title,index,hidden))')) {
+        return reply({ sheets: ['Kassabok', 'Medlemmar', 'Grunddata', 'Arsskifte', 'Bokslut', 'Logg']
+          .map((title, index) => ({ properties: { title, index, hidden: false } })) });
+      }
+      if (url.includes('/values:batchGet?')) {
+        const values = new Map([
+          ['Kassabok', cash.map(row => row.map(String))],
+          ['Medlemmar', rows.map(row => row.map(String))],
+          ['Grunddata', [['År', '2026']]],
+          ['Arsskifte', [['Ingående bank', '0']]],
+          ['Bokslut', [['Resultat', '450']]],
+          ['Logg', [['Datum', 'Händelse']]]
+        ]);
+        const ranges = new URL(url).searchParams.getAll('ranges');
+        return reply({ valueRanges: ranges.map(range => ({
+          values: values.get(range.slice(1, -1).replaceAll("''", "'"))
+        })) });
+      }
       if (url.includes('?fields=sheets.properties.title')) {
         return reply({ sheets: [
           { properties: { title: 'Information' } },
@@ -422,6 +441,27 @@ test('styrelsens panel visar bara sammanfattning och nekar okänd användare', (
   });
   app.setSubject('google-unknown');
   assert.equal(app.identity.readDashboardData('profile').reason, 'unknown_user');
+});
+
+test('hela EKO lämnas bara till aktuell kassörsroll och är en ren läsning', () => {
+  const app = fixture();
+  for (const subject of ['google-member', 'google-board', 'google-unknown']) {
+    app.setSubject(subject);
+    const answer = app.identity.readDashboardData('treasurer_eko');
+    assert.equal(answer.allowed, false);
+  }
+  assert.equal(app.sheetReads.some(url => url.includes('/values:batchGet?')), false);
+  app.setSubject('google-treasurer');
+  const answer = result(app.identity.readDashboardData('treasurer_eko'));
+  assert.equal(answer.allowed, true);
+  assert.deepEqual(answer.data.sheets.map(sheet => sheet.name),
+    ['Kassabok', 'Medlemmar', 'Grunddata', 'Arsskifte', 'Bokslut', 'Logg']);
+  assert.equal(answer.data.sheets[1].rows[3][1], 'Testkassör');
+  assert.equal(JSON.stringify(answer).includes(fileId), false);
+  assert.equal(app.sheetReads.some(url => url.includes('/values:batchGet?')), true);
+  assert.equal(app.sheetReads.some(url => url.includes(':batchUpdate')), false);
+  app.rows[3][18] = 'Medlem';
+  assert.equal(app.identity.readDashboardData('treasurer_eko').reason, 'insufficient_role');
 });
 
 test('rollstyrda vyer omprövas mot aktuell EKO-roll', () => {

@@ -5,6 +5,8 @@
     information: null,
     editingCard: null,
     taskFormOpen: false,
+    ekoSheet: '',
+    ekoPage: 0,
   };
   const targets = new Set();
   let currentView = 'start';
@@ -356,14 +358,94 @@
   const renderBoardSummary = (root, options) => {
     if (!options.user?.permissions?.includes('board_view')) return root.append(heading('Ingen åtkomst','Styrelseöversikt'));
     root.append(heading('Styrelseöversikt','Ekonomi i korthet'));
-    if (!options.boardSummary) return root.append(card('Läser uppgifter', 'Vänta ett ögonblick.'));
-    if (options.boardSummary.error) return root.append(card('Kunde inte läsa', 'Försök igen senare.', 'alert'));
-    const summary = options.boardSummary;
-    root.append(card('Period',summary.period));
-    const grid = element('div','view-grid');
-    const format = value => new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK'}).format(value);
-    grid.append(card('Bank',format(summary.bank)),card('Kontanter',format(summary.cash)),card('Resultat',format(summary.result)));
-    root.append(grid);
+    if (!options.boardSummary) root.append(card('Läser uppgifter', 'Vänta ett ögonblick.'));
+    else if (options.boardSummary.error) root.append(card('Kunde inte läsa', 'Försök igen senare.', 'alert'));
+    else {
+      const summary = options.boardSummary;
+      root.append(card('Period',summary.period));
+      const grid = element('div','view-grid');
+      const format = value => new Intl.NumberFormat('sv-SE',{style:'currency',currency:'SEK'}).format(value);
+      grid.append(card('Bank',format(summary.bank)),card('Kontanter',format(summary.cash)),card('Resultat',format(summary.result)));
+      root.append(grid);
+    }
+    if (options.user.permissions.includes('finance_manage')) renderTreasurerEko(root, options);
+  };
+  const columnName = index => {
+    let number = index + 1;
+    let name = '';
+    while (number) {
+      number--;
+      name = String.fromCharCode(65 + number % 26) + name;
+      number = Math.floor(number / 26);
+    }
+    return name;
+  };
+  const renderTreasurerEko = (root, options) => {
+    if (!options.user?.permissions?.includes('finance_manage')) return;
+    root.append(element('h3', 'view-eko-heading', 'EKO'));
+    const sheets = options.treasurerEko?.sheets;
+    if (options.treasurerEko?.error) {
+      root.append(paragraph('EKO kunde inte läsas. Försök igen senare.'));
+      return;
+    }
+    if (!Array.isArray(sheets) || !sheets.length) {
+      root.append(paragraph('Hämtar EKO…'));
+      return;
+    }
+    const selected = sheets.find(sheet => sheet.name === state.ekoSheet) || sheets[0];
+    const tabs = element('nav', 'view-eko-tabs');
+    tabs.setAttribute('aria-label', 'Blad i EKO');
+    for (const sheet of sheets) {
+      tabs.append(button(sheet.name, 'select-eko-sheet', sheet.name,
+        sheet.name === selected.name));
+    }
+    root.append(tabs);
+    const rows = selected.rows;
+    const pageSize = 80;
+    const pageCount = Math.max(1, Math.ceil(rows.length / pageSize));
+    const page = Math.min(state.ekoPage, pageCount - 1);
+    const first = page * pageSize;
+    const visible = rows.slice(first, first + pageSize);
+    const columnCount = Math.max(1, ...visible.map(row => row.length));
+    root.append(paragraph(`${selected.name} · ${rows.length} rader · sida ${page + 1} av ${pageCount}`,
+      'view-eko-summary'));
+    if (!rows.length) return root.append(paragraph('Bladet är tomt.'));
+    const viewport = element('div', 'view-eko-scroll');
+    viewport.tabIndex = 0;
+    viewport.setAttribute('aria-label', `${selected.name}, rader ${first + 1} till ${first + visible.length}`);
+    const table = element('table', 'view-eko-table');
+    const header = element('thead');
+    const headerRow = element('tr');
+    headerRow.append(element('th', 'view-eko-row-number', 'Rad'));
+    for (let column = 0; column < columnCount; column++) {
+      const cell = element('th', '', columnName(column));
+      cell.scope = 'col';
+      headerRow.append(cell);
+    }
+    header.append(headerRow);
+    const body = element('tbody');
+    for (let index = 0; index < visible.length; index++) {
+      const row = element('tr');
+      const number = element('th', 'view-eko-row-number', String(first + index + 1));
+      number.scope = 'row';
+      row.append(number);
+      for (let column = 0; column < columnCount; column++) {
+        row.append(element('td', '', visible[index][column] || ''));
+      }
+      body.append(row);
+    }
+    table.append(header, body);
+    viewport.append(table);
+    root.append(viewport);
+    if (pageCount > 1) {
+      const pages = element('div', 'view-actions view-eko-pages');
+      const previous = button('Föregående', 'eko-page', page - 1);
+      previous.disabled = page === 0;
+      const next = button('Nästa', 'eko-page', page + 1);
+      next.disabled = page + 1 >= pageCount;
+      pages.append(previous, next);
+      root.append(pages);
+    }
   };
   const renderPlanned = (root,title,description) => root.append(heading(title),card(title,description));
   const renderRestricted = (root,options,permission,title,description) => {
@@ -490,7 +572,7 @@
     }
     root.append(list);
   };
-  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,information_manage:(root,options)=>renderInformation(root,options,true),dokument:renderDocuments,document_manage:(root,options)=>renderDocuments(root,options,true),avgift:renderFee,kontakt:renderContact,medlemmar:renderMemberCardCreate,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:(root,options)=>renderRestricted(root,options,'finance_manage','Kassörens ekonomi','Funktionen är inte tillgänglig ännu.'),admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
+  const renderers = {start:renderStart,kalender:renderCalendar,medlemsarbete:renderTasks,chat:renderChat,information:renderInformation,information_manage:(root,options)=>renderInformation(root,options,true),dokument:renderDocuments,document_manage:(root,options)=>renderDocuments(root,options,true),avgift:renderFee,kontakt:renderContact,medlemmar:renderMemberCardCreate,board:renderBoardSummary,secretary:(root,options)=>renderRestricted(root,options,'members_manage','Medlemmar och roller','Redigering görs direkt i EKO i Google Sheets.'),treasurer:renderBoardSummary,admin:(root,options)=>renderRestricted(root,options,'recovery_manage','Administration','Funktionen är inte tillgänglig ännu.')};
   document.addEventListener('vf:contact-result', () => {
     for (const form of document.querySelectorAll('form[data-form="contact"]')) {
       form.dataset.busy = 'false';
@@ -542,6 +624,20 @@
       const {action,value} = control.dataset;
       if (action === 'navigate') {
         document.dispatchEvent(new CustomEvent('vf:navigate',{detail:{id:value}}));
+        return;
+      }
+      if (action === 'select-eko-sheet' || action === 'eko-page') {
+        if (!window.VFAppData?.user?.permissions?.includes('finance_manage')) return;
+        if (action === 'select-eko-sheet') {
+          if (!window.VFAppData.treasurerEko?.sheets?.some(sheet => sheet.name === value)) return;
+          state.ekoSheet = value;
+          state.ekoPage = 0;
+        } else {
+          const page = Number(value);
+          if (!Number.isSafeInteger(page) || page < 0) return;
+          state.ekoPage = page;
+        }
+        draw(window.VFPreviewViews.options);
         return;
       }
       if (action === 'open-task-form') {

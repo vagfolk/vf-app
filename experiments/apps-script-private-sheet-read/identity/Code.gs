@@ -63,7 +63,7 @@ function getTestAccount() {
 function readTestData_(request) {
   const action = request && typeof request === 'object' && !Array.isArray(request)
     ? request.action : null;
-  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
+  if (!['profile', 'own_fee', 'board_summary', 'treasurer_eko', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
       'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
       'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
       'delete_contact', 'documents', 'document_open', 'document_upload', 'document_delete',
@@ -136,7 +136,7 @@ function readTestData_(request) {
 // Endast begränsade vydata lämnas till instrumentpanelen. Dataskriptet gör
 // medlems- och rollkontrollen på nytt vid varje anrop.
 function readDashboardData(action) {
-  if (!['profile', 'own_fee', 'board_summary', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
+  if (!['profile', 'own_fee', 'board_summary', 'treasurer_eko', 'calendar', 'calendar_version', 'app_versions', 'information', 'chat',
       'tasks', 'contacts', 'documents'].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
@@ -185,6 +185,26 @@ function readDashboardData(action) {
       remaining: remaining, dueDate: null,
       status: remaining === 0 ? 'paid' : 'unpaid', paymentNotice: null
     } };
+  }
+  if (action === 'treasurer_eko') {
+    if (!Array.isArray(data.sheets) || data.sheets.length < 1 || data.sheets.length > 12) {
+      return { allowed: false, reason: 'data_unavailable' };
+    }
+    let cells = 0;
+    for (const sheet of data.sheets) {
+      if (!sheet || typeof sheet.name !== 'string' || !sheet.name || sheet.name.length > 100 ||
+          typeof sheet.hidden !== 'boolean' || !Array.isArray(sheet.rows) ||
+          sheet.rows.length > 10000) return { allowed: false, reason: 'data_unavailable' };
+      for (const row of sheet.rows) {
+        if (!Array.isArray(row) || row.length > 100 || row.some(cell =>
+            typeof cell !== 'string' || cell.length > 10000)) {
+          return { allowed: false, reason: 'data_unavailable' };
+        }
+        cells += row.length;
+        if (cells > 150000) return { allowed: false, reason: 'data_unavailable' };
+      }
+    }
+    return { allowed: true, data: { sheets: data.sheets } };
   }
   if (action === 'app_versions') {
     const validTime = function(value) {

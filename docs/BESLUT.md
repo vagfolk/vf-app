@@ -197,6 +197,8 @@ Senast avstämt 2026-10-11 mot användarens besked i projektsamtalet. **Detta ä
   styrelsens vy för att skicka ett viktigt meddelande. Den sistnämnda knappen
   visas endast för styrelsebehöriga. Där finns också länkar för att öppna medlems- och
   styrelsekalendern i Google. Kalenderlänkarna flyttas från kalendervyn.
+  Kassören använder samma **Ekonomi**-flik som styrelsen, men ser dessutom
+  hela EKO i en skrivskyddad läsvy där. Ingen separat kassörsknapp behövs.
   Google och EKO avgör
   fortfarande vilka uppgifter respektive roll får läsa eller ändra.
   Alla befintliga administrativa reglage ska nås från styrelsens startsida,
