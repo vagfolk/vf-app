@@ -34,6 +34,7 @@
     if (event.data?.type === 'vf-cash-bridge-ready' && !bridgeSource) {
       bridgeSource = event.source;
       bridgeOrigin = event.origin;
+      status.textContent = 'Google-kopplingen svarade. Kontrollerar kassabehörighet…';
       // Google placerar HTML Service i en egen ram. Svara alltid till den
       // faktiska avsändaren och dess exakta origin, aldrig med jokertecken.
       bridgeSource.postMessage({ type:'vf-cash-bridge-check', nonce }, bridgeOrigin);
