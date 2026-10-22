@@ -91,10 +91,15 @@
     if (!value) { value = crypto.randomUUID(); localStorage.setItem('vf26-cash-device', value); }
     return value;
   }
-  function remember(record) { state.record = record; state.cash = record.cash; return store('put', record); }
+  async function remember(record) {
+    // Bekräfta aldrig ett köp i minnet innan hela IndexedDB-transaktionen är klar.
+    await store('put', record);
+    state.record = record;
+    state.cash = record.cash;
+  }
   async function setPendingSwish(value) {
-    state.pendingSwish = value;
     if (state.record) await remember({ ...state.record, pendingSwish:value });
+    state.pendingSwish = value;
   }
   async function refreshList() {
     const result = await request('cash_list');
@@ -139,6 +144,23 @@
     await sync();
   }
   let syncing = false;
+  let retryTimer = null;
+  function needsRetry() {
+    return state.record?.queue?.length > 0 ||
+      (state.cash?.status === 'aborted_pending_review' &&
+        !state.cash.abort?.deviceLost && !state.cash.abort?.recoveryCompleteAt);
+  }
+  function scheduleRetry() {
+    if (retryTimer || !needsRetry() || !navigator.onLine || document.hidden) return;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      sync();
+    }, 15000);
+  }
+  function cancelRetry() {
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = null;
+  }
   async function confirmRecovery() {
     if (!state.record || state.record.queue.length || !navigator.onLine ||
         state.cash?.abort?.recoveryCompleteAt) return;
@@ -152,8 +174,8 @@
     render(); notice('Alla lokala köp har lämnats till den avbrutna kassans logg.');
   }
   async function sync() {
-    if (syncing || !navigator.onLine) return;
-    if (!state.record?.queue?.length) { await confirmRecovery(); return; }
+    if (syncing || !navigator.onLine || !state.record) return;
+    cancelRetry();
     syncing = true;
     try {
       while (state.record.queue.length) {
@@ -165,13 +187,19 @@
         await remember({ ...state.record, cash: rest.length ? state.cash : result.cash,
           queue: rest });
       }
-      notice('Synkad');
       await refreshList();
       await confirmRecovery();
       render();
+      notice('Synkad');
     } catch (error) {
-      notice('Väntar på synk: ' + error.message, true);
-    } finally { syncing = false; }
+      notice(state.record.queue.length
+        ? 'Väntar på synk: ' + error.message
+        : 'Köpen är överförda, men kassans status behöver kontrolleras igen: ' + error.message,
+      true);
+    } finally {
+      syncing = false;
+      scheduleRetry();
+    }
   }
   async function run(task) {
     if (state.busy) return;
@@ -246,7 +274,12 @@
     if (!state.cash) return drawSetup();
     const cash = state.cash;
     content.append(node('h2', `Kassa ${cash.id}`),
-      node('p', `${cash.status} · ${state.record?.queue.length || 0} väntande händelser`, 'muted'));
+      node('p', `${state.record?.queue.length
+        ? `Väntar på synk · ${state.record.queue.length} händelser sparade på enheten`
+        : cash.status === 'open' ? 'Synkad · kassan öppen'
+          : cash.status === 'pending_sync' ? 'Avslutad · väntar på synk'
+            : cash.status === 'aborted_pending_review' ? 'Avbruten · väntar på återhämtning'
+              : 'Synkad · väntar på kassörens granskning'}`, 'muted'));
     const totals = VFCashCore.cashTotals(cash);
     content.append(panel(node('strong', 'Kontantkassa'),
       node('p', `Växelkassa ${kroner(totals.openingFloatCents)} · Förväntat ${kroner(totals.expectedCashCents)}`),
@@ -503,7 +536,14 @@
   document.querySelectorAll('nav button').forEach(tab => tab.addEventListener('click', () => {
     state.page = tab.dataset.page; render();
   }));
-  window.addEventListener('online', () => { notice('Anslutningen är tillbaka. Synkar…'); sync(); });
+  window.addEventListener('online', () => {
+    notice('Anslutningen är tillbaka. Synkar…');
+    sync();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) cancelRetry();
+    else sync();
+  });
   async function start() {
     try {
       await database(); deviceId();
@@ -519,6 +559,11 @@
         if (state.pendingSwish) state.basket = Object.fromEntries(
           state.pendingSwish.lines.map(item => [item.productId, item.quantity]));
       }
+      const remote = state.cash && state.cashes.find(item => item.id === state.cash.id);
+      if (remote && !state.record.queue.length && remote.status !== state.cash.status) {
+        const latest = await request('cash_get', { cashId:state.cash.id });
+        await remember({ ...state.record, cash:latest.cash });
+      }
       if (!state.cash) {
         const owned = state.cashes.find(c => c.status === 'open' &&
           c.ownerMemberId === state.viewerMemberId &&
@@ -528,7 +573,11 @@
           await remember({ id:owned.id, cash:result.cash, queue:[] });
         }
       }
-      render(); await sync(); notice(state.record?.queue.length ? 'Väntar på synk.' : 'Kassan är klar att användas.');
+      render();
+      if (needsRetry()) {
+        if (navigator.onLine) await sync();
+        else notice('Händelserna är sparade på enheten och väntar på synk.');
+      } else notice('Kassan är klar att användas.');
     } catch (error) { notice('Kassan kunde inte startas: ' + error.message, true); }
   }
   start();
