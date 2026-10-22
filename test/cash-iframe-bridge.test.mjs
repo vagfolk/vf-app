@@ -56,3 +56,23 @@ test('godkänd sida får endast kassabehörighet, aldrig profiluppgifter', () =>
     assert.equal(JSON.stringify(f.messages).includes('Skyddat namn'), false);
   }
 });
+
+test('okänt konto får kassakopplingen före profilkontrollen, utan data i HTML', () => {
+  const code = readFileSync(new URL('../experiments/apps-script-private-sheet-read/identity/Code.gs', import.meta.url), 'utf8');
+  let profileCalls = 0;
+  const context = {
+    ScriptApp: { AuthMode:{ FULL:'full' }, requireAllScopes() {},
+      getService:() => ({ getUrl:() => 'https://script.google.com/test' }) },
+    HtmlService: {
+      XFrameOptionsMode:{ ALLOWALL:'allowall' },
+      createHtmlOutputFromFile:() => ({ getContent:() => '<p>__VF_BRIDGE_NONCE__</p>' }),
+      createHtmlOutput:html => ({ html,
+        setXFrameOptionsMode() { return this; }, setTitle() { return this; } }),
+    },
+  };
+  runInNewContext(code, context);
+  context.readDashboardData = () => { profileCalls++; return { allowed:false }; };
+  const response = context.doGet({ parameter:{ view:'cash_bridge', nonce } });
+  assert.equal(profileCalls, 0);
+  assert.equal(response.html, `<p>${nonce}</p>`);
+});

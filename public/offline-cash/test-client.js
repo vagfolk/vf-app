@@ -16,7 +16,7 @@
     if (bridge || !navigator.onLine) return;
     status.textContent = 'Kontrollerar behörighet via Google…';
     timeout = setTimeout(() => {
-      if (!verified) status.textContent = 'Google-kopplingen svarar inte. Öppna den skyddade testappen i samma webbläsare och försök igen.';
+      if (!verified) status.textContent = 'Ingen åtkomst. Google kunde inte bekräfta kassabehörigheten.';
     }, 15000);
     bridge = document.createElement('iframe');
     bridge.id = 'bridge';
