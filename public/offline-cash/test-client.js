@@ -27,7 +27,9 @@
   window.addEventListener('message', event => {
     let host;
     try { host = new URL(event.origin).hostname; } catch (_) { return; }
-    if (event.source !== bridge?.contentWindow || event.data?.nonce !== nonce ||
+    // HTML Service kör innehållet i en inre Google-ram. Dess avsändarfönster
+    // är därför inte samma fönster som den yttre iframe som vi skapade.
+    if (!bridge || event.data?.nonce !== nonce ||
         (host !== 'script.google.com' && !host.endsWith('.googleusercontent.com'))) return;
     if (event.data?.type === 'vf-cash-bridge-ready' && !bridgeSource) {
       bridgeSource = event.source;
