@@ -2,26 +2,32 @@
 <html lang="sv">
 <head><meta charset="utf-8"><title>Vägfölk 26 – kassakoppling</title></head>
 <body>
+<p id="bridge-status">HTML-sidan har öppnats.</p>
 <script>
 (() => {
   'use strict';
+  const status = document.getElementById('bridge-status');
   const allowedOrigin = 'https://vagfolk.github.io';
   const nonce = '__VF_BRIDGE_NONCE__';
-  if (window.top === window) return;
+  if (window.top === window) { status.textContent = 'Fristående öppning.'; return; }
   window.addEventListener('message', event => {
     if (event.source !== window.top || event.origin !== allowedOrigin ||
         event.data?.type !== 'vf-cash-bridge-check' ||
         event.data.nonce !== nonce) return;
+    status.textContent = 'Behörigheten kontrolleras.';
     google.script.run.withSuccessHandler(result => {
       const permitted = result?.allowed === true &&
         result.data?.permissions?.includes('sales_manage') === true;
+      status.textContent = 'Behörighetskontrollen svarade.';
       event.source.postMessage({ type:'vf-cash-bridge-result', nonce,
         allowed:permitted }, allowedOrigin);
     }).withFailureHandler(() => {
+      status.textContent = 'Behörighetskontrollen misslyckades.';
       event.source.postMessage({ type:'vf-cash-bridge-result', nonce,
         allowed:false }, allowedOrigin);
     }).readDashboardData('profile');
   });
+  status.textContent = 'Begärde kontakt med kassasidan.';
   window.top.postMessage({ type:'vf-cash-bridge-ready', nonce }, allowedOrigin);
 })();
 </script>

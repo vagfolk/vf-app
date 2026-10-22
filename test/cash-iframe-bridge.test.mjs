@@ -29,7 +29,9 @@ function fixture(permission = true) {
       }; },
     }; },
   };
-  runInNewContext(source, { window:win, google:{ script:{ run } } });
+  runInNewContext(source, { window:win,
+    document:{ getElementById:() => ({ textContent:'' }) },
+    google:{ script:{ run } } });
   return { parent, messages, send(origin, value, sender = parent) {
     listener({ origin, data:value, source:sender });
   }, calls:() => calls };
