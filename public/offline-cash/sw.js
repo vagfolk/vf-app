@@ -1,4 +1,4 @@
-const CACHE = 'vf26-offline-cash-shell-v1';
+const CACHE = 'vf26-offline-cash-shell-v2';
 const ASSETS = ['./', './index.html', './test-client.js', './manifest.webmanifest'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))
