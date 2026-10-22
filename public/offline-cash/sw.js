@@ -1,4 +1,4 @@
-const CACHE = 'vf26-offline-cash-shell-v3';
+const CACHE = 'vf26-offline-cash-shell-v4';
 const ASSETS = ['./', './index.html', './test-client.js?v=3', './manifest.webmanifest'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))
@@ -11,8 +11,19 @@ self.addEventListener('activate', event => {
 });
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.origin !== self.location.origin ||
-      !url.pathname.includes('/public/offline-cash/')) return;
-  event.respondWith(caches.match(event.request).then(cached =>
-    cached || fetch(event.request)));
+  const scope = new URL(self.registration.scope);
+  if (event.request.method !== 'GET' || url.origin !== scope.origin ||
+      !url.pathname.startsWith(scope.pathname)) return;
+  event.respondWith((async () => {
+    const cached = await caches.match(event.request);
+    if (cached) return cached;
+    try { return await fetch(event.request); }
+    catch (error) {
+      if (event.request.mode === 'navigate') {
+        const shell = await caches.match('./index.html');
+        if (shell) return shell;
+      }
+      throw error;
+    }
+  })());
 });
