@@ -73,6 +73,13 @@
       actions.append(button('Ekonomi','navigate','board'), button('Medlemmar','navigate','medlemmar'),
         button('Dokument','navigate','document_manage'),
         button('Viktigt meddelande','navigate','information_manage'));
+      if (permissions.has('sales_manage') && options.connection === 'google_test') {
+        const cashLink = element('a', 'view-calendar-link', 'Kassa');
+        cashLink.href = '__VF_CASH_URL__';
+        cashLink.target = '_blank';
+        cashLink.rel = 'noopener noreferrer';
+        actions.append(cashLink);
+      }
       for (const [kind, title] of [['member', 'Ändra medlemskalender'], ['board', 'Ändra styrelsekalender']]) {
         const url = options.calendar?.links?.[kind];
         if (typeof url !== 'string' || !/^https:\/\/calendar\.google\.com\/calendar\//.test(url)) continue;
