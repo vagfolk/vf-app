@@ -123,7 +123,10 @@ function doPost(event) {
     const hasContent = Object.prototype.hasOwnProperty.call(body, 'content');
     const contentAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
       'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact',
-      'document_open', 'document_upload', 'document_delete'].includes(body.action);
+      'document_open', 'document_upload', 'document_delete',
+      'cash_get', 'cash_open', 'cash_event', 'cash_abort', 'cash_review',
+      'cash_manual_book', 'cash_post', 'cash_verify_swish',
+      'cash_recovery_done', 'cash_mark_lost', 'cash_qr'].includes(body.action);
     const expectedKeys = hasContent
       ? 'action,associationId,content,nonce,subject,ts,v'
       : 'action,associationId,nonce,subject,ts,v';
@@ -133,14 +136,19 @@ function doPost(event) {
           'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
           'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
           'delete_contact', 'documents', 'document_open', 'document_upload', 'document_delete',
-          'leave_app'].includes(body.action)) return reply_(false, 'wrong_association_or_action');
+          'leave_app', 'cash_list', 'cash_get', 'cash_open',
+          'cash_event', 'cash_abort', 'cash_review', 'cash_manual_book',
+          'cash_post', 'cash_verify_swish', 'cash_recovery_done', 'cash_mark_lost',
+          'cash_qr'
+        ].includes(body.action)) return reply_(false, 'wrong_association_or_action');
     if (typeof body.subject !== 'string' || !body.subject || body.subject.length > 255) return reply_(false, 'wrong_association_or_action');
     if (typeof body.nonce !== 'string' ||
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.nonce)) return reply_(false, 'wrong_association_or_action');
     if (contentAction !== hasContent ||
         (hasContent && (typeof body.content !== 'string' ||
           body.content.length > (body.action === 'document_upload' ? 7100000 :
-            body.action === 'save_contact' ? 170000 : 600)))) {
+            body.action === 'save_contact' ? 170000 :
+            body.action.startsWith('cash_') ? 25000 : 600)))) {
       return reply_(false, 'wrong_association_or_action');
     }
     if (!Number.isSafeInteger(body.ts) || Math.abs(Date.now() - body.ts) > MAX_AGE_MS) {
@@ -185,6 +193,10 @@ function doPost(event) {
     if (body.action === 'leave_app') {
       CacheService.getScriptCache().remove('online:' + associationId + ':' + row[16]);
       return reply_(true, null, { saved: true });
+    }
+    if (body.action.startsWith('cash_')) {
+      return cashHandle_(body.action, body.content, row, roles, members,
+        associationId, properties, spreadsheetId);
     }
     if (body.action === 'app_versions') {
       const boardAllowed = roles.some(role =>

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vägfölk 26 – Kassa</title>
+  <style>
+    :root { color-scheme:dark; font:16px system-ui,sans-serif; background:#0a0d13; color:#f3efe6 }
+    * { box-sizing:border-box }
+    body { margin:0; min-height:100vh; background:linear-gradient(140deg,#111923,#090b10 62%) }
+    header { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.8rem 1rem; border-bottom:1px solid #313a46 }
+    h1 { margin:0; font-size:1.25rem; letter-spacing:.06em }
+    h2 { margin:.25rem 0 1rem; font-size:1.15rem }
+    h3 { font-size:1rem; margin:.4rem 0 }
+    a { color:#efc654 }
+    button,input,select { font:inherit }
+    button { min-height:2.7rem; border:1px solid #657384; border-radius:.55rem; background:#1c2733; color:#fff; padding:.45rem .8rem; cursor:pointer }
+    button:hover,button:focus-visible { background:#293c4a; border-color:#e3bb4a }
+    button:disabled { opacity:.45; cursor:not-allowed }
+    button.primary { background:#5a4010; border-color:#d2a637 }
+    button.danger { border-color:#c75d66; color:#ffd9dc }
+    input,select { width:100%; min-height:2.65rem; background:#111922; color:#fff; border:1px solid #657384; border-radius:.5rem; padding:.4rem .55rem }
+    label { display:block; margin:.5rem 0; }
+    label span { display:block; color:#ced5dc; font-size:.87rem; margin-bottom:.2rem }
+    main { display:grid; grid-template-columns:minmax(10rem,13rem) 1fr; min-height:calc(100vh - 4rem) }
+    nav { border-right:1px solid #313a46; padding:1rem; display:flex; flex-direction:column; gap:.45rem }
+    nav button { text-align:left }
+    #workspace { padding:1rem; max-width:80rem; width:100%; margin:0 auto }
+    #message { min-height:1.7rem; color:#efc654 }
+    #message.error { color:#ff8991 }
+    .row { display:flex; flex-wrap:wrap; gap:.6rem; align-items:end; margin:.6rem 0 }
+    .row > label { flex:1 1 9rem; margin:0 }
+    .row > button { flex:0 0 auto }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(14rem,1fr)); gap:.75rem }
+    .panel { padding:.8rem; border:1px solid #3b4653; border-radius:.75rem; background:#101721 }
+    .panel.done { opacity:.65 }
+    .muted { color:#b5c0ca }
+    .totals { display:flex; flex-wrap:wrap; gap:1rem; padding:.7rem 0; border-block:1px solid #3b4653 }
+    .totals strong { color:#b7f3c9 }
+    .list { display:grid; gap:.5rem; margin:1rem 0 }
+    .list > div { border-bottom:1px solid #3b4653; padding:.4rem 0 }
+    .qty { display:flex; gap:.4rem; align-items:center }
+    .qty button { min-width:2.7rem }
+    .qty output { min-width:2rem; text-align:center }
+    .qr { display:block; width:min(100%,400px); aspect-ratio:1; margin:1rem auto; background:#fff; padding:.5rem }
+    .hidden { display:none!important }
+    [hidden] { display:none!important }
+    @media(max-width:700px) { main { display:block } nav { flex-direction:row; overflow-x:auto; border-right:0; border-bottom:1px solid #313a46; padding:.5rem } nav button { white-space:nowrap } #workspace { padding:.75rem } }
+    @media print { :root { color-scheme:light; background:#fff; color:#111 } body { background:#fff; color:#111 } header,nav,#message,button { display:none!important } main { display:block } #workspace { max-width:none; padding:0 } .panel { break-inside:avoid; background:#fff; color:#111; border-color:#888 } }
+  </style>
+</head>
+<body>
+  <header><h1>VÄGFÖLK 26 · Kassa</h1><a href="__VF_APP_URL__?view=dashboard" target="_top">Tillbaka till appen</a></header>
+  <main>
+    <nav aria-label="Kassameny">
+      <button data-page="overview">Översikt</button>
+      <button data-page="register">Min kassa</button>
+      <button data-page="control">Öppna kassor</button>
+      <button data-page="review" hidden>Granskning</button>
+    </nav>
+    <div id="workspace"><p id="message" role="status" aria-live="polite"></p><div id="content"></div></div>
+  </main>
+  <script>/*__VF_CASH_CORE__*/</script>
+  <script>/*__VF_CASH_CLIENT__*/</script>
+</body>
+</html>

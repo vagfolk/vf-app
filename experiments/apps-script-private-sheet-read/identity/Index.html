@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="sv">
+<head><base target="_top"><meta charset="utf-8"><title>VF privat läsprov</title></head>
+<body>
+  <h1>VF privat läsprov – endast låtsasdata</h1>
+  <p>Det här provet använder en separat privat testfil. Använd inga riktiga medlemsuppgifter.</p>
+  <p id="account" role="status">Kontrollerar vilket Google-konto som används…</p>
+  <button data-action="own_fee" disabled>Visa min testavgift</button>
+  <button data-action="board_summary" disabled>Visa testöversikt för styrelsen</button>
+  <pre id="answer" role="status">Välj vad du vill prova.</pre>
+  <script>
+    google.script.run
+      .withSuccessHandler(function(result) {
+        const account = document.getElementById('account');
+        if (!result || !result.email) {
+          account.textContent = 'Det inloggade Google-kontot kan inte fastställas. Gör inte provet här.';
+          return;
+        }
+        account.textContent = 'Skriptet använder Google-kontot: ' + result.email;
+        document.querySelectorAll('button[data-action]').forEach(function(button) {
+          button.disabled = false;
+        });
+      })
+      .withFailureHandler(function() {
+        document.getElementById('account').textContent =
+          'Det inloggade Google-kontot kan inte fastställas. Gör inte provet här.';
+      })
+      .getTestAccount();
+    document.addEventListener('click', function(event) {
+      const action = event.target && event.target.getAttribute('data-action');
+      if (!action) return;
+      const answer = document.getElementById('answer');
+      answer.textContent = 'Kontrollerar…';
+      google.script.run
+        .withSuccessHandler(function(result) {
+          answer.textContent = JSON.stringify(result, null, 2);
+        })
+        .withFailureHandler(function() { answer.textContent = 'Testet kunde inte köras.'; })
+        .readDashboardData(action);
+    });
+  </script>
+</body>
+</html>

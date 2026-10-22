@@ -2,8 +2,8 @@
 const ASSOCIATION_PROPERTY = 'VF_TEST_ASSOCIATION_ID';
 const KEY_PROPERTY = 'VF_TEST_BRIDGE_KEY';
 const DATA_URL_PROPERTY = 'VF_TEST_DATA_URL';
-const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/40b2360ac4be6c5b14094d25cee396955caaafb9/public/dashboard-google.html';
-const DASHBOARD_SHA256 = '23br_EXjHIdjV-c-4RaCxutFiLhBg1ynhp7n58Y7FnA';
+const DASHBOARD_URL = 'https://raw.githubusercontent.com/vagfolk/vf-app/5c74bac/public/dashboard-google.html';
+const DASHBOARD_SHA256 = '86_o1ZAlTuMcmbKc3RNO4Wor_X3vTMAutdfPfUk18ww';
 
 function doGet(request) {
   ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
@@ -29,6 +29,15 @@ function doGet(request) {
     return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vägfölk 26 – ingen åtkomst</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090b10;color:#f3efe6;font:18px system-ui,sans-serif}main{max-width:32rem;padding:2rem}h1{font-size:1.5rem;color:#d2a637}.app-status{color:#ff6973;font-weight:700}a{display:inline-block;margin-top:1rem;padding:.8rem 1.2rem;border:1px solid #d2a637;border-radius:.6rem;background:#34280d;color:#fff;text-decoration:none}a:hover,a:focus-visible{background:#57421a;outline:2px solid #d2a637;outline-offset:3px}</style></head><body><main><p class="app-status">Status – Online</p><h1>Ingen åtkomst</h1><p>' + message + '</p><a target="_top" href="' + appUrl + '?view=login">Tillbaka till inloggningen</a></main></body></html>')
       .setTitle('Vägfölk 26 – ingen åtkomst');
   }
+  if (view === 'cash') {
+    if (!access.data?.permissions?.includes('sales_manage')) {
+      return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><meta charset="utf-8"><title>Ingen åtkomst</title><body><h1>Ingen åtkomst</h1><p>Den här rollen får inte öppna en försäljningskassa.</p></body></html>')
+        .setTitle('Vägfölk 26 – ingen kassaåtkomst');
+    }
+    const cashHtml = HtmlService.createHtmlOutputFromFile('Cash').getContent()
+      .replace('__VF_APP_URL__', appUrl);
+    return HtmlService.createHtmlOutput(cashHtml).setTitle('Vägfölk 26 – Kassa');
+  }
   const dashboard = request && request.parameter && request.parameter.view === 'dashboard';
   if (!dashboard) return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('VF privat läsprov – endast låtsasdata');
@@ -40,7 +49,8 @@ function doGet(request) {
   const digest = Utilities.base64EncodeWebSafe(Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256, response.getContent())).replace(/=+$/, '');
   if (digest !== DASHBOARD_SHA256) throw new Error('Instrumentpanelens version avviker');
-  return HtmlService.createHtmlOutput(html.replace('__VF_LOGOUT_URL__', appUrl + '?view=logout'))
+  return HtmlService.createHtmlOutput(html.replace('__VF_LOGOUT_URL__', appUrl + '?view=logout')
+    .replace('__VF_CASH_URL__', appUrl + '?view=cash'))
     .setTitle('Vägfölk 26');
 }
 
@@ -67,16 +77,24 @@ function readTestData_(request) {
       'publish_information', 'delete_information', 'post_chat', 'tasks', 'contacts',
       'create_task', 'complete_task', 'recall_task', 'archive_task', 'save_contact',
       'delete_contact', 'documents', 'document_open', 'document_upload', 'document_delete',
-      'leave_app'].includes(action)) {
+      'leave_app', 'cash_list', 'cash_get', 'cash_open',
+      'cash_event', 'cash_abort', 'cash_review', 'cash_manual_book',
+      'cash_post', 'cash_verify_swish', 'cash_recovery_done', 'cash_mark_lost',
+      'cash_qr'
+    ].includes(action)) {
     return { allowed: false, reason: 'invalid_action' };
   }
   const contentAction = ['publish_information', 'delete_information', 'post_chat', 'create_task',
     'complete_task', 'recall_task', 'archive_task', 'save_contact', 'delete_contact',
-    'document_open', 'document_upload', 'document_delete'].includes(action);
+    'document_open', 'document_upload', 'document_delete',
+    'cash_get', 'cash_open', 'cash_event', 'cash_abort', 'cash_review',
+    'cash_manual_book', 'cash_post', 'cash_verify_swish',
+    'cash_recovery_done', 'cash_mark_lost', 'cash_qr'].includes(action);
   const content = request && request.content;
   if (contentAction && (typeof content !== 'string' ||
       !content.trim() || content.length > (action === 'document_upload' ? 7100000 :
         action === 'save_contact' ? 170000 :
+        action.startsWith('cash_') ? 25000 :
         action === 'post_chat' ? 120 : 600))) {
     return { allowed: false, reason: 'invalid_content' };
   }
@@ -353,6 +371,32 @@ function postChatMessage(text) {
   const result = readTestData_({ action: 'post_chat', content: text });
   return result.allowed && result.data && result.data.saved === true
     ? { allowed: true } : { allowed: false, reason: result.reason || 'data_unavailable' };
+}
+
+// Kassans separata arbetsyta använder samma Google-identitet och samma
+// signerade, föreningsbundna brygga som övriga appen. Dataskriptet kontrollerar
+// EKO-roll och kassaägare på nytt för varje åtgärd.
+function cashRequest(action, input) {
+  const readActions = ['cash_list'];
+  const writeActions = ['cash_get', 'cash_open', 'cash_event', 'cash_abort',
+    'cash_review', 'cash_manual_book', 'cash_post', 'cash_verify_swish',
+    'cash_recovery_done', 'cash_mark_lost', 'cash_qr'];
+  if (!readActions.includes(action) && !writeActions.includes(action)) {
+    return { allowed: false, reason: 'invalid_action' };
+  }
+  if (readActions.includes(action)) return readTestData_({ action: action });
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    return { allowed: false, reason: 'invalid_content' };
+  }
+  const content = JSON.stringify(input);
+  if (content.length > 25000) return { allowed: false, reason: 'invalid_content' };
+  const result = readTestData_({ action: action, content: content });
+  if (!result.allowed) return result;
+  if (!result.data || typeof result.data !== 'object' ||
+      JSON.stringify(result.data).length > 1000000) {
+    return { allowed: false, reason: 'data_unavailable' };
+  }
+  return result;
 }
 
 function createTask(input) {
