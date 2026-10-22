@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="sv">
+<head><meta charset="utf-8"><title>Vägfölk 26 – kassakoppling</title></head>
+<body>
+<script>
+(() => {
+  'use strict';
+  const allowedOrigin = 'https://vagfolk.github.io';
+  const nonce = '__VF_BRIDGE_NONCE__';
+  if (window.top === window) return;
+  window.addEventListener('message', event => {
+    if (event.source !== window.top || event.origin !== allowedOrigin ||
+        event.data?.type !== 'vf-cash-bridge-check' ||
+        event.data.nonce !== nonce) return;
+    google.script.run.withSuccessHandler(result => {
+      const permitted = result?.allowed === true &&
+        result.data?.permissions?.includes('sales_manage') === true;
+      event.source.postMessage({ type:'vf-cash-bridge-result', nonce,
+        allowed:permitted }, allowedOrigin);
+    }).withFailureHandler(() => {
+      event.source.postMessage({ type:'vf-cash-bridge-result', nonce,
+        allowed:false }, allowedOrigin);
+    }).readDashboardData('profile');
+  });
+  window.top.postMessage({ type:'vf-cash-bridge-ready', nonce }, allowedOrigin);
+})();
+</script>
+</body>
+</html>

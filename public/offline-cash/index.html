@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b10">
+  <title>Vägfölk 26 – offlineprov</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <style>
+    :root { color-scheme:dark; font:18px system-ui,sans-serif; background:#090b10; color:#f3efe6 }
+    body { min-height:100vh; margin:0; display:grid; place-items:center }
+    main { width:min(90vw,34rem) }
+    h1 { color:#d2a637; font-size:1.5rem }
+    p { line-height:1.5 }
+    #bridge { position:absolute; width:1px; height:1px; border:0; opacity:0; pointer-events:none }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Kassans offlineöppning</h1>
+    <p>Det här provet kontrollerar om kassans appskal kan öppnas utan nät och om Google kan bekräfta styrelsebehörigheten när nät finns. Inga köp kan göras här.</p>
+    <p id="status" role="status">Kontrollerar anslutning…</p>
+  </main>
+  <script src="./test-client.js" defer></script>
+</body>
+</html>

@@ -38,6 +38,19 @@ function doGet(request) {
       .replace('__VF_APP_URL__', appUrl);
     return HtmlService.createHtmlOutput(cashHtml).setTitle('Vägfölk 26 – Kassa');
   }
+  if (view === 'cash_bridge') {
+    // Endast detta innehållslösa prov får bäddas in. Riktiga uppgifter lämnas
+    // aldrig till en annan origin utan att avsändaren först har kontrollerats.
+    const nonce = request.parameter.nonce;
+    if (typeof nonce !== 'string' || !/^[a-f0-9-]{36}$/.test(nonce)) {
+      return HtmlService.createHtmlOutput('Ogiltigt kopplingsförsök.');
+    }
+    const bridgeHtml = HtmlService.createHtmlOutputFromFile('CashBridge').getContent()
+      .replace('__VF_BRIDGE_NONCE__', nonce);
+    return HtmlService.createHtmlOutput(bridgeHtml)
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
+      .setTitle('Vägfölk 26 – kassakoppling');
+  }
   const dashboard = request && request.parameter && request.parameter.view === 'dashboard';
   if (!dashboard) return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('VF privat läsprov – endast låtsasdata');
