@@ -13,6 +13,7 @@ function parentFixture(permission) {
   let click;
   let message;
   let calls = 0;
+  const forwarded = [];
   const sent = [];
   const popup = { postMessage(value, origin) { sent.push({ value, origin }); } };
   const status = { textContent:'' };
@@ -29,13 +30,21 @@ function parentFixture(permission) {
         success({ allowed:true, data:{ name:'Privat namn',
           permissions:permission ? ['sales_manage'] : ['own_fee'] } });
       },
+      cashRequest(action, input) {
+        forwarded.push({ action, input });
+        success({ allowed:true, data:{ cashes:[] } });
+      },
     }; },
   }; } };
   runInNewContext(parentSource, { window, document, google:{ script:{ run } } });
   click();
-  return { popup, status, sent, calls:() => calls,
+  return { popup, status, sent, forwarded, calls:() => calls,
     send(origin, source = popup, token = nonce) {
       message({ origin, source, data:{ type:'vf-cash-parent-ready', nonce:token } });
+    },
+    request(origin, source = popup, action = 'cash_list') {
+      message({ origin, source, data:{ type:'vf-cash-parent-request', nonce,
+        requestId:'11111111-2222-4333-8444-555555555555', action, input:null } });
     } };
 }
 
@@ -80,4 +89,22 @@ test('GitHub-sidan kräver svar från det öppnande Google-fönstret och rätt e
   message({ source:opener, origin:'https://script.google.com',
     data:{ type:'vf-cash-parent-result', nonce, allowed:false } });
   assert.equal(status.textContent, 'Ingen åtkomst till kassan.');
+});
+
+test('Kassaåtgärder går bara via godkänt fönster och Google kontrollerar varje anrop', () => {
+  const denied = parentFixture(false);
+  denied.send('https://vagfolk.github.io');
+  denied.request('https://vagfolk.github.io');
+  assert.equal(denied.forwarded.length, 0);
+
+  const allowed = parentFixture(true);
+  allowed.send('https://vagfolk.github.io');
+  allowed.request('https://annan.example');
+  allowed.request('https://vagfolk.github.io', {});
+  allowed.request('https://vagfolk.github.io', allowed.popup, 'annan_action');
+  assert.equal(allowed.forwarded.length, 0);
+  allowed.request('https://vagfolk.github.io');
+  assert.deepEqual(allowed.forwarded, [{ action:'cash_list', input:null }]);
+  assert.equal(allowed.sent.at(-1).origin, 'https://vagfolk.github.io');
+  assert.equal(allowed.sent.at(-1).value.type, 'vf-cash-parent-response');
 });

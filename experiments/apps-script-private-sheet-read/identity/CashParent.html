@@ -25,15 +25,23 @@
   <script>
   (() => {
     'use strict';
-    const cashUrl = 'https://vagfolk.github.io/vf-app/public/offline-cash/?bridge=parent';
+    const cashUrl = 'https://vagfolk.github.io/vf-app/public/cash/';
     const cashOrigin = 'https://vagfolk.github.io';
     const status = document.getElementById('status');
     let cashWindow = null;
     let activeNonce = null;
     let checking = false;
+    let granted = false;
+    const pending = new Set();
+    const cashActions = new Set(['cash_list', 'cash_get', 'cash_open',
+      'cash_event', 'cash_abort', 'cash_review', 'cash_manual_book',
+      'cash_post', 'cash_verify_swish', 'cash_recovery_done',
+      'cash_mark_lost', 'cash_qr']);
     document.getElementById('open-cash').addEventListener('click', () => {
       activeNonce = null;
       checking = false;
+      granted = false;
+      pending.clear();
       cashWindow = window.open(cashUrl, 'vf26-cash-window');
       status.textContent = cashWindow
         ? 'Kassafönstret öppnades. Kontrollerar behörighet…'
@@ -41,12 +49,37 @@
     });
     window.addEventListener('message', event => {
       if (!cashWindow || event.source !== cashWindow ||
-          event.origin !== cashOrigin ||
-          event.data?.type !== 'vf-cash-parent-ready' ||
+          event.origin !== cashOrigin) return;
+      if (event.data?.type === 'vf-cash-parent-request') {
+        const data = event.data;
+        if (!granted || data.nonce !== activeNonce ||
+            typeof data.requestId !== 'string' ||
+            !/^[a-f0-9-]{36}$/.test(data.requestId) ||
+            !cashActions.has(data.action) || pending.size >= 4 ||
+            pending.has(data.requestId)) return;
+        let inputSize;
+        try { inputSize = JSON.stringify(data.input).length; } catch (_) { return; }
+        if (inputSize > 25000) return;
+        pending.add(data.requestId);
+        const source = event.source;
+        const nonce = activeNonce;
+        const reply = result => {
+          pending.delete(data.requestId);
+          if (cashWindow !== source || activeNonce !== nonce || !granted) return;
+          source.postMessage({ type:'vf-cash-parent-response', nonce,
+            requestId:data.requestId, result }, cashOrigin);
+        };
+        google.script.run.withSuccessHandler(reply).withFailureHandler(() => {
+          reply({ allowed:false, reason:'data_unavailable' });
+        }).cashRequest(data.action, data.input);
+        return;
+      }
+      if (event.data?.type !== 'vf-cash-parent-ready' ||
           typeof event.data.nonce !== 'string' ||
           !/^[a-f0-9-]{36}$/.test(event.data.nonce) || checking) return;
       activeNonce = event.data.nonce;
       checking = true;
+      granted = false;
       const targetWindow = event.source;
       const nonce = activeNonce;
       const reply = allowed => {
@@ -58,6 +91,7 @@
       google.script.run.withSuccessHandler(result => {
         const allowed = result?.allowed === true &&
           result.data?.permissions?.includes('sales_manage') === true;
+        granted = allowed;
         status.textContent = allowed ? 'Kassabehörighet bekräftad.' : 'Ingen åtkomst till kassan.';
         reply(allowed);
       }).withFailureHandler(() => {
