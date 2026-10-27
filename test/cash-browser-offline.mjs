@@ -84,10 +84,15 @@ try {
   await cash.getByRole('combobox', { name:'Vara' }).fill('Testkaffe');
   await cash.getByRole('spinbutton', { name:'Pris i kronor' }).fill('10');
   await cash.getByRole('button', { name:'Lägg till vara' }).click();
+  await cash.getByText('Testkaffe är tillagd i den nya kassan.').waitFor();
+  await cash.getByRole('combobox', { name:'Vara' }).fill('Provvara');
+  await cash.getByRole('spinbutton', { name:'Pris i kronor' }).fill('1');
   await cash.getByRole('button', { name:'Starta och godkänn kassa' }).click();
   await cash.getByText('Kassan är öppen.').waitFor();
+  assert.deepEqual(await parent.evaluate(() => window.__server.cash.products.map(p => p.name)),
+    ['Testkaffe', 'Provvara']);
   await context.setOffline(true);
-  await cash.getByRole('button', { name:'+' }).click();
+  await cash.getByRole('button', { name:'+' }).first().click();
   await cash.getByRole('button', { name:'Betalt kontant' }).click();
   await cash.getByText(/Väntar på synk · 1 händelser/).waitFor();
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 0);
