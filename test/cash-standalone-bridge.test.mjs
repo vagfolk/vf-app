@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 const source = readFileSync(new URL('../public/cash/bridge.js', import.meta.url), 'utf8');
 const nonce = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const requestId = '11111111-2222-4333-8444-555555555555';
+const googleOrigin = 'https://n-eg65gknbhcukip5zkxrgs36zciqpzzcekdwdgbq-0lu-script.googleusercontent.com';
 
 function fixture() {
   const sent = [];
@@ -23,7 +24,7 @@ function fixture() {
     crypto:{ randomUUID:() => id++ ? requestId : nonce }, URL,
     setTimeout:() => 1, clearTimeout:() => {} });
   return { window, opener, sent, status, classes,
-    deliver(value, origin = 'https://script.googleusercontent.com', sourceWindow = opener) {
+    deliver(value, origin = googleOrigin, sourceWindow = opener) {
       message({ data:value, origin, source:sourceWindow });
     } };
 }
@@ -35,14 +36,14 @@ test('Fristående kassa visar inget innehåll före godkänt svar och binder sin
   f.deliver({ type:'vf-cash-parent-result', nonce, allowed:true },
     'https://annan.example');
   f.deliver({ type:'vf-cash-parent-result', nonce, allowed:true },
-    'https://script.googleusercontent.com', {});
+    googleOrigin, {});
   assert.equal(f.classes.length, 0);
   f.deliver({ type:'vf-cash-parent-result', nonce, allowed:true });
   assert.deepEqual(f.classes, ['authorized']);
   const result = f.window.VFCashBridge.request('cash_list', null);
   await Promise.resolve();
   assert.equal(f.sent[1].value.action, 'cash_list');
-  assert.equal(f.sent[1].origin, 'https://script.googleusercontent.com');
+  assert.equal(f.sent[1].origin, googleOrigin);
   f.deliver({ type:'vf-cash-parent-response', nonce, requestId,
     result:{ allowed:true, data:{ cashes:[] } } }, 'https://annan.example');
   assert.equal(f.sent.length, 2);

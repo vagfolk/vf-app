@@ -1,5 +1,5 @@
-const CACHE = 'vf26-cash-shell-v1';
-const ASSETS = ['./', './index.html', './bridge.js'];
+const CACHE = 'vf26-cash-shell-v2';
+const ASSETS = ['./', './index.html', './bridge.js?v=2'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS))
     .then(() => self.skipWaiting()));

@@ -5,17 +5,13 @@
   const opener = window.opener;
   const pending = new Map();
   let origin = null;
+  // HTML Service kör VF-skriptets innehåll på denna projektspecifika origin.
+  // Om Google flyttar det till en annan origin stängs kopplingen tills den
+  // nya adressen har verifierats och publicerats här.
+  const trustedOrigin = 'https://n-eg65gknbhcukip5zkxrgs36zciqpzzcekdwdgbq-0lu-script.googleusercontent.com';
   let complete;
   let fail;
   const ready = new Promise((resolve, reject) => { complete = resolve; fail = reject; });
-  const trustedGoogleOrigin = value => {
-    try {
-      const url = new URL(value);
-      return url.protocol === 'https:' &&
-        (url.hostname === 'script.google.com' ||
-          url.hostname.endsWith('.googleusercontent.com'));
-    } catch (_) { return false; }
-  };
   const timeout = setTimeout(() => {
     if (origin) return;
     status.textContent = 'Ingen åtkomst. Google-kopplingen svarade inte.';
@@ -29,7 +25,7 @@
   window.addEventListener('message', event => {
     const data = event.data;
     if (!opener || event.source !== opener ||
-        !trustedGoogleOrigin(event.origin) || data?.nonce !== nonce) return;
+        event.origin !== trustedOrigin || data?.nonce !== nonce) return;
     if (data.type === 'vf-cash-parent-result' &&
         typeof data.allowed === 'boolean' && !origin) {
       clearTimeout(timeout);
