@@ -42,6 +42,14 @@ function doGet(request) {
     return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Vägfölk 26 – ingen åtkomst</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#090b10;color:#f3efe6;font:18px system-ui,sans-serif}main{max-width:32rem;padding:2rem}h1{font-size:1.5rem;color:#d2a637}.app-status{color:#ff6973;font-weight:700}a{display:inline-block;margin-top:1rem;padding:.8rem 1.2rem;border:1px solid #d2a637;border-radius:.6rem;background:#34280d;color:#fff;text-decoration:none}a:hover,a:focus-visible{background:#57421a;outline:2px solid #d2a637;outline-offset:3px}</style></head><body><main><p class="app-status">Status – Online</p><h1>Ingen åtkomst</h1><p>' + message + '</p><a target="_top" href="' + appUrl + '?view=login">Tillbaka till inloggningen</a></main></body></html>')
       .setTitle('Vägfölk 26 – ingen åtkomst');
   }
+  if (view === 'cash_parent') {
+    if (!access.data?.permissions?.includes('sales_manage')) {
+      return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><meta charset="utf-8"><title>Ingen åtkomst</title><body><h1>Ingen åtkomst</h1><p>Den här rollen får inte öppna en försäljningskassa.</p></body></html>')
+        .setTitle('Vägfölk 26 – ingen kassaåtkomst');
+    }
+    return HtmlService.createHtmlOutputFromFile('CashParent')
+      .setTitle('Vägfölk 26 – kassafönster');
+  }
   if (view === 'cash') {
     if (!access.data?.permissions?.includes('sales_manage')) {
       return HtmlService.createHtmlOutput('<!doctype html><html lang="sv"><meta charset="utf-8"><title>Ingen åtkomst</title><body><h1>Ingen åtkomst</h1><p>Den här rollen får inte öppna en försäljningskassa.</p></body></html>')

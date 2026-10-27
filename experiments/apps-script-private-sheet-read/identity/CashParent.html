@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vägfölk 26 – kassafönster</title>
+  <style>
+    :root { color-scheme:dark; font:18px system-ui,sans-serif; background:#090b10; color:#f3efe6 }
+    body { min-height:100vh; margin:0; display:grid; place-items:center }
+    main { width:min(90vw,34rem) }
+    h1 { color:#d2a637; font-size:1.5rem }
+    p { line-height:1.5 }
+    button { background:#34280d; color:#fff; border:1px solid #d2a637;
+      border-radius:.5rem; padding:.7rem 1rem; font:inherit; cursor:pointer }
+    button:hover,button:focus-visible { background:#57421a }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Kassafönster</h1>
+    <p>Öppna det separata kassafönstret.</p>
+    <button id="open-cash" type="button">Öppna kassafönster</button>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+  <script>
+  (() => {
+    'use strict';
+    const cashUrl = 'https://vagfolk.github.io/vf-app/public/offline-cash/?bridge=parent';
+    const cashOrigin = 'https://vagfolk.github.io';
+    const status = document.getElementById('status');
+    let cashWindow = null;
+    let activeNonce = null;
+    let checking = false;
+    document.getElementById('open-cash').addEventListener('click', () => {
+      activeNonce = null;
+      checking = false;
+      cashWindow = window.open(cashUrl, 'vf26-cash-window');
+      status.textContent = cashWindow
+        ? 'Kassafönstret öppnades. Kontrollerar behörighet…'
+        : 'Webbläsaren stoppade kassafönstret. Tillåt popupfönster för appen och försök igen.';
+    });
+    window.addEventListener('message', event => {
+      if (!cashWindow || event.source !== cashWindow ||
+          event.origin !== cashOrigin ||
+          event.data?.type !== 'vf-cash-parent-ready' ||
+          typeof event.data.nonce !== 'string' ||
+          !/^[a-f0-9-]{36}$/.test(event.data.nonce) || checking) return;
+      activeNonce = event.data.nonce;
+      checking = true;
+      const targetWindow = event.source;
+      const nonce = activeNonce;
+      const reply = allowed => {
+        if (cashWindow !== targetWindow || activeNonce !== nonce) return;
+        targetWindow.postMessage({ type:'vf-cash-parent-result', nonce,
+          allowed }, cashOrigin);
+        checking = false;
+      };
+      google.script.run.withSuccessHandler(result => {
+        const allowed = result?.allowed === true &&
+          result.data?.permissions?.includes('sales_manage') === true;
+        status.textContent = allowed ? 'Kassabehörighet bekräftad.' : 'Ingen åtkomst till kassan.';
+        reply(allowed);
+      }).withFailureHandler(() => {
+        status.textContent = 'Kassabehörigheten kunde inte bekräftas.';
+        reply(false);
+      }).readDashboardData('profile');
+    });
+  })();
+  </script>
+</body>
+</html>
