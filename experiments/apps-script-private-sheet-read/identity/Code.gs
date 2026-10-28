@@ -36,6 +36,8 @@ function doGet(request) {
   }
   const access = readDashboardData('profile');
   if (!access.allowed) {
+    console.warn('VF dashboard access: ' +
+      (/^[a-z_]{3,40}$/.test(access.reason) ? access.reason : 'other'));
     const message = access.reason === 'unknown_user' || access.reason === 'inactive_user'
       ? 'Kontot har inte tillgång till föreningen.'
       : 'Åtkomsten kunde inte kontrolleras. Försök igen senare.';
@@ -200,6 +202,7 @@ function readDashboardData(action) {
         typeof data.memberId !== 'string' || !data.memberId ||
         !Array.isArray(roles) || roles.length < 1 || roles.length > 2 ||
         roles.some(function(role) { return !Object.prototype.hasOwnProperty.call(rolePermissions, role); })) {
+      console.warn('VF dashboard profile: invalid_shape');
       return { allowed: false, reason: 'data_unavailable' };
     }
     const permissions = [...new Set(roles.flatMap(function(role) { return rolePermissions[role]; }))].sort();

@@ -22,6 +22,18 @@ function doGet() {
   return ContentService.createTextOutput('VF privat läsprov – endast låtsasdata');
 }
 
+// Körs manuellt av skriptägaren om Googles befintliga drive.file-medgivande
+// behöver förnyas. Läser endast rubriken och loggar aldrig cellinnehåll.
+function verifyEkoAuthorization() {
+  ScriptApp.requireScopes(ScriptApp.AuthMode.FULL,
+    ['https://www.googleapis.com/auth/drive.file']);
+  const sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_PROPERTY);
+  if (!/^[A-Za-z0-9_-]{20,128}$/.test(sheetId || '')) throw new Error('EKO saknas');
+  const rows = readRange_(sheetId, "'Medlemmar'!B11:B11");
+  if (!rows || !rows[0] || rows[0][0] !== 'Namn') throw new Error('EKO-rubrik saknas');
+  console.log('VF EKO-läsning fungerar');
+}
+
 // Körs EN gång manuellt från redigeraren för att prova drive.file utan
 // åtkomst till ett befintligt ark. Funktionen skapar enbart låtsasdata.
 function createDriveFileTest() {
@@ -366,7 +378,17 @@ function doPost(event) {
     return reply_(true, null, {
       period: finances[0][1], bank: bank, cash: cash, result: result
     });
-  } catch (_error) {
+  } catch (error) {
+    const message = String(error && error.message || '');
+    const category = /quota|limit exceeded|too many times/i.test(message) ? 'quota'
+      : /403|permission|not authorized/i.test(message) ? 'permission'
+      : /404|not found/i.test(message) ? 'not_found'
+      : /429|rate limit/i.test(message) ? 'rate_limit' : 'other';
+    const frame = /\bat ([A-Za-z_][A-Za-z0-9_]*)\([^)]*?:(\d+)(?::\d+)?\)/
+      .exec(String(error && error.stack || ''));
+    const http = /Sheets API HTTP (\d{3})/.exec(message);
+    console.warn('VF data exception: ' + (http ? 'sheets_http_' + http[1] : category) +
+      (frame ? ' at ' + frame[1] + ':' + frame[2] : ''));
     return reply_(false, 'data_unavailable');
   }
 }
@@ -519,7 +541,25 @@ function readRange_(spreadsheetId, range, allowEmpty) {
     method: 'get', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
     muteHttpExceptions: true
   });
-  if (response.getResponseCode() !== 200) throw new Error('Sheets read failed');
+  if (response.getResponseCode() !== 200) {
+    let status = 'unknown';
+    let reason = 'unknown';
+    try {
+      const failure = JSON.parse(response.getContentText()).error;
+      status = String(failure.status || status).replace(/[^A-Za-z_]/g, '').slice(0, 50);
+      reason = String(failure.errors && failure.errors[0] && failure.errors[0].reason || reason)
+        .replace(/[^A-Za-z_]/g, '').slice(0, 50);
+    } catch (_error) { /* Logga aldrig innehållet i Google-svaret. */ }
+    const detail = response.getContentText();
+    const cause = /insufficient authentication scopes/i.test(detail) ? 'scope'
+      : /not enabled|has not been used|disabled/i.test(detail) ? 'api_disabled'
+      : /does not have permission|permission denied/i.test(detail) ? 'file_permission'
+      : /not found/i.test(detail) ? 'file_missing' : 'other';
+    console.warn('VF sheets read: ' + response.getResponseCode() +
+      ' ' + status + '/' + reason + '/' + cause);
+    throw new Error('Sheets API HTTP ' + response.getResponseCode() +
+      ' (' + status + '/' + reason + ')');
+  }
   const parsed = JSON.parse(response.getContentText());
   if (!parsed || (!Array.isArray(parsed.values) && !(allowEmpty && parsed.values === undefined))) {
     throw new Error('Invalid Sheets response');
@@ -1336,6 +1376,10 @@ function sameBytes_(left, right) {
 }
 
 function reply_(allowed, reason, data) {
+  if (!allowed) {
+    console.warn('VF data response: ' +
+      (/^[a-z_]{3,40}$/.test(reason) ? reason : 'other'));
+  }
   const result = allowed ? { allowed: true, data: data } : { allowed: false, reason: reason };
   return ContentService.createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
