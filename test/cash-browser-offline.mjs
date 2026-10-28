@@ -42,8 +42,16 @@ window.addEventListener('message', event => {
       result = { cash:server.cash };
     } else if (data.action === 'cash_event') {
       server.eventCalls++;
-      server.cash = VFCashCore.recordCashPurchase(server.cash,
-        { ...data.input.event, swishEnabled:false });
+      if (data.input.event.kind === 'close') {
+        const closed = VFCashCore.closeCashRegister(server.cash, data.input.event);
+        const verified = VFCashCore.verifyCashCloser(closed,
+          { memberId:'M-OPEN', name:'TESTPERSON', role:'Styrelse', board:true },
+          new Date().toISOString());
+        server.cash = VFCashCore.markCashSynced(verified, new Date().toISOString());
+      } else {
+        server.cash = VFCashCore.recordCashPurchase(server.cash,
+          { ...data.input.event, swishEnabled:false });
+      }
       result = { cash:server.cash };
     } else if (data.action === 'cash_get') result = { cash:server.cash };
     else throw Error('Unexpected action ' + data.action);
@@ -100,7 +108,20 @@ try {
   await cash.getByText('Synkad', { exact:true }).waitFor();
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 1);
   assert.equal(await parent.evaluate(() => window.__server.cash.purchases.length), 1);
-  console.log('Browser offline purchase and one-time sync: PASS');
+  assert.equal(await cash.locator('section.panel strong').filter({ hasText:/[a-f0-9]{8}-/ }).count(), 0);
+  await context.setOffline(true);
+  await cash.getByRole('spinbutton', { name:'Räknade kontanter vid avslut, kronor' }).fill('110');
+  await cash.getByRole('textbox', { name:'Avslutarens medlemsnummer' }).fill('M-OPEN');
+  await cash.getByRole('button', { name:'Avsluta kassa' }).click();
+  await cash.getByText(/Väntar på synk · 1 händelser/).waitFor();
+  await cash.getByText('Avslut sparat lokalt. Väntar på synk och kontroll.').waitFor();
+  assert.equal(await parent.evaluate(() => window.__server.eventCalls), 1);
+  await context.setOffline(false);
+  await cash.getByText('Synkad · väntar på kassörens granskning').waitFor();
+  assert.equal(await parent.evaluate(() => window.__server.eventCalls), 2);
+  assert.equal(await parent.evaluate(() => window.__server.cash.status), 'pending_cashier');
+  assert.equal(await parent.evaluate(() => window.__server.cash.purchases.length), 1);
+  console.log('Browser offline purchase, close and one-time sync: PASS');
 } finally {
   await browser.close();
 }

@@ -71,7 +71,7 @@ function doGet(request) {
     Utilities.DigestAlgorithm.SHA_256, response.getContent())).replace(/=+$/, '');
   if (digest !== DASHBOARD_SHA256) throw new Error('Instrumentpanelens version avviker');
   return HtmlService.createHtmlOutput(html.replace('__VF_LOGOUT_URL__', appUrl + '?view=logout')
-    .replace('__VF_CASH_URL__', appUrl + '?view=cash'))
+    .replace('__VF_CASH_URL__', appUrl + '?view=cash_parent'))
     .setTitle('Vägfölk 26');
 }
 
