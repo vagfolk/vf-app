@@ -15,7 +15,7 @@ const googleOrigin = 'https://n-eg65gknbhcukip5zkxrgs36zciqpzzcekdwdgbq-0lu-scri
 const parentHtml = `<!doctype html><html><meta charset="utf-8">
 <button id="open" onclick="window.open('https://vagfolk.github.io/vf-app/public/cash/','cash')">Öppna kassa</button>
 <script>${core}</script><script>
-window.__server = { cash:null, eventCalls:0 };
+window.__server = { cash:null, eventCalls:0, canReview:false, postings:0 };
 window.addEventListener('message', event => {
   if (event.origin !== 'https://vagfolk.github.io') return;
   const data = event.data;
@@ -30,7 +30,8 @@ window.addEventListener('message', event => {
     if (data.action === 'cash_list') result = { cashes:server.cash ? [{
       id:server.cash.id, ownerName:'TESTPERSON', ownerMemberId:'M-OPEN',
       accountingDate:server.cash.accountingDate, status:server.cash.status
-    }] : [], viewerMemberId:'M-OPEN', canReview:false, swishEnabled:false, products:[] };
+    }] : [], viewerMemberId:'M-OPEN', canReview:server.canReview,
+      swishEnabled:false, products:[] };
     else if (data.action === 'cash_open') {
       const date = new Date().toISOString().slice(0,10);
       server.cash = VFCashCore.openCashRegister({
@@ -54,6 +55,21 @@ window.addEventListener('message', event => {
       }
       result = { cash:server.cash };
     } else if (data.action === 'cash_get') result = { cash:server.cash };
+    else if (data.action === 'cash_review') {
+      if (!server.canReview) throw Error('insufficient_role');
+      server.cash = VFCashCore.reviewCashRegister(server.cash, {
+        ...data.input, cashierRole:'Kassör', reviewerMemberId:'M-CASHIER',
+        at:new Date().toISOString()
+      });
+      result = { cash:server.cash };
+    } else if (data.action === 'cash_post') {
+      if (!server.canReview) throw Error('insufficient_role');
+      const plan = VFCashCore.buildCashPostingPlan(server.cash);
+      server.postings++;
+      if (plan.swishForManual.length) throw Error('Unexpected Swish payment');
+      server.cash = VFCashCore.markCashPosted(server.cash, new Date().toISOString());
+      result = { cash:server.cash };
+    }
     else throw Error('Unexpected action ' + data.action);
     event.source.postMessage({ type:'vf-cash-parent-response', nonce:data.nonce,
       requestId:data.requestId, result:{ allowed:true, data:result } }, event.origin);
@@ -121,7 +137,21 @@ try {
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 2);
   assert.equal(await parent.evaluate(() => window.__server.cash.status), 'pending_cashier');
   assert.equal(await parent.evaluate(() => window.__server.cash.purchases.length), 1);
-  console.log('Browser offline purchase, close and one-time sync: PASS');
+  assert.equal(await cash.getByRole('button', { name:'Granskning' }).isVisible(), false);
+  await parent.evaluate(() => { window.__server.canReview = true; });
+  await cash.reload();
+  await cash.getByRole('button', { name:'Granskning' }).click();
+  await cash.getByRole('button', { name:'Granska' }).click();
+  await cash.getByRole('spinbutton', {
+    name:'Kontrollerad mottagen Swishsumma från banken, kronor'
+  }).fill('0');
+  await cash.getByRole('button', { name:'Granska och godkänn' }).click();
+  await cash.getByText('Kontantförsäljning till EKO').waitFor();
+  assert.equal(await parent.evaluate(() => window.__server.cash.status), 'approved_for_posting');
+  await cash.getByRole('button', { name:'För över kontantposter' }).click();
+  await cash.getByText('Kontantposterna är kontrollerade mot EKO.').waitFor();
+  assert.equal(await parent.evaluate(() => window.__server.postings), 1);
+  console.log('Browser offline purchase, close, review and posting: PASS');
 } finally {
   await browser.close();
 }
