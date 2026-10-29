@@ -515,6 +515,105 @@ return { openCashRegister, addCashProduct,
   updateCashProduct, recordCashPurchase, voidCashPurchase, cashTotals,
   closeCashRegister, buildCashPostingPlan };
 })();</script>
+  <script>// En separat, läsbar reservfil utanför webbläsarens lagring.
+var VFCashBackup = (() => {
+  let handle = null;
+  let cashId = null;
+  let lastError = '';
+  const supported = () => typeof window.showSaveFilePicker === 'function';
+  const active = id => Boolean(handle && cashId === id && !lastError);
+
+  function readable(record) {
+    const cash = record.cash;
+    const events = record.queue || [];
+    const lines = [
+      'VÄGFÖLK 26 – RESERVLOGG FÖR EJ SYNKADE KASSAHÄNDELSER',
+      `Kassa: ${record.id}`,
+      `Förening: ${cash.associationId}`,
+      `Öppnad: ${cash.openedAt}`,
+      `Öppnad av: ${cash.ownerName || cash.ownerMemberId}`,
+      `Växelkassa: ${(cash.openingFloatCents / 100).toFixed(2)} kr`,
+      `Senast skriven: ${new Date().toISOString()}`,
+      `Väntande händelser: ${events.length}`,
+      '',
+      'Kontrollera alltid samma kassa och köp-ID mot Drive innan manuell bokföring.',
+      'En händelse kan ha hunnit synkas efter att denna fil senast skrevs.',
+      ''
+    ];
+    for (const event of events) {
+      lines.push(`Händelse: ${event.kind} · ${event.at} · ID ${event.operationId}`);
+      if (event.kind === 'purchase') {
+        const purchase = cash.purchases.find(item => item.id === event.id);
+        lines.push(`Köp-ID: ${event.id}`,
+          `Betalsätt: ${event.method}`,
+          `Belopp: ${((purchase?.totalCents || 0) / 100).toFixed(2)} kr`);
+        if (event.method === 'Kontant') lines.push(
+          `Mottaget kontant: ${(event.receivedCents / 100).toFixed(2)} kr`,
+          `Växel: ${((event.receivedCents - (purchase?.totalCents || 0)) / 100).toFixed(2)} kr`);
+        for (const item of purchase?.lines || []) lines.push(
+          `Vara: ${item.name} · ${item.quantity} st · ${(item.priceCents / 100).toFixed(2)} kr/st`);
+      } else if (event.kind === 'void') {
+        lines.push(`Makulerat köp-ID: ${event.purchaseId}`,
+          `Orsak: ${event.reason}`,
+          `Betalning mottagen: ${event.paymentReceived ? 'ja' : 'nej'}`,
+          `Återbetalning: ${event.refundMethod || 'ingen'}`);
+      } else if (event.kind === 'close') {
+        lines.push(`Räknade kontanter: ${(event.countedCashCents / 100).toFixed(2)} kr`,
+          `Avslutarens medlemsnummer: ${event.closerMemberId}`);
+      } else if (event.kind === 'add_product') {
+        lines.push(`Vara: ${event.product?.name || ''} · ${((event.product?.priceCents || 0) / 100).toFixed(2)} kr`);
+      } else if (event.kind === 'update_product') {
+        lines.push(`Vara-ID: ${event.productId} · nytt pris ${(event.priceCents / 100).toFixed(2)} kr`);
+      }
+      lines.push('');
+    }
+    if (!events.length) lines.push('Alla kassahändelser är bekräftade i Drive-loggen.');
+    return lines.join('\n') + '\n';
+  }
+
+  async function write(record) {
+    if (!handle || cashId !== record.id) throw Error('Välj reservfil för denna kassa');
+    try {
+      const stream = await handle.createWritable();
+      try {
+        await stream.write(readable(record));
+        await stream.close();
+      } catch (error) {
+        await stream.abort().catch(() => {});
+        throw error;
+      }
+      lastError = '';
+    } catch (error) {
+      lastError = 'Reservfilen kunde inte sparas';
+      throw Error(lastError + ': ' + (error.message || 'okänt fel'));
+    }
+  }
+
+  async function choose(record) {
+    if (!supported()) throw Error('Den här webbläsaren kan inte skriva en fristående reservfil. Använd Chrome på Android eller dator.');
+    const picked = await window.showSaveFilePicker({
+      suggestedName: `VF26-reserv-${record.id}.txt`,
+      types: [{ description: 'Läsbar kassalogg', accept: { 'text/plain': ['.txt'] } }]
+    });
+    const previous = await picked.getFile();
+    const oldText = await previous.text();
+    if (oldText.trim() && !oldText.includes(`Kassa: ${record.id}\n`)) {
+      throw Error('Den valda reservfilen tillhör en annan kassa');
+    }
+    const oldIds = [...oldText.matchAll(/^Händelse: .* · ID ([^\s]+)$/gm)]
+      .map(match => match[1]);
+    const currentIds = new Set((record.queue || []).map(event => event.operationId));
+    if (oldIds.some(id => !currentIds.has(id))) {
+      throw Error('Reservfilen innehåller händelser som inte finns i kassans lokala väntelista. Jämför filen med Drive-loggen innan den skrivs över.');
+    }
+    handle = picked;
+    cashId = record.id;
+    await write(record);
+  }
+
+  return { supported, active, choose, write, error: () => lastError };
+})();
+</script>
   <script>(() => {
   'use strict';
   const content = document.getElementById('content');
@@ -522,7 +621,7 @@ return { openCashRegister, addCashProduct,
   const state = { page: 'overview', cash: null, record: null, cashes: [],
     suggestions: [], viewerMemberId: null, canReview: false, swishEnabled: false, basket: {},
     draftProducts: [], draftFloat: '0', selected: null, pendingSwish: null,
-    voidPurchaseId: null, busy: false };
+    voidPurchaseId: null, busy: false, storageFailed: false };
   const kroner = cents => new Intl.NumberFormat('sv-SE', {
     style: 'currency', currency: 'SEK'
   }).format(cents / 100);
@@ -647,6 +746,8 @@ return { openCashRegister, addCashProduct,
   }
   async function appendEvent(event) {
     if (!state.cash || !state.record) throw Error('Ingen öppen kassa');
+    if (state.storageFailed) throw Error('Lokal lagring misslyckades. Avbryt försäljningen och använd reservfilen för avstämning.');
+    if (!VFCashBackup.active(state.cash.id)) throw Error('Välj en fungerande reservfil innan fler händelser registreras');
     const enriched = { ...event, operationId: crypto.randomUUID(),
       at: new Date().toISOString() };
     if (enriched.kind === 'close') enriched.expectedEventCount = state.cash.events.length;
@@ -655,7 +756,14 @@ return { openCashRegister, addCashProduct,
     const record = { ...state.record, cash: next,
       pendingSwish: clearQr ? null : state.record.pendingSwish || null,
       queue: [...state.record.queue, enriched] };
-    await remember(record); // Ett köp får inte bekräftas förrän det finns lokalt.
+    try { await VFCashBackup.write(record); }
+    catch (error) { render(); throw error; }
+    // Separat fil på enheten före webbläsarens databas.
+    try { await remember(record); }
+    catch (_error) {
+      state.storageFailed = true;
+      throw Error('Reservfilen sparades, men webbläsarens lagring misslyckades. Avbryt försäljningen och stäm av filen manuellt.');
+    }
     if (clearQr) state.pendingSwish = null;
     notice(navigator.onLine ? 'Sparat på enheten. Synkar…' : 'Sparat på enheten. Väntar på synk.');
     render();
@@ -702,14 +810,17 @@ return { openCashRegister, addCashProduct,
           cashId: state.cash.id, deviceId: state.cash.deviceId, event
         });
         const rest = state.record.queue.slice(1);
-        await remember({ ...state.record, cash: rest.length ? state.cash : result.cash,
-          queue: rest });
+        const remaining = { ...state.record, cash: rest.length ? state.cash : result.cash,
+          queue: rest };
+        await remember(remaining);
+        if (VFCashBackup.active(remaining.id)) await VFCashBackup.write(remaining);
       }
       await refreshList();
       await confirmRecovery();
       render();
       notice('Synkad');
     } catch (error) {
+      render();
       notice(state.record.queue.length
         ? 'Väntar på synk: ' + error.message
         : 'Köpen är överförda, men kassans status behöver kontrolleras igen: ' + error.message,
@@ -791,6 +902,19 @@ return { openCashRegister, addCashProduct,
   function drawRegister() {
     if (!state.cash) return drawSetup();
     const cash = state.cash;
+    if (state.storageFailed) content.append(panel(node('strong', 'Lokal lagring misslyckades'),
+      node('p', 'Fortsätt inte sälja från denna enhet. Reservfilen innehåller den senaste händelsen och kan användas för avstämning.')));
+    else if (!VFCashBackup.active(cash.id)) {
+      const backup = panel(node('strong', 'Reservfil för kassan'),
+        node('p', VFCashBackup.supported()
+          ? 'Välj en fil på denna enhet. Den uppdateras före varje köp och rensas när Google har bekräftat händelserna.'
+          : 'Denna webbläsare kan inte skriva en separat reservfil. Använd Chrome på Android eller dator.'));
+      if (VFCashBackup.supported()) backup.append(button('Välj reservfil', () => run(async () => {
+        await VFCashBackup.choose(state.record);
+        render(); notice('Reservfilen är aktiv.');
+      })));
+      content.append(backup);
+    } else content.append(node('p', 'Reservfil aktiv på denna enhet.', 'muted'));
     content.append(node('h2', `Kassa ${cash.id}`),
       node('p', `${state.record?.queue.length
         ? `Väntar på synk · ${state.record.queue.length} händelser sparade på enheten`

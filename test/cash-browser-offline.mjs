@@ -88,6 +88,24 @@ const browser = await chromium.launch({
 });
 try {
   const context = await browser.newContext({ serviceWorkers:'allow' });
+  await context.addInitScript(() => {
+    let saved = '';
+    window.__cashBackupText = () => saved;
+    window.showSaveFilePicker = async () => ({
+      getFile: async () => ({ text: async () => saved }),
+      createWritable: async () => {
+        let next = saved;
+        return {
+          write: async value => {
+            if (window.__failBackup) throw Error('simulerat filfel');
+            next = String(value);
+          },
+          close: async () => { saved = next; },
+          abort: async () => {}
+        };
+      }
+    });
+  });
   await context.route(googleOrigin + '/vf-cash-test', route =>
     route.fulfill({ status:200, contentType:'text/html; charset=utf-8', body:parentHtml }));
   await context.route('https://vagfolk.github.io/vf-app/public/cash/**', route => {
@@ -115,15 +133,33 @@ try {
   await cash.getByRole('spinbutton', { name:'Pris i kronor' }).fill('1');
   await cash.getByRole('button', { name:'Starta och godkänn kassa' }).click();
   await cash.getByText('Kassan är öppen.').waitFor();
-  assert.deepEqual(await parent.evaluate(() => window.__server.cash.products.map(p => p.name)),
-    ['Testkaffe', 'Provvara']);
   await context.setOffline(true);
   await cash.getByRole('button', { name:'+' }).first().click();
   await cash.getByRole('button', { name:'Betalt kontant' }).click();
+  await cash.getByText('Välj en fungerande reservfil innan fler händelser registreras').waitFor();
+  assert.equal(await parent.evaluate(() => window.__server.eventCalls), 0);
+  await cash.getByRole('button', { name:'Välj reservfil' }).click();
+  await cash.getByText('Reservfilen är aktiv.').waitFor();
+  await cash.evaluate(() => { window.__failBackup = true; });
+  await cash.getByRole('button', { name:'Betalt kontant' }).click();
+  await cash.getByText(/Reservfilen kunde inte sparas: simulerat filfel/).waitFor();
+  assert.match(await cash.evaluate(() => window.__cashBackupText()), /Väntande händelser: 0/);
+  await cash.evaluate(() => { window.__failBackup = false; });
+  await cash.getByRole('button', { name:'Välj reservfil' }).click();
+  await cash.getByText('Reservfilen är aktiv.').waitFor();
+  await context.setOffline(false);
+  assert.deepEqual(await parent.evaluate(() => window.__server.cash.products.map(p => p.name)),
+    ['Testkaffe', 'Provvara']);
+  await context.setOffline(true);
+  await cash.getByRole('button', { name:'Betalt kontant' }).click();
   await cash.getByText(/Väntar på synk · 1 händelser/).waitFor();
+  assert.match(await cash.evaluate(() => window.__cashBackupText()), /Köp-ID: /);
+  assert.match(await cash.evaluate(() => window.__cashBackupText()), /Testkaffe/);
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 0);
   await context.setOffline(false);
   await cash.getByText('Synkad', { exact:true }).waitFor();
+  assert.match(await cash.evaluate(() => window.__cashBackupText()), /Väntande händelser: 0/);
+  assert.doesNotMatch(await cash.evaluate(() => window.__cashBackupText()), /Köp-ID: /);
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 1);
   assert.equal(await parent.evaluate(() => window.__server.cash.purchases.length), 1);
   assert.equal(await cash.locator('section.panel strong').filter({ hasText:/[a-f0-9]{8}-/ }).count(), 0);
@@ -138,15 +174,19 @@ try {
   await cash.getByRole('combobox', { name:'Betalning och återbetalning' }).selectOption('yes');
   await cash.getByRole('button', { name:'Bekräfta makulering' }).click();
   await cash.getByText(/Väntar på synk · 2 händelser/).waitFor();
+  assert.match(await cash.evaluate(() => window.__cashBackupText()), /Makulerat köp-ID:/);
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 1);
   await cash.getByRole('spinbutton', { name:'Räknade kontanter vid avslut, kronor' }).fill('110');
   await cash.getByRole('textbox', { name:'Avslutarens medlemsnummer' }).fill('M-OPEN');
   await cash.getByRole('button', { name:'Avsluta kassa' }).click();
   await cash.getByText(/Väntar på synk · 3 händelser/).waitFor();
+  assert.match(await cash.evaluate(() => window.__cashBackupText()), /Räknade kontanter: 110\.00 kr/);
   await cash.getByText('Avslut sparat lokalt. Väntar på synk och kontroll.').waitFor();
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 1);
   await context.setOffline(false);
   await cash.getByText('Synkad · väntar på kassörens granskning').waitFor();
+  assert.match(await cash.evaluate(() => window.__cashBackupText()), /Väntande händelser: 0/);
+  assert.doesNotMatch(await cash.evaluate(() => window.__cashBackupText()), /Köp-ID: /);
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 4);
   assert.equal(await parent.evaluate(() => window.__server.cash.status), 'pending_cashier');
   assert.equal(await parent.evaluate(() => window.__server.cash.purchases.length), 2);
