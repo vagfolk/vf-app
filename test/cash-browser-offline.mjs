@@ -49,6 +49,8 @@ window.addEventListener('message', event => {
           { memberId:'M-OPEN', name:'TESTPERSON', role:'Styrelse', board:true },
           new Date().toISOString());
         server.cash = VFCashCore.markCashSynced(verified, new Date().toISOString());
+      } else if (data.input.event.kind === 'void') {
+        server.cash = VFCashCore.voidCashPurchase(server.cash, data.input.event);
       } else {
         server.cash = VFCashCore.recordCashPurchase(server.cash,
           { ...data.input.event, swishEnabled:false });
@@ -101,7 +103,7 @@ try {
   const popupPromise = parent.waitForEvent('popup');
   await parent.getByRole('button', { name:'Öppna kassa' }).click();
   const cash = await popupPromise;
-  cash.on('dialog', dialog => dialog.accept());
+  cash.on('dialog', dialog => dialog.accept(dialog.type() === 'prompt' ? 'Feltryck' : undefined));
   await cash.getByText('Kassan är klar att användas.').waitFor();
   await cash.getByRole('button', { name:'Min kassa' }).click();
   await cash.getByRole('spinbutton', { name:'Växelkassa, totalsumma i kronor' }).fill('100');
@@ -126,17 +128,27 @@ try {
   assert.equal(await parent.evaluate(() => window.__server.cash.purchases.length), 1);
   assert.equal(await cash.locator('section.panel strong').filter({ hasText:/[a-f0-9]{8}-/ }).count(), 0);
   await context.setOffline(true);
+  await cash.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await cash.getByText('Offline · kassan öppen · inga väntande händelser').waitFor();
+  await cash.getByRole('button', { name:'+' }).first().click();
+  await cash.getByRole('button', { name:'Betalt kontant' }).click();
+  await cash.getByText(/Väntar på synk · 1 händelser/).waitFor();
+  await cash.getByRole('button', { name:'Makulera' }).first().click();
+  await cash.getByText(/Väntar på synk · 2 händelser/).waitFor();
+  assert.equal(await parent.evaluate(() => window.__server.eventCalls), 1);
   await cash.getByRole('spinbutton', { name:'Räknade kontanter vid avslut, kronor' }).fill('110');
   await cash.getByRole('textbox', { name:'Avslutarens medlemsnummer' }).fill('M-OPEN');
   await cash.getByRole('button', { name:'Avsluta kassa' }).click();
-  await cash.getByText(/Väntar på synk · 1 händelser/).waitFor();
+  await cash.getByText(/Väntar på synk · 3 händelser/).waitFor();
   await cash.getByText('Avslut sparat lokalt. Väntar på synk och kontroll.').waitFor();
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 1);
   await context.setOffline(false);
   await cash.getByText('Synkad · väntar på kassörens granskning').waitFor();
-  assert.equal(await parent.evaluate(() => window.__server.eventCalls), 2);
+  assert.equal(await parent.evaluate(() => window.__server.eventCalls), 4);
   assert.equal(await parent.evaluate(() => window.__server.cash.status), 'pending_cashier');
-  assert.equal(await parent.evaluate(() => window.__server.cash.purchases.length), 1);
+  assert.equal(await parent.evaluate(() => window.__server.cash.purchases.length), 2);
+  assert.equal(await parent.evaluate(() => window.__server.cash.purchases.filter(p => p.void).length), 1);
+  assert.equal(await parent.evaluate(() => VFCashCore.cashTotals(window.__server.cash).expectedCashCents), 11000);
   assert.equal(await cash.getByRole('button', { name:'Granskning' }).isVisible(), false);
   await parent.evaluate(() => { window.__server.canReview = true; });
   await cash.reload();
@@ -151,7 +163,7 @@ try {
   await cash.getByRole('button', { name:'För över kontantposter' }).click();
   await cash.getByText('Kontantposterna är kontrollerade mot EKO.').waitFor();
   assert.equal(await parent.evaluate(() => window.__server.postings), 1);
-  console.log('Browser offline purchase, close, review and posting: PASS');
+  console.log('Browser offline purchase, void, close, review and posting: PASS');
 } finally {
   await browser.close();
 }

@@ -276,7 +276,8 @@
     content.append(node('h2', `Kassa ${cash.id}`),
       node('p', `${state.record?.queue.length
         ? `Väntar på synk · ${state.record.queue.length} händelser sparade på enheten`
-        : cash.status === 'open' ? 'Synkad · kassan öppen'
+        : cash.status === 'open' && !navigator.onLine ? 'Offline · kassan öppen · inga väntande händelser'
+          : cash.status === 'open' ? 'Synkad · kassan öppen'
           : cash.status === 'pending_sync' ? 'Avslutad · väntar på synk'
             : cash.status === 'aborted_pending_review' ? 'Avbruten · väntar på återhämtning'
               : 'Synkad · väntar på kassörens granskning'}`, 'muted'));
@@ -538,7 +539,13 @@
   }));
   window.addEventListener('online', () => {
     notice('Anslutningen är tillbaka. Synkar…');
+    render();
     sync();
+  });
+  window.addEventListener('offline', () => {
+    cancelRetry();
+    render();
+    notice('Anslutningen saknas. Köp och avslut sparas på enheten tills nätet är tillbaka.');
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) cancelRetry();
