@@ -134,6 +134,9 @@ try {
   await cash.getByRole('button', { name:'Betalt kontant' }).click();
   await cash.getByText(/Väntar på synk · 1 händelser/).waitFor();
   await cash.getByRole('button', { name:'Makulera' }).first().click();
+  await cash.getByRole('textbox', { name:'Orsak till makulering' }).fill('Feltryck i provkassa');
+  await cash.getByRole('combobox', { name:'Betalning och återbetalning' }).selectOption('yes');
+  await cash.getByRole('button', { name:'Bekräfta makulering' }).click();
   await cash.getByText(/Väntar på synk · 2 händelser/).waitFor();
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 1);
   await cash.getByRole('spinbutton', { name:'Räknade kontanter vid avslut, kronor' }).fill('110');

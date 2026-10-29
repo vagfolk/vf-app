@@ -4,7 +4,8 @@
   const message = document.getElementById('message');
   const state = { page: 'overview', cash: null, record: null, cashes: [],
     suggestions: [], viewerMemberId: null, canReview: false, swishEnabled: false, basket: {},
-    draftProducts: [], draftFloat: '0', selected: null, pendingSwish: null, busy: false };
+    draftProducts: [], draftFloat: '0', selected: null, pendingSwish: null,
+    voidPurchaseId: null, busy: false };
   const kroner = cents => new Intl.NumberFormat('sv-SE', {
     style: 'currency', currency: 'SEK'
   }).format(cents / 100);
@@ -385,13 +386,30 @@
       const body = panel(node('strong', `${purchase.id} · ${kroner(purchase.totalCents)}`),
         node('p', `${purchase.lines.map(l => `${l.name} ${l.quantity} st`).join(', ')} · ${purchase.method}`));
       if (purchase.void) body.append(node('p', `Makulerat: ${purchase.void.reason}`));
-      else body.append(button('Makulera', () => run(async () => {
-        const reason = prompt('Orsak till makulering');
-        if (!reason?.trim()) return;
-        const paymentReceived = confirm('Hade betalningen redan tagits emot? Välj OK för ja.');
-        await appendEvent({ kind:'void', purchaseId:purchase.id, reason:reason.trim(),
-          paymentReceived, refundMethod:paymentReceived ? 'Kontant' : null });
-      }), 'danger'));
+      else if (state.voidPurchaseId === purchase.id) {
+        const reason = field('Orsak till makulering');
+        const payment = node('select');
+        for (const [value, label] of [['', 'Välj betalningsstatus'],
+          ['yes', 'Betalning mottagen – återbetala kontant'],
+          ['no', 'Betalning inte mottagen – ingen återbetalning']]) {
+          const option = node('option', label); option.value = value; payment.append(option);
+        }
+        const paymentLabel = node('label');
+        paymentLabel.append(node('span', 'Betalning och återbetalning'), payment);
+        body.append(reason.wrap, paymentLabel, line(
+          button('Bekräfta makulering', () => run(async () => {
+            if (!reason.input.value.trim()) throw Error('Ange orsak till makulering');
+            if (!payment.value) throw Error('Välj om betalningen togs emot');
+            const paymentReceived = payment.value === 'yes';
+            await appendEvent({ kind:'void', purchaseId:purchase.id,
+              reason:reason.input.value.trim(), paymentReceived,
+              refundMethod:paymentReceived ? 'Kontant' : null });
+            state.voidPurchaseId = null; render();
+          }), 'danger'),
+          button('Avbryt', () => { state.voidPurchaseId = null; render(); })));
+      } else body.append(button('Makulera', () => {
+        state.voidPurchaseId = purchase.id; render();
+      }, 'danger'));
       content.append(body);
     }
     const counted = field('Räknade kontanter vid avslut, kronor', 'number');
