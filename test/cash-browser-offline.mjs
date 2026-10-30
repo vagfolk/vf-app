@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
@@ -42,6 +44,7 @@ window.addEventListener('message', event => {
       });
       result = { cash:server.cash };
     } else if (data.action === 'cash_event') {
+      if (server.failEvents) throw Error('simulerat avbrott före Google-bekräftelse');
       server.eventCalls++;
       if (data.input.event.kind === 'close') {
         const closed = VFCashCore.closeCashRegister(server.cash, data.input.event);
@@ -86,21 +89,27 @@ const browser = await chromium.launch({
   executablePath:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   headless:true,
 });
+const backupDir = mkdtempSync(join(tmpdir(), 'vf26-cash-backup-'));
+const backupPath = join(backupDir, 'VF26-reserv-prov.txt');
+writeFileSync(backupPath, '', 'utf8');
 try {
   const context = await browser.newContext({ serviceWorkers:'allow' });
+  await context.exposeBinding('__backupRead', () => readFileSync(backupPath, 'utf8'));
+  await context.exposeBinding('__backupCommit', (_source, value) => {
+    writeFileSync(backupPath, value, 'utf8');
+  });
   await context.addInitScript(() => {
-    let saved = '';
-    window.__cashBackupText = () => saved;
+    window.__cashBackupText = () => window.__backupRead();
     window.showSaveFilePicker = async () => ({
-      getFile: async () => ({ text: async () => saved }),
+      getFile: async () => ({ text: async () => window.__backupRead() }),
       createWritable: async () => {
-        let next = saved;
+        let next = await window.__backupRead();
         return {
           write: async value => {
             if (window.__failBackup) throw Error('simulerat filfel');
             next = String(value);
           },
-          close: async () => { saved = next; },
+          close: async () => { await window.__backupCommit(next); },
           abort: async () => {}
         };
       }
@@ -160,12 +169,22 @@ try {
   await cash.getByRole('button', { name:'Betalt kontant' }).click();
   await cash.getByText(/Väntar på synk · 1 händelser/).waitFor();
   assert.match(await cash.evaluate(() => window.__cashBackupText()), /Köp-ID: /);
+  assert.match(readFileSync(backupPath, 'utf8'), /Köp-ID: /);
   assert.match(await cash.evaluate(() => window.__cashBackupText()), /Testkaffe/);
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 0);
+  await parent.evaluate(() => { window.__server.failEvents = true; });
   await context.setOffline(false);
+  await cash.reload();
+  await cash.getByText('Välj reservfilen för kassan innan väntande händelser synkas.').waitFor();
+  assert.match(await cash.evaluate(() => window.__cashBackupText()), /Köp-ID: /);
+  assert.equal(await parent.evaluate(() => window.__server.eventCalls), 0);
+  await parent.evaluate(() => { window.__server.failEvents = false; });
+  await cash.getByRole('button', { name:'Min kassa' }).click();
+  await cash.getByRole('button', { name:'Välj reservfil' }).click();
   await cash.getByText('Synkad', { exact:true }).waitFor();
   assert.match(await cash.evaluate(() => window.__cashBackupText()), /Väntande händelser: 0/);
   assert.doesNotMatch(await cash.evaluate(() => window.__cashBackupText()), /Köp-ID: /);
+  assert.doesNotMatch(readFileSync(backupPath, 'utf8'), /Köp-ID: /);
   assert.equal(await parent.evaluate(() => window.__server.eventCalls), 1);
   assert.equal(await parent.evaluate(() => window.__server.cash.purchases.length), 1);
   assert.equal(await cash.locator('section.panel strong').filter({ hasText:/[a-f0-9]{8}-/ }).count(), 0);
@@ -215,4 +234,6 @@ try {
   console.log('Browser offline purchase, void, close, review and posting: PASS');
 } finally {
   await browser.close();
+  unlinkSync(backupPath);
+  rmdirSync(backupDir);
 }

@@ -25,9 +25,17 @@ const standalone = readFileSync(standalonePath, 'utf8');
 const standaloneCore = /<script>var VFCashCore = \(\(\) => \{[\s\S]*?\}\)\(\);<\/script>/;
 if (!standaloneCore.test(standalone)) throw new Error('Fristående kassan saknar kärnmarkör');
 const backupScript = /<script>\/\/ En separat, läsbar reservfil[\s\S]*?<\/script>/;
+const standaloneClient = /<script>\(\(\) => \{[\s\S]*?\}\)\(\);\s*<\/script>/;
+const googleCall = /  function call\(action, input\) \{[\s\S]*?\r?\n  \}\r?\n  async function request/;
+if (!standaloneClient.test(standalone) || !googleCall.test(client)) {
+  throw new Error('Fristående kassans klient eller Google-anrop kunde inte hittas');
+}
+const browserClient = client.replace(googleCall,
+  '  function call(action, input) { return window.VFCashBridge.request(action, input); }\n  async function request');
 let rebuilt = standalone.replace(standaloneCore, `<script>${wrapper}</script>`);
 if (backupScript.test(rebuilt)) rebuilt = rebuilt.replace(backupScript, `<script>${backup}</script>`);
 else rebuilt = rebuilt.replace('<script>(() => {', `<script>${backup}</script>\n  <script>(() => {`);
 rebuilt = rebuilt.replace('  <script>/*__VF_CASH_BACKUP__*/</script>\n', '');
+rebuilt = rebuilt.replace(standaloneClient, `<script>${browserClient}</script>`);
 writeFileSync(standalonePath, rebuilt);
 console.log('Båda kassasidorna byggda med bokföringsunderlag.');

@@ -17,6 +17,7 @@ function element() {
 }
 function fixture() {
   const saved = new Map();
+  const backup = new Map();
   const calls = [];
   const timers = new Map();
   let failWrite = false;
@@ -70,6 +71,10 @@ function fixture() {
       if (method === 'put') saved.set(value.id, structuredClone(value));
       return value;
     },
+    VFCashBackup:{
+      active:() => true,
+      write:async record => { backup.set(record.id, structuredClone(record)); },
+    },
   };
   context.window.google = context.google;
   runInNewContext(core, context);
@@ -82,7 +87,7 @@ function fixture() {
   });
   server.cash = structuredClone(cash);
   return { api:context.__cashTest, core:context.VFCashCore, cash, server,
-    saved, calls, timers, navigator,
+    saved, backup, calls, timers, navigator,
     failWrites(value) { failWrite = value; },
     loseNextResponse() { loseResponse = true; } };
 }
@@ -95,9 +100,10 @@ test('köpet syns inte som sparat när den lokala transaktionen misslyckas', asy
   await f.api.remember({ id:f.cash.id, cash:f.cash, queue:[] });
   f.failWrites(true);
   await assert.rejects(f.api.appendEvent(purchase('purchase-0001')),
-    /Lokal lagring misslyckades/);
+    /Reservfilen sparades, men webbläsarens lagring misslyckades/);
   assert.equal(f.api.state.cash.purchases.length, 0);
   assert.equal(f.saved.get(f.cash.id).queue.length, 0);
+  assert.equal(f.backup.get(f.cash.id).queue.length, 1);
   assert.equal(f.calls.length, 0);
 });
 

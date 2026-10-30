@@ -778,6 +778,7 @@ var VFCashBackup = (() => {
   }
   function scheduleRetry() {
     if (retryTimer || !needsRetry() || !navigator.onLine || document.hidden) return;
+    if (state.record?.queue?.length && !VFCashBackup.active(state.record.id)) return;
     retryTimer = setTimeout(() => {
       retryTimer = null;
       sync();
@@ -801,6 +802,11 @@ var VFCashBackup = (() => {
   }
   async function sync() {
     if (syncing || !navigator.onLine || !state.record) return;
+    if (state.record.queue.length && !VFCashBackup.active(state.record.id)) {
+      render();
+      notice('Välj reservfilen för kassan innan väntande händelser synkas.', true);
+      return;
+    }
     cancelRetry();
     syncing = true;
     try {
@@ -877,7 +883,7 @@ var VFCashBackup = (() => {
           openedAt: new Date().toISOString(), accountingDate: `${year}-01-01`, openingFloatCents: 0,
           products: [...state.draftProducts, item] });
         state.draftProducts.push(item); name.input.value = ''; price.input.value = '';
-        render();
+        render(); notice(`${item.name} är tillagd i den nya kassan.`);
       }))), suggestions);
     const list = node('div', null, 'list');
     for (const item of state.draftProducts) list.append(line(
@@ -886,14 +892,22 @@ var VFCashBackup = (() => {
         state.draftProducts = state.draftProducts.filter(p => p.id !== item.id);
         render();
       })));
+    if (state.draftProducts.length) content.append(node('h3', 'Varor i den nya kassan'));
     const open = button('Starta och godkänn kassa', () => run(async () => {
       if (!VFCashBackup.supported()) throw Error('Reservfil kräver Chrome på Android eller dator');
       if (!navigator.onLine) throw Error('Nätanslutning krävs för att öppna kassan');
       await database();
+      const products = [...state.draftProducts];
+      if (name.input.value.trim()) {
+        products.push({ id:crypto.randomUUID(), name:name.input.value.trim(),
+          priceCents:amount(price.input.value) });
+      } else if (price.input.value.trim()) {
+        throw Error('Ange varans namn innan kassan startas');
+      }
       const requestId = sessionStorage.getItem('vf26-pending-open') || crypto.randomUUID();
       sessionStorage.setItem('vf26-pending-open', requestId);
       const result = await request('cash_open', { requestId, deviceId: deviceId(),
-        openingFloatCents: amount(opening.input.value), products: state.draftProducts });
+        openingFloatCents: amount(opening.input.value), products });
       await remember({ id: result.cash.id, cash: result.cash, queue: [] });
       sessionStorage.removeItem('vf26-pending-open');
       state.draftProducts = []; state.draftFloat = '0'; state.page = 'register';
@@ -917,6 +931,7 @@ var VFCashBackup = (() => {
       if (VFCashBackup.supported()) backup.append(button('Välj reservfil', () => run(async () => {
         await VFCashBackup.choose(state.record);
         render(); notice('Reservfilen är aktiv.');
+        if (state.record.queue.length) await sync();
       })));
       content.append(backup);
     } else content.append(node('p', 'Reservfil aktiv på denna enhet.', 'muted'));
@@ -1029,7 +1044,7 @@ var VFCashBackup = (() => {
     } else content.append(node('p', 'Swish kan väljas när föreningens Swishnummer har aktiverats.', 'muted'));
     content.append(node('h3', 'Köp och makulering'));
     for (const purchase of [...cash.purchases].reverse()) {
-      const body = panel(node('strong', `${purchase.id} · ${kroner(purchase.totalCents)}`),
+      const body = panel(node('strong', `Köp · ${kroner(purchase.totalCents)}`),
         node('p', `${purchase.lines.map(l => `${l.name} ${l.quantity} st`).join(', ')} · ${purchase.method}`));
       if (purchase.void) body.append(node('p', `Makulerat: ${purchase.void.reason}`));
       else if (state.voidPurchaseId === purchase.id) {

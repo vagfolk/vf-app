@@ -775,6 +775,7 @@ var VFCashBackup = (() => {
   }
   function scheduleRetry() {
     if (retryTimer || !needsRetry() || !navigator.onLine || document.hidden) return;
+    if (state.record?.queue?.length && !VFCashBackup.active(state.record.id)) return;
     retryTimer = setTimeout(() => {
       retryTimer = null;
       sync();
@@ -798,6 +799,11 @@ var VFCashBackup = (() => {
   }
   async function sync() {
     if (syncing || !navigator.onLine || !state.record) return;
+    if (state.record.queue.length && !VFCashBackup.active(state.record.id)) {
+      render();
+      notice('Välj reservfilen för kassan innan väntande händelser synkas.', true);
+      return;
+    }
     cancelRetry();
     syncing = true;
     try {
@@ -922,6 +928,7 @@ var VFCashBackup = (() => {
       if (VFCashBackup.supported()) backup.append(button('Välj reservfil', () => run(async () => {
         await VFCashBackup.choose(state.record);
         render(); notice('Reservfilen är aktiv.');
+        if (state.record.queue.length) await sync();
       })));
       content.append(backup);
     } else content.append(node('p', 'Reservfil aktiv på denna enhet.', 'muted'));
