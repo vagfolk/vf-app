@@ -105,6 +105,7 @@ try {
         };
       }
     });
+    window.__filePicker = window.showSaveFilePicker;
   });
   await context.route(googleOrigin + '/vf-cash-test', route =>
     route.fulfill({ status:200, contentType:'text/html; charset=utf-8', body:parentHtml }));
@@ -123,6 +124,11 @@ try {
   const cash = await popupPromise;
   cash.on('dialog', dialog => dialog.accept(dialog.type() === 'prompt' ? 'Feltryck' : undefined));
   await cash.getByText('Kassan är klar att användas.').waitFor();
+  await cash.evaluate(() => { window.showSaveFilePicker = undefined; });
+  await cash.getByRole('button', { name:'Min kassa' }).click();
+  assert.equal(await cash.getByRole('button', { name:'Starta och godkänn kassa' }).isDisabled(), true);
+  await cash.evaluate(() => { window.showSaveFilePicker = window.__filePicker; });
+  await cash.getByRole('button', { name:'Översikt' }).click();
   await cash.getByRole('button', { name:'Min kassa' }).click();
   await cash.getByRole('spinbutton', { name:'Växelkassa, totalsumma i kronor' }).fill('100');
   await cash.getByRole('combobox', { name:'Vara' }).fill('Testkaffe');

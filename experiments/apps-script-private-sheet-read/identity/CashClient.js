@@ -270,7 +270,8 @@
         state.draftProducts = state.draftProducts.filter(p => p.id !== item.id);
         render();
       })));
-    content.append(list, button('Starta och godkänn kassa', () => run(async () => {
+    const open = button('Starta och godkänn kassa', () => run(async () => {
+      if (!VFCashBackup.supported()) throw Error('Reservfil kräver Chrome på Android eller dator');
       if (!navigator.onLine) throw Error('Nätanslutning krävs för att öppna kassan');
       await database();
       const requestId = sessionStorage.getItem('vf26-pending-open') || crypto.randomUUID();
@@ -281,7 +282,11 @@
       sessionStorage.removeItem('vf26-pending-open');
       state.draftProducts = []; state.draftFloat = '0'; state.page = 'register';
       await refreshList(); notice('Kassan är öppen.'); render();
-    }), 'primary'));
+    }), 'primary');
+    open.disabled = !VFCashBackup.supported();
+    content.append(list, open);
+    if (open.disabled) content.append(node('p',
+      'Den här webbläsaren kan inte skapa en fristående reservfil. Öppna kassan i Chrome på Android eller dator.', 'muted'));
   }
   function drawRegister() {
     if (!state.cash) return drawSetup();
