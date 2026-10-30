@@ -3,8 +3,10 @@ var VFCashBackup = (() => {
   let handle = null;
   let cashId = null;
   let lastError = '';
-  const supported = () => typeof window.showSaveFilePicker === 'function';
-  const active = id => Boolean(handle && cashId === id && !lastError);
+  const native = () => typeof window.__TAURI__?.core?.invoke === 'function';
+  const supported = () => native() || typeof window.showSaveFilePicker === 'function';
+  const active = id => Boolean(cashId === id && !lastError && (native() || handle));
+  const ids = record => (record.queue || []).map(event => event.operationId);
 
   function readable(record) {
     const cash = record.cash;
@@ -54,16 +56,25 @@ var VFCashBackup = (() => {
     return lines.join('\n') + '\n';
   }
 
-  async function write(record) {
-    if (!handle || cashId !== record.id) throw Error('Välj reservfil för denna kassa');
+  async function write(record, confirmedIds = []) {
+    if (cashId !== record.id || (!native() && !handle)) {
+      throw Error('Reservfilen för denna kassa är inte aktiv');
+    }
     try {
-      const stream = await handle.createWritable();
-      try {
-        await stream.write(readable(record));
-        await stream.close();
-      } catch (error) {
-        await stream.abort().catch(() => {});
-        throw error;
+      if (native()) {
+        await window.__TAURI__.core.invoke('cash_backup_write', {
+          cashId:record.id, text:readable(record), pendingIds:ids(record),
+          confirmedIds
+        });
+      } else {
+        const stream = await handle.createWritable();
+        try {
+          await stream.write(readable(record));
+          await stream.close();
+        } catch (error) {
+          await stream.abort().catch(() => {});
+          throw error;
+        }
       }
       lastError = '';
     } catch (error) {
@@ -72,7 +83,23 @@ var VFCashBackup = (() => {
     }
   }
 
+  async function prepare(record) {
+    if (!native()) return;
+    try {
+      await window.__TAURI__.core.invoke('cash_backup_prepare', {
+        cashId:record.id, text:readable(record), pendingIds:ids(record)
+      });
+      cashId = record.id;
+      lastError = '';
+    } catch (error) {
+      cashId = null;
+      lastError = 'Reservfilen kunde inte kontrolleras';
+      throw Error(lastError + ': ' + (error.message || 'okänt fel'));
+    }
+  }
+
   async function choose(record) {
+    if (native()) return prepare(record);
     if (!supported()) throw Error('Den här webbläsaren kan inte skriva en fristående reservfil. Använd Chrome på Android eller dator.');
     const picked = await window.showSaveFilePicker({
       suggestedName: `VF26-reserv-${record.id}.txt`,
@@ -94,5 +121,5 @@ var VFCashBackup = (() => {
     await write(record);
   }
 
-  return { supported, active, choose, write, error: () => lastError };
+  return { supported, active, prepare, choose, write, error: () => lastError };
 })();

@@ -131,7 +131,7 @@
   async function appendEvent(event) {
     if (!state.cash || !state.record) throw Error('Ingen öppen kassa');
     if (state.storageFailed) throw Error('Lokal lagring misslyckades. Avbryt försäljningen och använd reservfilen för avstämning.');
-    if (!VFCashBackup.active(state.cash.id)) throw Error('Välj en fungerande reservfil innan fler händelser registreras');
+    if (!VFCashBackup.active(state.cash.id)) throw Error('Reservfilen är inte tillgänglig. Inga fler händelser kan registreras.');
     const enriched = { ...event, operationId: crypto.randomUUID(),
       at: new Date().toISOString() };
     if (enriched.kind === 'close') enriched.expectedEventCount = state.cash.events.length;
@@ -188,7 +188,7 @@
     if (syncing || !navigator.onLine || !state.record) return;
     if (state.record.queue.length && !VFCashBackup.active(state.record.id)) {
       render();
-      notice('Välj reservfilen för kassan innan väntande händelser synkas.', true);
+      notice('Reservfilen måste kontrolleras innan väntande händelser synkas.', true);
       return;
     }
     cancelRetry();
@@ -202,8 +202,10 @@
         const rest = state.record.queue.slice(1);
         const remaining = { ...state.record, cash: rest.length ? state.cash : result.cash,
           queue: rest };
+        // Google har bekräftat händelsen. Skriv reservfilen först; om skrivning
+        // eller databasen misslyckas kan samma ID skickas om utan nytt köp.
+        await VFCashBackup.write(remaining, [event.operationId]);
         await remember(remaining);
-        if (VFCashBackup.active(remaining.id)) await VFCashBackup.write(remaining);
       }
       await refreshList();
       await confirmRecovery();
@@ -278,7 +280,7 @@
       })));
     if (state.draftProducts.length) content.append(node('h3', 'Varor i den nya kassan'));
     const open = button('Starta och godkänn kassa', () => run(async () => {
-      if (!VFCashBackup.supported()) throw Error('Reservfil kräver Chrome på Android eller dator');
+      if (!VFCashBackup.supported()) throw Error('Denna miljö kan inte skriva kassans reservfil');
       if (!navigator.onLine) throw Error('Nätanslutning krävs för att öppna kassan');
       await database();
       const products = [...state.draftProducts];
@@ -293,6 +295,7 @@
       const result = await request('cash_open', { requestId, deviceId: deviceId(),
         openingFloatCents: amount(opening.input.value), products });
       await remember({ id: result.cash.id, cash: result.cash, queue: [] });
+      await VFCashBackup.prepare(state.record);
       sessionStorage.removeItem('vf26-pending-open');
       state.draftProducts = []; state.draftFloat = '0'; state.page = 'register';
       await refreshList(); notice('Kassan är öppen.'); render();
@@ -310,9 +313,14 @@
     else if (!VFCashBackup.active(cash.id)) {
       const backup = panel(node('strong', 'Reservfil för kassan'),
         node('p', VFCashBackup.supported()
-          ? 'Välj en fil på denna enhet. Den uppdateras före varje köp och rensas när Google har bekräftat händelserna.'
-          : 'Denna webbläsare kan inte skriva en separat reservfil. Använd Chrome på Android eller dator.'));
-      if (VFCashBackup.supported()) backup.append(button('Välj reservfil', () => run(async () => {
+          ? 'Reservfilen måste vara tillgänglig innan köp kan registreras.'
+          : 'Denna miljö kan inte skriva en separat reservfil.'));
+      if (window.__TAURI__?.core?.invoke) backup.append(button('Kontrollera reservfil igen', () => run(async () => {
+        await VFCashBackup.prepare(state.record);
+        render(); notice('Reservfilen är tillgänglig.');
+        if (state.record.queue.length) await sync();
+      })));
+      else if (VFCashBackup.supported()) backup.append(button('Välj reservfil', () => run(async () => {
         await VFCashBackup.choose(state.record);
         render(); notice('Reservfilen är aktiv.');
         if (state.record.queue.length) await sync();
@@ -628,6 +636,8 @@
         state.pendingSwish = current.pendingSwish || null;
         if (state.pendingSwish) state.basket = Object.fromEntries(
           state.pendingSwish.lines.map(item => [item.productId, item.quantity]));
+        try { await VFCashBackup.prepare(current); }
+        catch (error) { notice(error.message, true); }
       }
       const remote = state.cash && state.cashes.find(item => item.id === state.cash.id);
       if (remote && !state.record.queue.length && remote.status !== state.cash.status) {
@@ -641,10 +651,14 @@
         if (owned) {
           const result = await request('cash_get', { cashId:owned.id });
           await remember({ id:owned.id, cash:result.cash, queue:[] });
+          try { await VFCashBackup.prepare(state.record); }
+          catch (error) { notice(error.message, true); }
         }
       }
       render();
-      if (needsRetry()) {
+      if (state.cash && !VFCashBackup.active(state.cash.id)) {
+        notice(VFCashBackup.error() || 'Reservfilen måste vara tillgänglig innan försäljningen kan fortsätta.', true);
+      } else if (needsRetry()) {
         if (navigator.onLine) await sync();
         else notice('Händelserna är sparade på enheten och väntar på synk.');
       } else notice('Kassan är klar att användas.');

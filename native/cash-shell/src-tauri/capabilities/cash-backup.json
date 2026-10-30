@@ -1,0 +1,7 @@
+{
+  "identifier": "cash-backup",
+  "description": "Endast appens lokalt paketerade sida får skriva kassans reservlogg via två avgränsade kommandon.",
+  "windows": ["main"],
+  "local": true,
+  "permissions": ["allow-cash-backup-prepare", "allow-cash-backup-write"]
+}
